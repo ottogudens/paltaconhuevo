@@ -1,5 +1,6 @@
 #!/bin/bash
 echo "Running migrations..."
+python manage.py makemigrations users products orders finance marketing recipes loyalty
 python manage.py migrate
 
 echo "Creating superuser and sample data..."

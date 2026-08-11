@@ -13,15 +13,18 @@ from loyalty.models import LoyaltyAccount
 User = get_user_model()
 
 # Crear superuser admin
-if not User.objects.filter(username='admin').exists():
-    admin = User.objects.create_superuser(
-        username='admin',
-        email='admin@paltaconhuevo.cl',
-        password='admin123',
-        first_name='Admin',
-        role='admin'
-    )
-    print("✅ Admin user created: admin / admin123")
+try:
+    if not User.objects.filter(username='admin').exists():
+        admin = User.objects.create_superuser(
+            username='admin',
+            email='admin@paltaconhuevo.cl',
+            password='admin123',
+            first_name='Admin',
+            role='admin'
+        )
+        print("✅ Admin user created: admin / admin123")
+except Exception as e:
+    print(f"Skipping init_db script: {e}")
 
 # Crear usuario vendedor de ejemplo
 if not User.objects.filter(username='vendedor').exists():
