@@ -8,7 +8,14 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
+
+# ALLOWED_HOSTS: include Railway domains and custom domain
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+if '*' not in ALLOWED_HOSTS:
+    # Always include Railway domains
+    for extra in ['paltaconhuevo-production.up.railway.app', 'paltaconhuevo.railway.internal', 'localhost', '127.0.0.1']:
+        if extra not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(extra)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -38,6 +45,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -73,11 +81,15 @@ USE_I18N = True
 USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 AUTH_USER_MODEL = 'users.User'
 SITE_ID = 1
+
+# Railway reverse proxy sends X-Forwarded-Proto
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework.authentication.TokenAuthentication'],
@@ -88,6 +100,7 @@ REST_FRAMEWORK = {
 
 APPEND_SLASH = False
 
+# CORS - allow all origins in production for now
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
@@ -127,3 +140,37 @@ SENDGRID_FROM_EMAIL = os.getenv('SENDGRID_FROM_EMAIL', 'noreply@paltaconhuevo.cl
 WHATSAPP_SERVICE_URL = os.getenv('WHATSAPP_SERVICE_URL', 'http://localhost:3001')
 WHATSAPP_SERVICE_TOKEN = os.getenv('WHATSAPP_SERVICE_TOKEN', '')
 POINTS_PER_THOUSAND = int(os.getenv('POINTS_PER_THOUSAND', '10'))
+
+# Logging - make errors visible in Railway logs
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
