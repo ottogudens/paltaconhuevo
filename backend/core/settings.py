@@ -18,6 +18,7 @@ if '*' not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(extra)
 
 INSTALLED_APPS = [
+    'users',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -28,7 +29,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'corsheaders',
-    'users',
     'allauth',
     'allauth.account',
     'allauth.socialaccount',
