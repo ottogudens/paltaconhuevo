@@ -1,0 +1,9 @@
+from django.urls import path
+from . import views
+
+urlpatterns = [
+    path('', views.TransactionListCreateView.as_view()),
+    path('<int:pk>/', views.TransactionDetailView.as_view()),
+    path('summary/', views.FinanceSummaryView.as_view()),
+    path('export/', views.ExportTransactionsView.as_view()),
+]
