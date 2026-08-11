@@ -2,6 +2,7 @@ require('dotenv').config();
 const { default: makeWASocket, DisconnectReason, useMultiFileAuthState } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 const express = require('express');
+const cors = require('cors');
 const axios = require('axios');
 const Anthropic = require('@anthropic-ai/sdk');
 const qrcode = require('qrcode-terminal');
@@ -9,6 +10,7 @@ const pino = require('pino');
 
 const logger = pino({ level: 'silent' });
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -18,6 +20,8 @@ const API_TOKEN = process.env.DJANGO_API_TOKEN;
 // Memoria de sesiones por usuario
 const sessions = new Map();
 let waSocket = null;
+let currentQR = null;
+let isConnected = false;
 
 // API helper
 const api = {
@@ -278,7 +282,18 @@ app.post('/send', (req, res) => {
   res.json({ sent: true });
 });
 
-app.get('/health', (req, res) => res.json({ status: 'ok', connected: !!waSocket }));
+app.get('/health', (req, res) => res.json({ status: 'ok', connected: isConnected }));
+app.get('/api/wa/status', (req, res) => res.json({ connected: isConnected, has_qr: !!currentQR }));
+app.get('/api/wa/qr', (req, res) => res.json({ qr: currentQR }));
+app.post('/api/wa/logout', async (req, res) => {
+  if (waSocket) {
+    await waSocket.logout();
+    isConnected = false;
+    currentQR = null;
+    startWhatsApp(); // Restart connection loop
+  }
+  res.json({ success: true });
+});
 
 // Iniciar Baileys
 async function startWhatsApp() {
@@ -292,12 +307,24 @@ async function startWhatsApp() {
     if (qr) {
       console.log('\n📱 Escanea este QR con WhatsApp:');
       qrcode.generate(qr, { small: true });
+      currentQR = qr;
+      isConnected = false;
     }
     if (connection === 'close') {
+      isConnected = false;
       const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      if (shouldReconnect) setTimeout(startWhatsApp, 5000);
+      if (shouldReconnect) {
+        setTimeout(startWhatsApp, 5000);
+      } else {
+        console.log('Cierre de sesión manual. Borrando auth_info...');
+        currentQR = null;
+      }
     }
-    if (connection === 'open') console.log('✅ WhatsApp conectado');
+    if (connection === 'open') {
+      console.log('✅ WhatsApp conectado');
+      isConnected = true;
+      currentQR = null;
+    }
   });
 
   sock.ev.on('messages.upsert', async ({ messages }) => {

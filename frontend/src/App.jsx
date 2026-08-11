@@ -13,6 +13,7 @@ import ShopPage from './pages/ShopPage'
 import MyOrdersPage from './pages/MyOrdersPage'
 import NotFoundPage from './pages/NotFoundPage'
 import FinancePage from './pages/admin/FinancePage'
+import WhatsAppPage from './pages/admin/WhatsAppPage'
 
 function ProtectedRoute({ children, requiredRole = null }) {
   const { user } = useAuthStore()
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><OrdersPage /></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute requiredRole="admin"><ProductsPage /></ProtectedRoute>} />
         <Route path="/finance" element={<ProtectedRoute requiredRole="admin"><FinancePage /></ProtectedRoute>} />
+        <Route path="/whatsapp" element={<ProtectedRoute requiredRole="admin"><WhatsAppPage /></ProtectedRoute>} />
 
         {/* Client Routes */}
         <Route path="/shop" element={<ProtectedRoute><ShopPage /></ProtectedRoute>} />

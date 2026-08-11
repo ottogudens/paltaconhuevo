@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import {
   LayoutDashboard, Users, ShoppingCart, Package, DollarSign,
-  LogOut, Menu, X, ChevronDown, Store, ClipboardList, TrendingUp
+  LogOut, Menu, X, ChevronDown, Store, ClipboardList, TrendingUp, MessageSquare
 } from 'lucide-react'
 
 const adminLinks = [
@@ -12,6 +12,7 @@ const adminLinks = [
   { to: '/customers', label: 'Clientes', icon: Users },
   { to: '/products', label: 'Productos', icon: Package },
   { to: '/finance', label: 'Finanzas', icon: DollarSign },
+  { to: '/whatsapp', label: 'WhatsApp Bot', icon: MessageSquare },
 ]
 
 const clientLinks = [
