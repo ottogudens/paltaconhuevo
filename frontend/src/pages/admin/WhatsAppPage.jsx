@@ -4,7 +4,7 @@ import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2 } from 'luci
 import { QRCodeSVG } from 'qrcode.react'
 
 // El frontend se conectará al agente de whatsapp (asumiendo que corre localmente en el puerto 3001, o usa variable de entorno)
-const WA_API_URL = import.meta.env.VITE_WA_API_URL || 'http://localhost:3001/api/wa'
+const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agente-production-a1fc.up.railway.app/api/wa')
 
 export default function WhatsAppPage() {
   const [status, setStatus] = useState({ connected: false, has_qr: false })
