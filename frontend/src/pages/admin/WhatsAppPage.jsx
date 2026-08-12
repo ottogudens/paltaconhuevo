@@ -471,7 +471,6 @@ export default function WhatsAppPage() {
                   />
                 </div>
               </div>
-              </div>
 
               <div className="flex justify-end pt-3">
                 <button
