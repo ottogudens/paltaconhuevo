@@ -102,41 +102,67 @@ async function generatePaymentLink(orderId) {
   return res.data.link;
 }
 
+// Obtener configuración dinámica del agente desde Django
+async function getAgentConfig() {
+  try {
+    const res = await api.get('/marketing/agent-config/');
+    return res.data;
+  } catch (e) {
+    return {
+      name: 'Paltín',
+      system_prompt: 'Eres el asistente virtual de "Palta con Huevo" 🥑, un negocio chileno de venta de paltas y huevos.',
+      additional_info: '',
+      human_notification_phone: ''
+    };
+  }
+}
+
+// Notificar a un humano por WhatsApp si hay un mensaje derivado
+async function notifyHumanOperator(customerPhone, customerName) {
+  try {
+    const config = await getAgentConfig();
+    const targetPhone = config.human_notification_phone;
+    if (targetPhone) {
+      const msg = `🚨 *¡ATENCIÓN OPERADOR!* 🚨\nEl cliente *${customerName || 'Cliente'}* (${customerPhone}) ha sido derivado a un operador humano y requiere asistencia.\n\nPor favor ingresa al panel de control en la sección "WhatsApp Bot" para responder el chat.`;
+      await sendMessage(targetPhone, msg);
+    }
+  } catch (e) {
+    console.error('Error enviando notificación a humano:', e.message);
+  }
+}
+
 // IA conversacional principal
-async function processWithAI(session, userMessage) {
-  const products = await getProducts();
-  const productList = products.map(p => `- ${p.name} (${p.product_type}): $${p.sale_price} por ${p.unit}`).join('\n');
+async function processWithAI(session, userMessage, customerPhone) {
+  const [products, config] = await Promise.all([
+    getProducts(),
+    getAgentConfig()
+  ]);
+
+  const productList = products.map(p => `- ${p.name} (${p.product_type}): Precio venta $${p.sale_price} por ${p.unit} (Stock: ${p.stock})`).join('\n');
   const cartSummary = session.cart.length > 0
     ? session.cart.map(i => `${i.quantity}x ${i.product.name} = $${i.quantity * i.product.sale_price}`).join(', ')
     : 'vacío';
 
-  const systemPrompt = `Eres el asistente virtual de "Palta con Huevo" 🥑, un negocio chileno de venta de paltas y huevos.
-Tu nombre es Paltín. Hablas en español chileno, eres amable, cercano y usas emojis con moderación.
+  const basePrompt = config.system_prompt || 'Eres el asistente virtual de "Palta con Huevo" 🥑.';
+  const extraInfo = config.additional_info ? `\nINFORMACIÓN ADICIONAL DEL NEGOCIO:\n${config.additional_info}` : '';
 
-PRODUCTOS DISPONIBLES:
+  const systemPrompt = `${basePrompt}
+${extraInfo}
+
+PRODUCTOS REGISTRADOS EN EL SISTEMA:
 ${productList}
 
 CARRITO ACTUAL: ${cartSummary}
-CLIENTE: ${session.userData?.first_name || 'Cliente'}
+CLIENTE: ${session.userData?.first_name || 'Cliente'} (${customerPhone})
 
-CAPACIDADES:
-- Tomar pedidos de paltas y huevos
-- Consultar stock y precios
-- Gestionar el carrito de compras
-- Coordinar despacho a domicilio o retiro en local
-- Informar sobre puntos de fidelidad
-- Compartir ofertas vigentes
-- Dar recetas con paltas y huevos
-- Procesar pagos via MercadoPago
-
-INSTRUCCIONES:
-- Cuando el cliente quiera CONFIRMAR el pedido, responde con [CONFIRMAR_PEDIDO]
-- Cuando quiera PAGAR, responde con [GENERAR_PAGO]
-- Cuando pida DESPACHO a domicilio, responde con [PEDIR_DIRECCION]
-- Cuando dé una dirección, responde con [DIRECCION:dirección|comuna|referencia]
-- Para ver sus PUNTOS, responde con [VER_PUNTOS]
-- Para ver RECETAS, responde con [VER_RECETAS]
-- Sé conciso, máximo 3-4 líneas por respuesta`;
+INSTRUCCIONES Y REGLAS DE RESPUESTA:
+- Utiliza la información de productos y precios registrados arriba.
+- Si el cliente solicita hablar con una persona real, un humano, un ejecutivo o soporte técnico, o si no entiendes su consulta técnica, responde incluyendo el comando [DERIVAR_HUMANO].
+- Cuando el cliente quiera CONFIRMAR el pedido, responde incluyendo [CONFIRMAR_PEDIDO].
+- Cuando quiera PAGAR, responde incluyendo [GENERAR_PAGO].
+- Cuando pida DESPACHO a domicilio, responde incluyendo [PEDIR_DIRECCION].
+- Para ver sus PUNTOS, responde incluyendo [VER_PUNTOS].
+- Sé conciso, amable y profesional (máximo 3-4 líneas por respuesta).`;
 
   session.history.push({ role: 'user', content: userMessage });
   if (session.history.length > 20) session.history = session.history.slice(-20);
@@ -153,22 +179,19 @@ INSTRUCCIONES:
   return response;
 }
 
-// Agregar al carrito desde el mensaje de IA
-function parseCartAction(message, products) {
-  // Simple parser: busca patrones como "2x Palta Hass"
-  const matches = message.matchAll(/(\d+)\s*x\s*([^,\n]+)/gi);
-  for (const match of matches) {
-    const qty = parseInt(match[1]);
-    const name = match[2].trim().toLowerCase();
-    const product = products.find(p => p.name.toLowerCase().includes(name));
-    if (product) return { product, quantity: qty };
-  }
-  return null;
-}
-
 // Handler principal de mensajes
 async function handleMessage(phone, message) {
   const session = getSession(phone);
+
+  // Registrar timestamp del último mensaje
+  session.lastMessageAt = new Date().toISOString();
+  if (!session.messages) session.messages = [];
+  session.messages.push({ sender: 'customer', text: message, timestamp: session.lastMessageAt });
+
+  // Si el chat está en modo humano (atendido por operador manual)
+  if (session.isHumanMode) {
+    return null; // La IA no interviene
+  }
 
   try {
     // Verificar si usuario está registrado
@@ -181,63 +204,86 @@ async function handleMessage(phone, message) {
         // Nuevo usuario
         if (!session.awaitingName) {
           session.awaitingName = true;
-          return `¡Hola! 👋 Bienvenid@ a *Palta con Huevo* 🥑🥚\nSoy Paltín, tu asistente virtual.\n\n¿Cuál es tu nombre para registrarte?`;
+          const welcome = `¡Hola! 👋 Bienvenid@ a *Palta con Huevo* 🥑🥚\nSoy Paltín, tu asistente virtual.\n\n¿Cuál es tu nombre para registrarte?`;
+          session.messages.push({ sender: 'bot', text: welcome, timestamp: new Date().toISOString() });
+          return welcome;
         } else {
           const auth = await registerUser(phone, message);
           if (auth) {
             session.userToken = auth.token;
             session.userData = auth.user;
             session.awaitingName = false;
-            return `¡Listo ${auth.user.first_name}! ✅ Te registré con éxito.\n\n${getMenu()}`;
+            const regSuccess = `¡Listo ${auth.user.first_name}! ✅ Te registré con éxito.\n\n${getMenu()}`;
+            session.messages.push({ sender: 'bot', text: regSuccess, timestamp: new Date().toISOString() });
+            return regSuccess;
           }
           return '❌ Hubo un problema al registrarte. Intenta de nuevo.';
         }
       }
     }
 
-    // Comandos rápidos
+    // Solicitud explícita de derivación humana por palabras clave
     const lower = message.toLowerCase().trim();
+    if (['humano', 'operador', 'persona', 'agente real', 'atencion humana', 'soporte'].includes(lower)) {
+      session.isHumanMode = true;
+      session.pendingHuman = true;
+      notifyHumanOperator(phone, session.userData?.first_name);
+      const transferMsg = '👨‍💼 Te transfiero de inmediato con un operador humano. Un momento por favor, te responderemos pronto.';
+      session.messages.push({ sender: 'bot', text: transferMsg, timestamp: new Date().toISOString() });
+      return transferMsg;
+    }
+
+    // Comandos rápidos
     if (['hola','inicio','menu','menú','0'].includes(lower)) {
-      return getMenu();
+      const menuText = getMenu();
+      session.messages.push({ sender: 'bot', text: menuText, timestamp: new Date().toISOString() });
+      return menuText;
     }
     if (lower === 'mis puntos' || lower === 'puntos') {
       const loyalty = await getUserPoints(session.userToken);
-      return `⭐ Tus puntos: *${loyalty.points} pts* (Nivel ${loyalty.level})\n💰 Total compras: $${loyalty.total_purchases}`;
+      const pointsText = `⭐ Tus puntos: *${loyalty.points} pts* (Nivel ${loyalty.level})\n💰 Total compras: $${loyalty.total_purchases}`;
+      session.messages.push({ sender: 'bot', text: pointsText, timestamp: new Date().toISOString() });
+      return pointsText;
     }
 
     // Procesar con IA
-    const aiResponse = await processWithAI(session, message);
+    const aiResponse = await processWithAI(session, message, phone);
+
+    // Si la IA decide derivar a humano
+    if (aiResponse.includes('[DERIVAR_HUMANO]')) {
+      session.isHumanMode = true;
+      session.pendingHuman = true;
+      notifyHumanOperator(phone, session.userData?.first_name);
+      const cleanResp = aiResponse.replace('[DERIVAR_HUMANO]','').trim() || '👨‍💼 Te estoy derivando con un representante humano para ayudarte mejor. En breve se comunicarán contigo.';
+      session.messages.push({ sender: 'bot', text: cleanResp, timestamp: new Date().toISOString() });
+      return cleanResp;
+    }
 
     // Procesar comandos especiales
+    let botReply = '';
     if (aiResponse.includes('[CONFIRMAR_PEDIDO]')) {
-      if (session.cart.length === 0) return '🛒 Tu carrito está vacío. ¿Qué deseas pedir?';
-      const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
-      const cartText = session.cart.map(i => `${i.quantity}x ${i.product.name} = $${i.quantity * i.product.sale_price}`).join('\n');
-      session.step = 'confirming';
-      return `📋 *Tu pedido:*\n${cartText}\n\n💵 Total: *$${total}*\n\n¿Cómo lo recibes?\n1️⃣ Despacho a domicilio\n2️⃣ Retiro en local`;
-    }
-
-    if (aiResponse.includes('[PEDIR_DIRECCION]') || session.step === 'confirming' && message === '1') {
+      if (session.cart.length === 0) botReply = '🛒 Tu carrito está vacío. ¿Qué deseas pedir?';
+      else {
+        const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
+        const cartText = session.cart.map(i => `${i.quantity}x ${i.product.name} = $${i.quantity * i.product.sale_price}`).join('\n');
+        session.step = 'confirming';
+        botReply = `📋 *Tu pedido:*\n${cartText}\n\n💵 Total: *$${total}*\n\n¿Cómo lo recibes?\n1️⃣ Despacho a domicilio\n2️⃣ Retiro en local`;
+      }
+    } else if (aiResponse.includes('[PEDIR_DIRECCION]') || (session.step === 'confirming' && message === '1')) {
       session.step = 'awaiting_address';
-      return '🏠 Por favor indícame tu dirección de entrega (calle y número, comuna):';
-    }
-
-    if (session.step === 'confirming' && message === '2') {
+      botReply = '🏠 Por favor indícame tu dirección de entrega (calle y número, comuna):';
+    } else if (session.step === 'confirming' && message === '2') {
       session.step = 'awaiting_payment';
       session.deliveryType = 'retiro';
       const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
-      return `✅ Retiro en local confirmado.\n\n💳 Total a pagar: *$${total}*\n\n¿Cómo quieres pagar?\n1️⃣ MercadoPago (link de pago)\n2️⃣ Efectivo al retirar\n3️⃣ Transferencia`;
-    }
-
-    if (aiResponse.includes('[GENERAR_PAGO]') || (session.step === 'awaiting_payment' && message === '1')) {
+      botReply = `✅ Retiro en local confirmado.\n\n💳 Total a pagar: *$${total}*\n\n¿Cómo quieres pagar?\n1️⃣ MercadoPago (link de pago)\n2️⃣ Efectivo al retirar\n3️⃣ Transferencia`;
+    } else if (aiResponse.includes('[GENERAR_PAGO]') || (session.step === 'awaiting_payment' && message === '1')) {
       const order = await createOrder(session, session.deliveryType || 'retiro', session.deliveryAddress, session.deliveryCommune, session.deliveryReference);
       const link = await generatePaymentLink(order.id);
       session.cart = [];
       session.step = 'menu';
-      return `🎉 ¡Pedido #${order.id} creado!\n\n💳 Paga aquí:\n${link}\n\n⭐ Ganaste *${order.points_earned} puntos* con esta compra.`;
-    }
-
-    if (session.step === 'awaiting_address') {
+      botReply = `🎉 ¡Pedido #${order.id} creado!\n\n💳 Paga aquí:\n${link}\n\n⭐ Ganaste *${order.points_earned} puntos* con esta compra.`;
+    } else if (session.step === 'awaiting_address') {
       const parts = message.split(',');
       session.deliveryAddress = parts[0]?.trim() || message;
       session.deliveryCommune = parts[1]?.trim() || '';
@@ -245,23 +291,27 @@ async function handleMessage(phone, message) {
       session.deliveryType = 'despacho';
       session.step = 'awaiting_payment';
       const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
-      return `📍 Dirección registrada: *${session.deliveryAddress}*\n\n💳 Total: *$${total}* + costo de despacho\n\n¿Cómo quieres pagar?\n1️⃣ MercadoPago (link de pago)\n2️⃣ Efectivo al entregar\n3️⃣ Transferencia`;
-    }
-
-    // Agregar productos al carrito si la IA los menciona
-    const products = await getProducts();
-    for (const product of products) {
-      const regex = new RegExp(`(\\d+)\\s*(${product.name}|${product.product_type})`, 'i');
-      const match = message.match(regex);
-      if (match) {
-        const qty = parseInt(match[1]);
-        const existing = session.cart.find(i => i.product.id === product.id);
-        if (existing) existing.quantity += qty;
-        else session.cart.push({ product, quantity: qty });
+      botReply = `📍 Dirección registrada: *${session.deliveryAddress}*\n\n💳 Total: *$${total}* + costo de despacho\n\n¿Cómo quieres pagar?\n1️⃣ MercadoPago (link de pago)\n2️⃣ Efectivo al entregar\n3️⃣ Transferencia`;
+    } else {
+      // Agregar productos al carrito si la IA los menciona
+      const products = await getProducts();
+      for (const product of products) {
+        const regex = new RegExp(`(\\d+)\\s*(${product.name}|${product.product_type})`, 'i');
+        const match = message.match(regex);
+        if (match) {
+          const qty = parseInt(match[1]);
+          const existing = session.cart.find(i => i.product.id === product.id);
+          if (existing) existing.quantity += qty;
+          else session.cart.push({ product, quantity: qty });
+        }
       }
+      botReply = aiResponse.replace('[CONFIRMAR_PEDIDO]','').replace('[GENERAR_PAGO]','').replace('[PEDIR_DIRECCION]','').replace(/\[DIRECCION:[^\]]+\]/g,'').replace('[VER_PUNTOS]','').replace('[VER_RECETAS]','').trim();
     }
 
-    return aiResponse.replace('[CONFIRMAR_PEDIDO]','').replace('[GENERAR_PAGO]','').replace('[PEDIR_DIRECCION]','').replace(/\[DIRECCION:[^\]]+\]/g,'').replace('[VER_PUNTOS]','').replace('[VER_RECETAS]','').trim();
+    if (botReply) {
+      session.messages.push({ sender: 'bot', text: botReply, timestamp: new Date().toISOString() });
+    }
+    return botReply;
 
   } catch (error) {
     console.error('Error:', error.message);
@@ -270,10 +320,63 @@ async function handleMessage(phone, message) {
 }
 
 function getMenu() {
-  return `🥑🥚 *Palta con Huevo*\n\n¡Hola! Soy Paltín, tu asistente. ¿En qué te ayudo?\n\n📦 Para pedir, dime qué quieres (ej: "quiero 2 paltas y una docena de huevos")\n⭐ "mis puntos" - Ver tus puntos\n🍳 "recetas" - Ideas de cocina\n🎁 "ofertas" - Ver ofertas del día\n\n¡Escríbeme lo que necesitas!`;
+  return `🥑🥚 *Palta con Huevo*\n\n¡Hola! Soy Paltín, tu asistente. ¿En qué te ayudo?\n\n📦 Para pedir, dime qué quieres (ej: "quiero 2 paltas y una docena de huevos")\n⭐ "mis puntos" - Ver tus puntos\n🍳 "recetas" - Ideas de cocina\n🎁 "ofertas" - Ver ofertas del día\n👨‍💼 "humano" - Hablar con un ejecutivo\n\n¡Escríbeme lo que necesitas!`;
 }
 
-// Express server para recibir mensajes del backend
+// Endpoints API para administración de WhatsApp
+app.get('/api/wa/chats', (req, res) => {
+  const chatList = [];
+  for (const [phone, session] of sessions.entries()) {
+    chatList.push({
+      phone,
+      name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : phone,
+      isHumanMode: !!session.isHumanMode,
+      pendingHuman: !!session.pendingHuman,
+      lastMessageAt: session.lastMessageAt || new Date().toISOString(),
+      messagesCount: session.messages ? session.messages.length : 0,
+    });
+  }
+  chatList.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+  res.json(chatList);
+});
+
+app.get('/api/wa/chats/:phone/messages', (req, res) => {
+  const { phone } = req.params;
+  const session = getSession(phone);
+  res.json({
+    phone,
+    name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : phone,
+    isHumanMode: !!session.isHumanMode,
+    pendingHuman: !!session.pendingHuman,
+    messages: session.messages || []
+  });
+});
+
+app.post('/api/wa/chats/:phone/reply', async (req, res) => {
+  const { phone } = req.params;
+  const { message } = req.body;
+  if (!message) return res.status(400).json({ error: 'Mensaje requerido' });
+
+  const session = getSession(phone);
+  session.isHumanMode = true;
+  session.pendingHuman = false;
+  session.lastMessageAt = new Date().toISOString();
+  if (!session.messages) session.messages = [];
+  session.messages.push({ sender: 'operator', text: message, timestamp: session.lastMessageAt });
+
+  await sendMessage(phone, message);
+  res.json({ success: true });
+});
+
+app.post('/api/wa/chats/:phone/toggle-human', (req, res) => {
+  const { phone } = req.params;
+  const { isHumanMode } = req.body;
+  const session = getSession(phone);
+  session.isHumanMode = !!isHumanMode;
+  if (!isHumanMode) session.pendingHuman = false;
+  res.json({ phone, isHumanMode: session.isHumanMode });
+});
+
 app.post('/send', (req, res) => {
   const { to, message } = req.body;
   const token = req.headers.authorization?.replace('Bearer ', '');

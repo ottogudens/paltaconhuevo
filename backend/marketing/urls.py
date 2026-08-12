@@ -12,4 +12,5 @@ urlpatterns = [
     path('contests/<int:pk>/', views.ContestDetailView.as_view()),
     path('contests/<int:pk>/draw/', views.DrawContestView.as_view()),
     path('ai-analysis/', views.AiAnalysisView.as_view()),
+    path('agent-config/', views.AgentConfigView.as_view()),
 ]

@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.conf import settings
 import anthropic, requests, random, datetime
-from .models import Campaign, Contest, Offer
-from .serializers import CampaignSerializer, ContestSerializer, OfferSerializer
+from .models import Campaign, Contest, Offer, AgentConfig
+from .serializers import CampaignSerializer, ContestSerializer, OfferSerializer, AgentConfigSerializer
 from users.models import User
 from loyalty.models import LoyaltyAccount, ContestParticipant
 
@@ -102,3 +102,20 @@ Contexto adicional: {request.data.get('context', '')}.
 Proporciona análisis concreto y recomendaciones accionables en español chileno. Sé breve y específico."""
         msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=800, messages=[{"role":"user","content":prompt}])
         return Response({'analysis': msg.content[0].text})
+
+class AgentConfigView(APIView):
+    def get(self, request):
+        config, _ = AgentConfig.objects.get_or_create(id=1, defaults={
+            'name': 'Paltín',
+            'system_prompt': 'Eres el asistente virtual de "Palta con Huevo" 🥑, un negocio chileno de venta de paltas y huevos. Tu nombre es Paltín. Hablas en español chileno, eres amable, cercano y usas emojis con moderación.',
+            'additional_info': 'Entregas de Lunes a Sábado. Retiro gratis en tienda.',
+            'human_notification_phone': ''
+        })
+        return Response(AgentConfigSerializer(config).data)
+
+    def post(self, request):
+        config, _ = AgentConfig.objects.get_or_create(id=1)
+        serializer = AgentConfigSerializer(config, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

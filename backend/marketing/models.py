@@ -54,3 +54,13 @@ class Offer(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.discount_percentage}% off)"
+
+class AgentConfig(models.Model):
+    name = models.CharField(max_length=100, default='Paltín')
+    system_prompt = models.TextField(blank=True)
+    additional_info = models.TextField(blank=True)
+    human_notification_phone = models.CharField(max_length=30, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Configuración Agente IA ({self.name})"
