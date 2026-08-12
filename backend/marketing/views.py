@@ -143,6 +143,11 @@ class AgentConfigView(APIView):
             'additional_info': 'Horarios de atención: Lunes a Sábado de 09:00 a 19:00 hrs. Entregas a domicilio y retiro gratuito en local.',
             'human_notification_phone': ''
         })
+
+        if not config.system_prompt:
+            config.system_prompt = default_prompt
+            config.save()
+
         return Response(AgentConfigSerializer(config).data)
 
     def post(self, request):
