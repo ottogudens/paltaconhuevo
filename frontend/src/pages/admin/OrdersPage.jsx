@@ -150,12 +150,272 @@ function OrderDetail({ order, onClose, onUpdate }) {
   )
 }
 
+function CreateOrderModal({ onClose, onSave }) {
+  const [customers, setCustomers] = useState([])
+  const [products, setProducts] = useState([])
+  const [isNewCustomer, setIsNewCustomer] = useState(false)
+  const [customerId, setCustomerId] = useState('')
+  const [newCustomer, setNewCustomer] = useState({ first_name: '', last_name: '', phone: '', address: '', commune: '', email: '' })
+  
+  const [deliveryType, setDeliveryType] = useState('retiro')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryCommune, setDeliveryCommune] = useState('')
+  const [deliveryCost, setDeliveryCost] = useState(0)
+  
+  const [paymentMethod, setPaymentMethod] = useState('efectivo')
+  const [paymentCondition, setPaymentCondition] = useState('inmediato')
+  const [notes, setNotes] = useState('')
+
+  const [orderItems, setOrderItems] = useState([])
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [cRes, pRes] = await Promise.all([
+          api.get('/auth/customers/'),
+          api.get('/products/')
+        ])
+        setCustomers(cRes.data.results || cRes.data || [])
+        setProducts(pRes.data.results || pRes.data || [])
+      } catch (e) { console.error(e) }
+    }
+    loadData()
+  }, [])
+
+  const handleAddItem = (productId) => {
+    if (!productId) return
+    const prod = products.find(p => p.id === parseInt(productId))
+    if (!prod) return
+    if (orderItems.some(i => i.product_id === prod.id)) return
+    setOrderItems([...orderItems, { product_id: prod.id, name: prod.name, unit: prod.unit, unit_price: prod.sale_price, quantity: 1 }])
+  }
+
+  const handleUpdateItem = (index, field, value) => {
+    const copy = [...orderItems]
+    copy[index][field] = value
+    setOrderItems(copy)
+  }
+
+  const handleRemoveItem = (index) => {
+    setOrderItems(orderItems.filter((_, i) => i !== index))
+  }
+
+  const subtotal = orderItems.reduce((sum, item) => sum + (parseFloat(item.unit_price || 0) * parseFloat(item.quantity || 0)), 0)
+  const total = subtotal + (deliveryType === 'despacho' ? parseFloat(deliveryCost || 0) : 0)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (orderItems.length === 0) {
+      alert('Debe agregar al menos un producto al pedido')
+      return
+    }
+
+    setSaving(true)
+    try {
+      let finalCustomerId = customerId
+      if (isNewCustomer) {
+        if (!newCustomer.first_name || !newCustomer.phone) {
+          alert('Nombre y Teléfono son requeridos para el nuevo cliente')
+          setSaving(false)
+          return
+        }
+        const createdC = await api.post('/auth/customers/', newCustomer)
+        finalCustomerId = createdC.data.id
+      }
+
+      if (!finalCustomerId) {
+        alert('Debe seleccionar o registrar un cliente')
+        setSaving(false)
+        return
+      }
+
+      const payload = {
+        customer_id: finalCustomerId,
+        delivery_type: deliveryType,
+        delivery_address: deliveryType === 'despacho' ? deliveryAddress : '',
+        delivery_commune: deliveryType === 'despacho' ? deliveryCommune : '',
+        delivery_cost: deliveryType === 'despacho' ? deliveryCost : 0,
+        payment_method: paymentMethod,
+        payment_condition: paymentCondition,
+        notes,
+        items: orderItems.map(i => ({
+          product_id: i.product_id,
+          quantity: parseFloat(i.quantity),
+          unit_price: parseFloat(i.unit_price)
+        }))
+      }
+
+      await api.post('/orders/', payload)
+      onSave()
+      onClose()
+    } catch (e) {
+      console.error(e)
+      alert('Error al crear el pedido')
+    } finally { setSaving(false) }
+  }
+
+  const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">Crear Nuevo Pedido</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Cliente */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Cliente</label>
+              <button type="button" onClick={() => setIsNewCustomer(!isNewCustomer)} className="text-xs text-palta-600 font-medium hover:underline">
+                {isNewCustomer ? 'Seleccionar existente' : '+ Registrar nuevo cliente'}
+              </button>
+            </div>
+            {isNewCustomer ? (
+              <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg">
+                <div>
+                  <input type="text" placeholder="Nombre *" value={newCustomer.first_name} onChange={e => setNewCustomer({...newCustomer, first_name: e.target.value})} required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <input type="text" placeholder="Teléfono *" value={newCustomer.phone} onChange={e => setNewCustomer({...newCustomer, phone: e.target.value})} required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <input type="email" placeholder="Correo (opcional)" value={newCustomer.email} onChange={e => setNewCustomer({...newCustomer, email: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <input type="text" placeholder="Dirección (opcional)" value={newCustomer.address} onChange={e => setNewCustomer({...newCustomer, address: e.target.value})}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+              </div>
+            ) : (
+              <select value={customerId} onChange={e => setCustomerId(e.target.value)} required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                <option value="">Seleccionar cliente...</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.first_name} {c.last_name} ({c.phone || c.email || 'Sin contacto'})
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+
+          {/* Entrega y Pago */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Tipo de Entrega</label>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => setDeliveryType('retiro')}
+                  className={`flex-1 py-2 text-sm rounded-lg border font-medium transition-colors ${deliveryType === 'retiro' ? 'bg-palta-50 border-palta-500 text-palta-800' : 'border-gray-200 text-gray-600'}`}>
+                  Retiro
+                </button>
+                <button type="button" onClick={() => setDeliveryType('despacho')}
+                  className={`flex-1 py-2 text-sm rounded-lg border font-medium transition-colors ${deliveryType === 'despacho' ? 'bg-palta-50 border-palta-500 text-palta-800' : 'border-gray-200 text-gray-600'}`}>
+                  Delivery
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Método de Pago</label>
+              <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                <option value="efectivo">Efectivo</option>
+                <option value="transferencia">Transferencia</option>
+                <option value="mercadopago">MercadoPago</option>
+              </select>
+            </div>
+          </div>
+
+          {deliveryType === 'despacho' && (
+            <div className="grid grid-cols-3 gap-3 p-3 bg-gray-50 rounded-lg">
+              <div className="col-span-2">
+                <input type="text" placeholder="Dirección de envío" value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+              <div>
+                <input type="number" placeholder="Costo envío ($)" value={deliveryCost} onChange={e => setDeliveryCost(e.target.value)} min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+              </div>
+            </div>
+          )}
+
+          {/* Productos */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Agregar Productos</label>
+            <select onChange={e => { handleAddItem(e.target.value); e.target.value = '' }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3">
+              <option value="">+ Seleccionar producto para agregar...</option>
+              {products.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name} - {formatCLP(p.sale_price)} ({p.unit})
+                </option>
+              ))}
+            </select>
+
+            {orderItems.length > 0 && (
+              <div className="bg-gray-50 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-200 text-xs text-gray-500">
+                    <th className="text-left px-3 py-2">Producto</th>
+                    <th className="text-right px-3 py-2 w-24">Cant.</th>
+                    <th className="text-right px-3 py-2 w-28">Precio</th>
+                    <th className="text-right px-3 py-2">Subtotal</th>
+                    <th className="w-10"></th>
+                  </tr></thead>
+                  <tbody>
+                    {orderItems.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-100 last:border-0">
+                        <td className="px-3 py-2 font-medium">{item.name}</td>
+                        <td className="px-3 py-2 text-right">
+                          <input type="number" value={item.quantity} onChange={e => handleUpdateItem(index, 'quantity', e.target.value)} min="0.01" step="0.01"
+                            className="w-16 px-2 py-1 border border-gray-300 rounded text-right" />
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          <input type="number" value={item.unit_price} onChange={e => handleUpdateItem(index, 'unit_price', e.target.value)} min="0"
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-right" />
+                        </td>
+                        <td className="px-3 py-2 text-right font-bold">{formatCLP((item.quantity || 0) * (item.unit_price || 0))}</td>
+                        <td className="px-3 py-2 text-center">
+                          <button type="button" onClick={() => handleRemoveItem(index)} className="text-red-500 hover:text-red-700">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="mt-3 text-right">
+              <span className="text-lg font-bold text-gray-900">Total Pedido: {formatCLP(total)}</span>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
+            <button type="submit" disabled={saving}
+              className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center gap-2">
+              <Check className="w-4 h-4" /> {saving ? 'Guardando...' : 'Crear Pedido'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function OrdersPage() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
   const [selectedOrder, setSelectedOrder] = useState(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -193,10 +453,16 @@ export default function OrdersPage() {
             <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
             <p className="text-gray-500 text-sm mt-1">{filtered.length} pedidos encontrados</p>
           </div>
-          <button onClick={handleExport}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
-            <Download className="w-4 h-4" /> Exportar Excel
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
+              <Plus className="w-4 h-4" /> Nuevo Pedido
+            </button>
+            <button onClick={handleExport}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+              <Download className="w-4 h-4" /> Exportar Excel
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -273,6 +539,9 @@ export default function OrdersPage() {
 
       {selectedOrder && (
         <OrderDetail order={selectedOrder} onClose={() => setSelectedOrder(null)} onUpdate={fetchOrders} />
+      )}
+      {showCreateModal && (
+        <CreateOrderModal onClose={() => setShowCreateModal(false)} onSave={fetchOrders} />
       )}
     </AdminLayout>
   )

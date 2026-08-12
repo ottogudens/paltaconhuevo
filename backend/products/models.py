@@ -7,6 +7,7 @@ class Product(models.Model):
     product_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
     description = models.TextField(blank=True)
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='unidad')
+    purchase_price = models.DecimalField(max_digits=10, decimal_places=0, default=0)
     sale_price = models.DecimalField(max_digits=10, decimal_places=0)
     stock = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     min_stock = models.DecimalField(max_digits=10, decimal_places=2, default=5)

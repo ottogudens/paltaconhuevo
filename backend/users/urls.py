@@ -10,4 +10,6 @@ urlpatterns = [
     path('customers/<int:pk>/', views.CustomerDetailView.as_view()),
     path('customers/export/', views.ExportCustomersView.as_view()),
     path('customers/import/', views.ImportCustomersView.as_view()),
+    path('users/', views.SystemUserListView.as_view()),
+    path('users/<int:pk>/', views.SystemUserDetailView.as_view()),
 ]

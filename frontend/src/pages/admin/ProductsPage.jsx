@@ -3,21 +3,48 @@ import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
 import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle } from 'lucide-react'
 
-const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', sale_price: '', stock: 0, min_stock: 5, description: '' }
+const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '' }
 
 function ProductModal({ product, onClose, onSave }) {
   const [form, setForm] = useState(product || EMPTY_PRODUCT)
+  const [imageFile, setImageFile] = useState(null)
+  const [previewUrl, setPreviewUrl] = useState(product?.image || null)
   const [saving, setSaving] = useState(false)
   const isEdit = !!product?.id
+
+  const handleImageChange = (e) => {
+    const file = e.target.files[0]
+    if (file) {
+      setImageFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+    }
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSaving(true)
     try {
+      const formData = new FormData()
+      formData.append('name', form.name)
+      formData.append('product_type', form.product_type)
+      formData.append('unit', form.unit)
+      formData.append('purchase_price', form.purchase_price || 0)
+      formData.append('sale_price', form.sale_price || 0)
+      formData.append('stock', form.stock || 0)
+      formData.append('min_stock', form.min_stock || 0)
+      formData.append('description', form.description || '')
+      if (imageFile) {
+        formData.append('image', imageFile)
+      }
+
       if (isEdit) {
-        await api.patch(`/products/${product.id}/`, form)
+        await api.patch(`/products/${product.id}/`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
       } else {
-        await api.post('/products/', form)
+        await api.post('/products/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        })
       }
       onSave()
       onClose()
@@ -29,12 +56,25 @@ function ProductModal({ product, onClose, onSave }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">{isEdit ? 'Editar' : 'Nuevo'} Producto</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Producto</label>
+            <div className="flex items-center gap-4">
+              {previewUrl ? (
+                <img src={previewUrl} alt="Vista previa" className="w-16 h-16 object-cover rounded-lg border" />
+              ) : (
+                <div className="w-16 h-16 bg-gray-100 rounded-lg border flex items-center justify-center text-gray-400">
+                  <Package className="w-8 h-8" />
+                </div>
+              )}
+              <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-palta-50 file:text-palta-700 hover:file:bg-palta-100 cursor-pointer" />
+            </div>
+          </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
             <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required
@@ -61,12 +101,19 @@ function ProductModal({ product, onClose, onSave }) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio venta ($)</label>
-              <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra ($)</label>
+              <input type="number" value={form.purchase_price} onChange={e => setForm({...form, purchase_price: e.target.value})} min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Costo de compra" />
             </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
+              <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
               <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} min="0" step="0.01"
@@ -165,8 +212,12 @@ export default function ProductsPage() {
                 <div key={p.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow ${isLow ? 'border-red-200' : 'border-gray-100'}`}>
                   <div className="p-5">
                     <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl">{typeEmoji[p.product_type] || '📦'}</span>
+                      <div className="flex items-center gap-3">
+                        {p.image ? (
+                          <img src={p.image} alt={p.name} className="w-12 h-12 object-cover rounded-lg border" />
+                        ) : (
+                          <span className="text-3xl">{typeEmoji[p.product_type] || '📦'}</span>
+                        )}
                         <div>
                           <h3 className="font-semibold text-gray-900">{p.name}</h3>
                           <p className="text-xs text-gray-500 capitalize">{p.product_type} · {p.unit}</p>
@@ -183,10 +234,10 @@ export default function ProductsPage() {
                         </button>
                       </div>
                     </div>
-                    <div className="flex items-end justify-between">
+                    <div className="flex items-end justify-between mt-4">
                       <div>
                         <p className="text-2xl font-bold text-palta-700">{formatCLP(p.sale_price)}</p>
-                        <p className="text-xs text-gray-500">por {p.unit}</p>
+                        <p className="text-xs text-gray-500">Costo: {formatCLP(p.purchase_price)} / {p.unit}</p>
                       </div>
                       <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'}`}>
                         <div className="flex items-center gap-1">

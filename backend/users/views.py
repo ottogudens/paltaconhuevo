@@ -39,14 +39,40 @@ class ProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         return self.request.user
 
-class CustomerListView(generics.ListAPIView):
-    serializer_class = UserSerializer
+from .serializers import UserSerializer, RegisterSerializer, LoginSerializer, CreateUserSerializer
+
+class CustomerListView(generics.ListCreateAPIView):
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CreateUserSerializer
+        return UserSerializer
+
     def get_queryset(self):
         return User.objects.filter(role='cliente').order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(role='cliente')
 
 class CustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = UserSerializer
     queryset = User.objects.filter(role='cliente')
+
+class SystemUserListView(generics.ListCreateAPIView):
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CreateUserSerializer
+        return UserSerializer
+
+    def get_queryset(self):
+        qs = User.objects.all().order_by('-created_at')
+        role = self.request.query_params.get('role')
+        if role:
+            qs = qs.filter(role=role)
+        return qs
+
+class SystemUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = UserSerializer
+    queryset = User.objects.all()
 
 class ExportCustomersView(APIView):
     def get(self, request):

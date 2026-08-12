@@ -3,7 +3,16 @@ from django.conf import settings
 
 class Transaction(models.Model):
     TYPE_CHOICES = [('ingreso','Ingreso'),('egreso','Egreso')]
-    CATEGORY_CHOICES = [('venta','Venta'),('compra','Compra de insumos'),('gasto_operacional','Gasto operacional'),('despacho','Despacho'),('marketing','Marketing'),('otro','Otro')]
+    CATEGORY_CHOICES = [
+        ('venta','Venta'),
+        ('compra','Compra de insumos'),
+        ('gasto_operacional','Gasto operacional'),
+        ('combustible','Combustible'),
+        ('cajas','Cajas / Embalaje'),
+        ('despacho','Despacho'),
+        ('marketing','Marketing'),
+        ('otro','Otro')
+    ]
     transaction_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     category = models.CharField(max_length=30, choices=CATEGORY_CHOICES)
     amount = models.DecimalField(max_digits=12, decimal_places=0)

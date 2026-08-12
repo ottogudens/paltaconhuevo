@@ -7,6 +7,8 @@ const CATEGORY_OPTIONS = [
   { value: 'venta', label: 'Venta' },
   { value: 'compra', label: 'Compra de insumos' },
   { value: 'gasto_operacional', label: 'Gasto operacional' },
+  { value: 'combustible', label: 'Combustible' },
+  { value: 'cajas', label: 'Cajas / Embalaje' },
   { value: 'despacho', label: 'Despacho' },
   { value: 'marketing', label: 'Marketing' },
   { value: 'otro', label: 'Otro' },

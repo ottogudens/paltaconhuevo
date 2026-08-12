@@ -74,11 +74,90 @@ function CustomerDetail({ customer, onClose }) {
   )
 }
 
+const EMPTY_CUSTOMER = { first_name: '', last_name: '', phone: '', address: '', commune: '', email: '' }
+
+function CustomerModal({ onClose, onSave }) {
+  const [form, setForm] = useState(EMPTY_CUSTOMER)
+  const [saving, setSaving] = useState(false)
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    if (!form.first_name || !form.phone) {
+      alert('El Nombre y Teléfono son obligatorios')
+      return
+    }
+    setSaving(true)
+    try {
+      await api.post('/auth/customers/', form)
+      onSave()
+      onClose()
+    } catch (e) {
+      console.error(e)
+      alert('Error al crear el cliente')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">Nuevo Cliente</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre <span className="text-red-500">*</span></label>
+              <input type="text" value={form.first_name} onChange={e => setForm({...form, first_name: e.target.value})} required
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Juan" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+              <input type="text" value={form.last_name} onChange={e => setForm({...form, last_name: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Pérez" />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono <span className="text-red-500">*</span></label>
+            <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} required
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="correo@ejemplo.com" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Av. Principal 123" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Comuna <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <input type="text" value={form.commune} onChange={e => setForm({...form, commune: e.target.value})}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Santiago" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-3">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
+            <button type="submit" disabled={saving}
+              className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center gap-2">
+              <Plus className="w-4 h-4" /> {saving ? 'Guardando...' : 'Crear Cliente'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
   const [importing, setImporting] = useState(false)
 
   const fetchCustomers = async () => {
@@ -133,12 +212,16 @@ export default function CustomersPage() {
             <p className="text-gray-500 text-sm mt-1">{filtered.length} clientes registrados</p>
           </div>
           <div className="flex gap-2">
+            <button onClick={() => setShowCreateModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
+              <Plus className="w-4 h-4" /> Nuevo Cliente
+            </button>
             <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium cursor-pointer">
               <Upload className="w-4 h-4" /> {importing ? 'Importando...' : 'Importar'}
               <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
             </label>
             <button onClick={handleExport}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
               <Download className="w-4 h-4" /> Exportar
             </button>
           </div>
@@ -208,6 +291,7 @@ export default function CustomersPage() {
       </div>
 
       {selected && <CustomerDetail customer={selected} onClose={() => setSelected(null)} />}
+      {showCreateModal && <CustomerModal onClose={() => setShowCreateModal(false)} onSave={fetchCustomers} />}
     </AdminLayout>
   )
 }
