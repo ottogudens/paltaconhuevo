@@ -183,8 +183,20 @@ export default function CustomersPage() {
     )
   })
 
-  const handleExport = () => {
-    window.open(`${api.defaults.baseURL}/auth/customers/export/`, '_blank')
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/auth/customers/export/', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'clientes_palta_con_huevo.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Error al exportar clientes')
+    }
   }
 
   const handleImport = async (e) => {
