@@ -69,11 +69,6 @@ export default function Sidebar() {
           >
             <Icon className="w-5 h-5 flex-shrink-0" />
             <span>{label}</span>
-            {to === '/orders' && isAdmin && (
-              <span className="ml-auto text-xs bg-huevo-500 text-gray-900 px-2 py-0.5 rounded-full font-bold">
-                !
-              </span>
-            )}
           </NavLink>
         ))}
       </nav>

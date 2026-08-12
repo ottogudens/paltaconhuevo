@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus } from 'lucide-react'
+import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus, Trash2 } from 'lucide-react'
 
 function CustomerDetail({ customer, onClose }) {
   return (
@@ -203,6 +203,17 @@ export default function CustomersPage() {
     finally { setImporting(false); e.target.value = '' }
   }
 
+  const handleDeleteCustomer = async (e, customerId) => {
+    e.stopPropagation()
+    if (!confirm('¿Seguro que deseas eliminar este cliente del sistema?')) return
+    try {
+      await api.delete(`/auth/customers/${customerId}/`)
+      fetchCustomers()
+    } catch (err) {
+      alert('Error al eliminar cliente')
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -272,9 +283,14 @@ export default function CustomersPage() {
                       <td className="px-5 py-3 text-gray-600">{c.commune || '-'}</td>
                       <td className="px-5 py-3 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '-'}</td>
                       <td className="px-5 py-3 text-right">
-                        <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600">
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Ver detalle">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={(e) => handleDeleteCustomer(e, c.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-500" title="Eliminar cliente">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )) : (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Users, Search, Plus, X, Check, Shield, Mail, Phone, UserCheck, Edit3 } from 'lucide-react'
+import { Users, Search, Plus, X, Check, Shield, Mail, Phone, UserCheck, Edit3, Trash2 } from 'lucide-react'
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Administrador' },
@@ -150,6 +150,16 @@ export default function UsersPage() {
     )
   })
 
+  const handleDeleteUser = async (userId) => {
+    if (!confirm('¿Seguro que deseas eliminar este usuario del sistema?')) return
+    try {
+      await api.delete(`/auth/users/${userId}/`)
+      fetchUsers()
+    } catch (e) {
+      alert('Error al eliminar el usuario')
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -223,9 +233,14 @@ export default function UsersPage() {
                       <td className="px-5 py-3 text-gray-600">{u.phone || '-'}</td>
                       <td className="px-5 py-3 text-gray-500">{u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL') : '-'}</td>
                       <td className="px-5 py-3 text-right">
-                        <button onClick={() => { setEditingUser(u); setShowModal(true) }} className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600">
-                          <Edit3 className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button onClick={() => { setEditingUser(u); setShowModal(true) }} className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Editar usuario">
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                          <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-500" title="Eliminar usuario">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )) : (
