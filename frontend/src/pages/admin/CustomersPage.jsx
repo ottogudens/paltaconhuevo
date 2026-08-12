@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar } from 'lucide-react'
+import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus } from 'lucide-react'
 
 function CustomerDetail({ customer, onClose }) {
   return (
