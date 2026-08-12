@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Users, Search, Plus, X, Check, Shield, Mail, Phone, UserCheck } from 'lucide-react'
+import { Users, Search, Plus, X, Check, Shield, Mail, Phone, UserCheck, Edit3 } from 'lucide-react'
 
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Administrador' },
   { value: 'vendedor', label: 'Vendedor' },
-  { value: 'cliente', label: 'Cliente' },
 ]
 
 const roleBadge = (role) => {
   const map = {
     admin: 'bg-purple-100 text-purple-800 border-purple-200',
     vendedor: 'bg-blue-100 text-blue-800 border-blue-200',
-    cliente: 'bg-green-100 text-green-800 border-green-200',
   }
-  const labelMap = { admin: 'Administrador', vendedor: 'Vendedor', cliente: 'Cliente' }
+  const labelMap = { admin: 'Administrador', vendedor: 'Vendedor' }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${map[role] || 'bg-gray-100'}`}>
       {labelMap[role] || role}
@@ -23,17 +21,12 @@ const roleBadge = (role) => {
   )
 }
 
-function UserModal({ onClose, onSave }) {
-  const [form, setForm] = useState({
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
-    phone: '',
-    role: 'vendedor',
-    password: '',
-  })
+const EMPTY_USER = { username: '', email: '', first_name: '', last_name: '', phone: '', role: 'vendedor', password: '' }
+
+function UserModal({ user, onClose, onSave }) {
+  const [form, setForm] = useState(user || EMPTY_USER)
   const [saving, setSaving] = useState(false)
+  const isEdit = !!user?.id
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -43,12 +36,16 @@ function UserModal({ onClose, onSave }) {
     }
     setSaving(true)
     try {
-      await api.post('/auth/users/', form)
+      if (isEdit) {
+        await api.patch(`/auth/users/${user.id}/`, form)
+      } else {
+        await api.post('/auth/users/', form)
+      }
       onSave()
       onClose()
     } catch (e) {
       console.error(e)
-      alert('Error al crear usuario')
+      alert('Error al guardar usuario')
     } finally { setSaving(false) }
   }
 
@@ -56,7 +53,7 @@ function UserModal({ onClose, onSave }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Crear Usuario del Sistema</h2>
+          <h2 className="text-xl font-bold text-gray-900">{isEdit ? 'Editar' : 'Crear'} Usuario del Sistema</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -80,7 +77,6 @@ function UserModal({ onClose, onSave }) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
                 <option value="admin">Administrador</option>
                 <option value="vendedor">Vendedor</option>
-                <option value="cliente">Cliente</option>
               </select>
             </div>
             <div>
@@ -103,9 +99,9 @@ function UserModal({ onClose, onSave }) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Contraseña</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">{isEdit ? 'Nueva Contraseña (opcional)' : 'Contraseña'}</label>
               <input type="password" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Mínimo 6 caracteres" />
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder={isEdit ? 'Dejar en blanco para mantener' : 'Mínimo 6 caracteres'} />
             </div>
           </div>
 
@@ -113,7 +109,7 @@ function UserModal({ onClose, onSave }) {
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving}
               className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center gap-2">
-              <Check className="w-4 h-4" /> {saving ? 'Guardando...' : 'Crear Usuario'}
+              <Check className="w-4 h-4" /> {saving ? 'Guardando...' : (isEdit ? 'Guardar Cambios' : 'Crear Usuario')}
             </button>
           </div>
         </form>
@@ -128,6 +124,7 @@ export default function UsersPage() {
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -159,9 +156,9 @@ export default function UsersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Usuarios del Sistema</h1>
-            <p className="text-gray-500 text-sm mt-1">{filtered.length} usuarios registrados</p>
+            <p className="text-gray-500 text-sm mt-1">{filtered.length} usuarios del sistema (Administradores y Vendedores)</p>
           </div>
-          <button onClick={() => setShowModal(true)}
+          <button onClick={() => { setEditingUser(null); setShowModal(true) }}
             className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
             <Plus className="w-4 h-4" /> Nuevo Usuario
           </button>
@@ -204,6 +201,7 @@ export default function UsersPage() {
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Email</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Teléfono</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Registro</th>
+                    <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -223,12 +221,17 @@ export default function UsersPage() {
                       <td className="px-5 py-3">{roleBadge(u.role)}</td>
                       <td className="px-5 py-3 text-gray-600">{u.email || '-'}</td>
                       <td className="px-5 py-3 text-gray-600">{u.phone || '-'}</td>
-                      <td className="px-5 py-3 text-gray-500">{new Date(u.created_at).toLocaleDateString('es-CL')}</td>
+                      <td className="px-5 py-3 text-gray-500">{u.created_at ? new Date(u.created_at).toLocaleDateString('es-CL') : '-'}</td>
+                      <td className="px-5 py-3 text-right">
+                        <button onClick={() => { setEditingUser(u); setShowModal(true) }} className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                      </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">
+                    <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">
                       <Users className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                      No hay usuarios registrados
+                      No hay usuarios del sistema registrados
                     </td></tr>
                   )}
                 </tbody>
@@ -238,7 +241,8 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {showModal && <UserModal onClose={() => setShowModal(false)} onSave={fetchUsers} />}
+      {showModal && <UserModal user={editingUser} onClose={() => setShowModal(false)} onSave={fetchUsers} />}
     </AdminLayout>
   )
 }
+

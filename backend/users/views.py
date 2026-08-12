@@ -64,15 +64,18 @@ class SystemUserListView(generics.ListCreateAPIView):
         return UserSerializer
 
     def get_queryset(self):
-        qs = User.objects.all().order_by('-created_at')
+        qs = User.objects.filter(role__in=['admin', 'vendedor']).order_by('-created_at')
         role = self.request.query_params.get('role')
-        if role:
+        if role and role in ['admin', 'vendedor']:
             qs = qs.filter(role=role)
         return qs
 
 class SystemUserDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = UserSerializer
-    queryset = User.objects.all()
+    queryset = User.objects.filter(role__in=['admin', 'vendedor'])
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CreateUserSerializer
+        return UserSerializer
 
 class ExportCustomersView(APIView):
     def get(self, request):

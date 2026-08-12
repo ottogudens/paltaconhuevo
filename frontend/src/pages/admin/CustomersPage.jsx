@@ -51,7 +51,7 @@ function CustomerDetail({ customer, onClose }) {
             )}
             <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
               <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
-              <span className="text-sm text-gray-700">Registrado: {new Date(customer.created_at).toLocaleDateString('es-CL')}</span>
+              <span className="text-sm text-gray-700">Registrado: {customer.created_at ? new Date(customer.created_at).toLocaleDateString('es-CL') : '-'}</span>
             </div>
           </div>
 
@@ -270,7 +270,7 @@ export default function CustomersPage() {
                       <td className="px-5 py-3 text-gray-600">{c.email}</td>
                       <td className="px-5 py-3 text-gray-600">{c.phone || '-'}</td>
                       <td className="px-5 py-3 text-gray-600">{c.commune || '-'}</td>
-                      <td className="px-5 py-3 text-gray-500">{new Date(c.created_at).toLocaleDateString('es-CL')}</td>
+                      <td className="px-5 py-3 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '-'}</td>
                       <td className="px-5 py-3 text-right">
                         <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600">
                           <Eye className="w-4 h-4" />
