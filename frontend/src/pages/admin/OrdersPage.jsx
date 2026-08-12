@@ -441,8 +441,20 @@ export default function OrdersPage() {
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
-  const handleExport = () => {
-    window.open(`${api.defaults.baseURL}/orders/export/`, '_blank')
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/orders/export/', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'pedidos_palta_con_huevo.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Error al exportar pedidos')
+    }
   }
 
   return (
