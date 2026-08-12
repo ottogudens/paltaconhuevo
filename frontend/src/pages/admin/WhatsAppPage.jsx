@@ -329,15 +329,110 @@ export default function WhatsAppPage() {
             </div>
 
             <form onSubmit={handleSaveConfig} className="space-y-5">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Asistente</label>
-                <input
-                  type="text"
-                  value={agentConfig.name}
-                  onChange={e => setAgentConfig({ ...agentConfig, name: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                  required
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Asistente</label>
+                  <input
+                    type="text"
+                    value={agentConfig.name || 'Paltín'}
+                    onChange={e => setAgentConfig({ ...agentConfig, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono de WhatsApp Vinculado (Predeterminado)</label>
+                  <div className="relative">
+                    <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={agentConfig.whatsapp_connected_phone || ''}
+                      onChange={e => setAgentConfig({ ...agentConfig, whatsapp_connected_phone: e.target.value })}
+                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500"
+                      placeholder="+56912345678 (Se usará al redirigir nuevos clientes desde el registro)"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Selección de Modelo / Proveedor de IA */}
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
+                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                  <Bot className="w-4 h-4 text-palta-600" /> Motor de Inteligencia Artificial
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <label className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${agentConfig.ai_provider === 'claude' ? 'bg-palta-50 border-palta-500 ring-2 ring-palta-500/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
+                    <input type="radio" name="ai_provider" value="claude" checked={agentConfig.ai_provider === 'claude'} onChange={e => setAgentConfig({...agentConfig, ai_provider: e.target.value})} className="text-palta-600" />
+                    <div>
+                      <p className="font-bold text-xs text-gray-900">Claude (Anthropic)</p>
+                      <p className="text-[10px] text-gray-500">Sonnet 3.5 / Haiku</p>
+                    </div>
+                  </label>
+
+                  <label className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${agentConfig.ai_provider === 'chatgpt' ? 'bg-palta-50 border-palta-500 ring-2 ring-palta-500/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
+                    <input type="radio" name="ai_provider" value="chatgpt" checked={agentConfig.ai_provider === 'chatgpt'} onChange={e => setAgentConfig({...agentConfig, ai_provider: e.target.value})} className="text-palta-600" />
+                    <div>
+                      <p className="font-bold text-xs text-gray-900">ChatGPT (OpenAI)</p>
+                      <p className="text-[10px] text-gray-500">GPT-4o / GPT-4o-mini</p>
+                    </div>
+                  </label>
+
+                  <label className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${agentConfig.ai_provider === 'gemini' ? 'bg-palta-50 border-palta-500 ring-2 ring-palta-500/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
+                    <input type="radio" name="ai_provider" value="gemini" checked={agentConfig.ai_provider === 'gemini'} onChange={e => setAgentConfig({...agentConfig, ai_provider: e.target.value})} className="text-palta-600" />
+                    <div>
+                      <p className="font-bold text-xs text-gray-900">Gemini (Google)</p>
+                      <p className="text-[10px] text-gray-500">Gemini 1.5 Pro / Flash</p>
+                    </div>
+                  </label>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">API Key Personalizada ({agentConfig.ai_provider ? agentConfig.ai_provider.toUpperCase() : 'IA'})</label>
+                  <input
+                    type="password"
+                    value={agentConfig.api_key || ''}
+                    onChange={e => setAgentConfig({ ...agentConfig, api_key: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
+                    placeholder="sk-ant-... / sk-... / AIzaSy..."
+                  />
+                  <p className="text-[11px] text-gray-400 mt-1">Si la dejas en blanco, se utilizará la clave de API configurada en el servidor por defecto.</p>
+                </div>
+              </div>
+
+              {/* Mini Tutorial para Obtener API Keys */}
+              <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-100 text-xs space-y-3">
+                <h4 className="font-bold text-blue-900 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-blue-600" /> Guía para Obtener las Claves de API (API Keys)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-blue-800">
+                  <div className="bg-white p-3 rounded-lg shadow-2xs border border-blue-100">
+                    <p className="font-bold text-blue-950 mb-1">🟧 Claude (Anthropic):</p>
+                    <ol className="list-decimal list-inside space-y-1 text-[11px]">
+                      <li>Ingresa a <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer" className="underline font-semibold">console.anthropic.com</a></li>
+                      <li>Inicia sesión o crea una cuenta.</li>
+                      <li>Ve a <strong>API Keys</strong> y haz clic en <strong>Create Key</strong>.</li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-lg shadow-2xs border border-blue-100">
+                    <p className="font-bold text-blue-950 mb-1">🟩 ChatGPT (OpenAI):</p>
+                    <ol className="list-decimal list-inside space-y-1 text-[11px]">
+                      <li>Ingresa a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="underline font-semibold">platform.openai.com</a></li>
+                      <li>Inicia sesión en tu cuenta.</li>
+                      <li>Haz clic en <strong>Create new secret key</strong>.</li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-lg shadow-2xs border border-blue-100">
+                    <p className="font-bold text-blue-950 mb-1">🟦 Gemini (Google AI):</p>
+                    <ol className="list-decimal list-inside space-y-1 text-[11px]">
+                      <li>Ingresa a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="underline font-semibold">aistudio.google.com</a></li>
+                      <li>Inicia sesión con tu cuenta de Google.</li>
+                      <li>Haz clic en <strong>Get API key</strong> y luego en <strong>Create API key</strong>.</li>
+                    </ol>
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -369,12 +464,13 @@ export default function WhatsAppPage() {
                   <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    value={agentConfig.human_notification_phone}
+                    value={agentConfig.human_notification_phone || ''}
                     onChange={e => setAgentConfig({ ...agentConfig, human_notification_phone: e.target.value })}
                     className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500"
                     placeholder="+56912345678 (Número al que el bot enviará la alerta cuando un cliente pida hablar con un humano)"
                   />
                 </div>
+              </div>
               </div>
 
               <div className="flex justify-end pt-3">

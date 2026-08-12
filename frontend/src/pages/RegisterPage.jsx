@@ -6,17 +6,31 @@ import { MessageSquare, User, Mail, Phone, Lock, ArrowRight, CheckCircle2 } from
 export default function RegisterPage() {
   const [method, setMethod] = useState('choice') // 'choice', 'manual'
   const [formData, setFormData] = useState({
-    username: '', email: '', password: '', first_name: '', phone: ''
+    email: '', password: '', first_name: '', phone: ''
   })
+  const [waNumber, setWaNumber] = useState('')
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const fetchWaNumber = async () => {
+      try {
+        const res = await api.get('/marketing/agent-config/')
+        if (res.data?.whatsapp_connected_phone) {
+          let clean = res.data.whatsapp_connected_phone.replace(/\+/g, '').replace(/\s/g, '')
+          setWaNumber(clean)
+        }
+      } catch (e) { console.error(e) }
+    }
+    fetchWaNumber()
+  }, [])
 
   const handleRegister = async (e) => {
     e.preventDefault()
     setLoading(true)
     try {
       await api.post('/auth/register/', formData)
-      alert('¡Registro exitoso! Ya puedes iniciar sesión.')
+      alert('¡Registro exitoso! Ya puedes iniciar sesión con tu correo o teléfono.')
       navigate('/login')
     } catch (err) {
       alert('Error en el registro. Revisa los datos ingresados.')
@@ -26,10 +40,9 @@ export default function RegisterPage() {
   }
 
   const handleWhatsAppRegister = () => {
-    // Número de WhatsApp del negocio/bot
-    const waNumber = '56912345678' // Ajustar o tomar de config
+    const targetNumber = waNumber || '56912345678'
     const text = encodeURIComponent('¡Hola! Quisiera registrarme como cliente en Palta con Huevo 🥑🥚')
-    window.open(`https://wa.me/${waNumber}?text=${text}`, '_blank')
+    window.open(`https://wa.me/${targetNumber}?text=${text}`, '_blank')
   }
 
   return (
@@ -131,21 +144,6 @@ export default function RegisterPage() {
                   value={formData.phone}
                   onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Usuario / Nick</label>
-              <div className="relative">
-                <User className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="juanp"
-                  value={formData.username}
-                  onChange={(e) => setFormData({...formData, username: e.target.value})}
-                  className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent"
-                  required
                 />
               </div>
             </div>

@@ -56,10 +56,14 @@ class Offer(models.Model):
         return f"{self.title} ({self.discount_percentage}% off)"
 
 class AgentConfig(models.Model):
+    PROVIDER_CHOICES = [('claude', 'Claude (Anthropic)'), ('chatgpt', 'ChatGPT (OpenAI)'), ('gemini', 'Gemini (Google)')]
     name = models.CharField(max_length=100, default='Paltín')
     system_prompt = models.TextField(blank=True)
     additional_info = models.TextField(blank=True)
     human_notification_phone = models.CharField(max_length=30, blank=True)
+    whatsapp_connected_phone = models.CharField(max_length=30, blank=True)
+    ai_provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='claude')
+    api_key = models.CharField(max_length=255, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

@@ -13,19 +13,21 @@ class CreateUserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'password', 'first_name', 'last_name', 'role', 'phone', 'address', 'commune', 'whatsapp_number']
+        fields = ['id', 'email', 'password', 'first_name', 'last_name', 'role', 'phone', 'address', 'commune', 'whatsapp_number']
 
     def create(self, validated_data):
         password = validated_data.pop('password', None) or 'paltaconhuevo2024'
         email = validated_data.get('email', '')
-        username = validated_data.get('username', '')
-        if not username:
-            if email:
-                username = email.split('@')[0]
-            else:
-                import uuid
-                username = f"user_{uuid.uuid4().hex[:8]}"
-            validated_data['username'] = username
+        phone = validated_data.get('phone', '')
+        import uuid
+        if email:
+            base = email.split('@')[0]
+        elif phone:
+            base = ''.join(filter(str.isdigit, phone))
+        else:
+            base = 'user'
+        username = f"{base}_{uuid.uuid4().hex[:6]}"
+        validated_data['username'] = username
 
         user = User.objects.create_user(**validated_data)
         user.set_password(password)
@@ -39,12 +41,23 @@ class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=6)
     class Meta:
         model = User
-        fields = ['username','email','password','first_name','last_name','phone','whatsapp_number','address','commune']
+        fields = ['email','password','first_name','last_name','phone','whatsapp_number','address','commune']
 
     def create(self, validated_data):
+        email = validated_data.get('email', '')
+        phone = validated_data.get('phone', '')
+        import uuid
+        if email:
+            base = email.split('@')[0]
+        elif phone:
+            base = ''.join(filter(str.isdigit, phone))
+        else:
+            base = 'user'
+        validated_data['username'] = f"{base}_{uuid.uuid4().hex[:6]}"
+
         user = User.objects.create_user(**validated_data, role='cliente')
         from loyalty.models import LoyaltyAccount
-        LoyaltyAccount.objects.create(user=user)
+        LoyaltyAccount.objects.get_or_create(user=user)
         return user
 
 class LoginSerializer(serializers.Serializer):

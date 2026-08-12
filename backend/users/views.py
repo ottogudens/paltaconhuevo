@@ -34,6 +34,44 @@ class LogoutView(APIView):
         request.user.auth_token.delete()
         return Response({'message': 'Sesión cerrada'})
 
+class PasswordResetView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        identifier = (request.data.get('identifier') or '').strip()
+        new_password = (request.data.get('new_password') or '').strip()
+
+        if not identifier or not new_password:
+            return Response({'error': 'Debes proporcionar tu correo/teléfono y la nueva contraseña'}, status=400)
+
+        if len(new_password) < 4:
+            return Response({'error': 'La contraseña debe tener al menos 4 caracteres'}, status=400)
+
+        clean_digits = ''.join(filter(str.isdigit, identifier))
+        phone_variants = [identifier]
+        if clean_digits:
+            phone_variants.append(clean_digits)
+            if len(clean_digits) == 9:
+                phone_variants.append(f"+56{clean_digits}")
+            elif len(clean_digits) == 11 and clean_digits.startswith('569'):
+                phone_variants.append(clean_digits[2:])
+                phone_variants.append(f"+{clean_digits}")
+
+        from django.db.models import Q
+        user = User.objects.filter(
+            Q(email__iexact=identifier) |
+            Q(username__iexact=identifier) |
+            Q(phone__in=phone_variants) |
+            Q(whatsapp_number__in=phone_variants)
+        ).first()
+
+        if not user:
+            return Response({'error': 'No se encontró ninguna cuenta asociada a este correo o teléfono'}, status=404)
+
+        user.set_password(new_password)
+        user.save()
+        return Response({'message': 'Contraseña restablecida con éxito. Ya puedes iniciar sesión con tu nueva clave.'})
+
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
     def get_object(self):

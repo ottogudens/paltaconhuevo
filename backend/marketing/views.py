@@ -60,6 +60,28 @@ class OfferDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = OfferSerializer
     queryset = Offer.objects.all()
 
+class SendOfferView(APIView):
+    def post(self, request, pk):
+        offer = Offer.objects.get(pk=pk)
+        channel = request.data.get('channel', 'whatsapp') # whatsapp, email, ambos
+        users = User.objects.filter(role='cliente')
+
+        message_text = f"🔥 *¡OFERTA IMPERDIBLE EN PALTA CON HUEVO!* 🔥\n\n*{offer.title}*\n{offer.description}\n\n🏷️ Descuento: *{offer.discount_percentage}% OFF*\n📅 Válido hasta: {offer.valid_until}\n\n¡Haz tu pedido respondiendo a este mensaje o desde nuestro sitio web! 🥑🥚"
+
+        sent = 0
+        for user in users:
+            if channel in ['whatsapp', 'ambos'] and user.whatsapp_number and user.whatsapp_notifications:
+                try:
+                    requests.post(
+                        f"{settings.WHATSAPP_SERVICE_URL}/send",
+                        json={"to": user.whatsapp_number, "message": message_text},
+                        headers={"Authorization": f"Bearer {settings.WHATSAPP_SERVICE_TOKEN}"},
+                        timeout=5
+                    )
+                    sent += 1
+                except: pass
+        return Response({'sent': sent, 'message': 'Oferta enviada masivamente con éxito'})
+
 class ContestListCreateView(generics.ListCreateAPIView):
     serializer_class = ContestSerializer
     queryset = Contest.objects.all().order_by('-created_at')

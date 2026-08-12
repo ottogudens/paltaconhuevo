@@ -8,6 +8,7 @@ urlpatterns = [
     path('campaigns/ai-generate/', views.AiGenerateCampaignView.as_view()),
     path('offers/', views.OfferListCreateView.as_view()),
     path('offers/<int:pk>/', views.OfferDetailView.as_view()),
+    path('offers/<int:pk>/send/', views.SendOfferView.as_view()),
     path('contests/', views.ContestListCreateView.as_view()),
     path('contests/<int:pk>/', views.ContestDetailView.as_view()),
     path('contests/<int:pk>/draw/', views.DrawContestView.as_view()),
