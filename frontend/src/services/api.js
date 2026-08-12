@@ -12,7 +12,8 @@ api.interceptors.request.use((config) => {
 }, (error) => Promise.reject(error))
 
 api.interceptors.response.use((response) => response, (error) => {
-  if (error.response?.status === 401) {
+  const isAuthRequest = error.config?.url?.includes('/auth/') || error.config?.url?.includes('/agent-config/')
+  if (error.response?.status === 401 && !isAuthRequest) {
     useAuthStore.getState().logout()
     window.location.href = '/login'
   }

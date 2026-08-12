@@ -125,7 +125,11 @@ Proporciona análisis concreto y recomendaciones accionables en español chileno
         msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=800, messages=[{"role":"user","content":prompt}])
         return Response({'analysis': msg.content[0].text})
 
+from rest_framework.permissions import AllowAny
+
 class AgentConfigView(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request):
         default_prompt = (
             "Eres el asistente virtual oficial de 'Palta con Huevo' 🥑🥚, un emprendimiento chileno especializado en la venta de paltas y huevos de alta calidad.\n\n"
