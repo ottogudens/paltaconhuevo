@@ -39,7 +39,7 @@ export default function LoginPage() {
             <p className="text-gray-600 mt-2">Gestión de ventas inteligente</p>
           </div>
           <form onSubmit={handleLogin} className="space-y-4">
-            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-field" placeholder="Usuario" required />
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="input-field" placeholder="Correo, Teléfono (+569... / 9...) o Usuario" required />
             <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input-field" placeholder="Contraseña" required />
             <button type="submit" disabled={loading} className="btn-primary w-full">{loading ? 'Iniciando...' : 'Iniciar Sesión'}</button>
           </form>

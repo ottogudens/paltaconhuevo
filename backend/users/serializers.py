@@ -52,7 +52,45 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField()
 
     def validate(self, data):
-        user = authenticate(**data)
+        identifier = data.get('username', '').strip()
+        password = data.get('password', '')
+
+        # Intentar buscar el usuario por username, email o teléfono
+        user_qs = User.objects.none()
+
+        if '@' in identifier:
+            user_qs = User.objects.filter(email__iexact=identifier)
+        else:
+            # Limpiar teléfono
+            clean_digits = ''.join(filter(str.isdigit, identifier))
+            phone_variants = [identifier]
+            if clean_digits:
+                phone_variants.append(clean_digits)
+                if len(clean_digits) == 9:
+                    phone_variants.append(f"+56{clean_digits}")
+                    phone_variants.append(f"56{clean_digits}")
+                elif len(clean_digits) == 11 and clean_digits.startswith('569'):
+                    phone_variants.append(clean_digits[2:]) # 984205124
+                    phone_variants.append(f"+{clean_digits}")
+
+            from django.db.models import Q
+            user_qs = User.objects.filter(
+                Q(username__iexact=identifier) |
+                Q(email__iexact=identifier) |
+                Q(phone__in=phone_variants) |
+                Q(whatsapp_number__in=phone_variants)
+            )
+
+        user = None
+        for u in user_qs:
+            if u.check_password(password):
+                user = u
+                break
+
+        if not user:
+            # Intento estándar por authenticate como fallback
+            user = authenticate(username=identifier, password=password)
+
         if not user:
             raise serializers.ValidationError('Credenciales inválidas')
         return {'user': user}
