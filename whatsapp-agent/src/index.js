@@ -418,10 +418,13 @@ let isInitializing = false;
 function safeRemoveAuthInfo() {
   if (fs.existsSync('auth_info')) {
     try {
-      fs.rmSync('auth_info', { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
-      console.log('🗑️ Carpeta auth_info borrada con éxito');
+      const files = fs.readdirSync('auth_info');
+      for (const file of files) {
+        fs.rmSync(`auth_info/${file}`, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+      }
+      console.log('🗑️ Contenido de auth_info borrado con éxito');
     } catch (e) {
-      console.error('⚠️ No se pudo eliminar auth_info:', e.message);
+      console.error('⚠️ No se pudo vaciar auth_info:', e.message);
     }
   }
 }
