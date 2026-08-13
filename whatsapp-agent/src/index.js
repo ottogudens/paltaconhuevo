@@ -18,8 +18,7 @@ const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const API_URL = process.env.DJANGO_API_URL;
 const API_TOKEN = process.env.DJANGO_API_TOKEN;
 
-// Memoria de sesiones por usuario
-const sessions = new Map();
+// (Memoria movida a Postgres vía API Django)
 let waSocket = null;
 let currentQR = null;
 let isConnected = false;
@@ -30,18 +29,34 @@ const api = {
   post: (path, data, token) => axios.post(`${API_URL}${path}`, data, { headers: { Authorization: `Token ${token || API_TOKEN}` } }),
 };
 
-// Obtener o crear sesión de usuario
-function getSession(phone) {
-  if (!sessions.has(phone)) {
-    sessions.set(phone, { history: [], step: 'menu', cart: [], userToken: null, userData: null });
+// Obtener o crear sesión de usuario vía API Django
+async function getSession(phone) {
+  try {
+    const res = await api.get(`/marketing/sessions/${phone}/`);
+    const data = res.data.session_data;
+    if (!data || Object.keys(data).length === 0) {
+      return { history: [], step: 'menu', cart: [], userToken: null, userData: null };
+    }
+    return data;
+  } catch (e) {
+    console.error('Error obteniendo sesión:', e.response?.data || e.message);
+    return { history: [], step: 'menu', cart: [], userToken: null, userData: null };
   }
-  return sessions.get(phone);
+}
+
+// Guardar sesión de usuario vía API Django
+async function saveSession(phone, sessionData) {
+  try {
+    await api.post(`/marketing/sessions/${phone}/`, { session_data: sessionData });
+  } catch (e) {
+    console.error('Error guardando sesión:', e.response?.data || e.message);
+  }
 }
 
 // Responder al usuario
 async function sendMessage(phone, message) {
   if (!waSocket) return;
-  const session = sessions.get(phone);
+  const session = await getSession(phone);
   let jid = session?.remoteJid || phone;
   if (!jid.includes('@')) {
     jid = `${jid}@s.whatsapp.net`;
@@ -122,6 +137,7 @@ async function notifyHumanOperator(customerPhone, customerName) {
   }
 }
 
+
 // IA conversacional principal
 async function processWithAI(session, userMessage, customerPhone) {
   const [products, config] = await Promise.all([
@@ -129,7 +145,7 @@ async function processWithAI(session, userMessage, customerPhone) {
     getAgentConfig()
   ]);
 
-  const productList = products.map(p => `- ${p.name} (${p.product_type}): Precio venta $${p.sale_price} por ${p.unit} (Stock: ${p.stock})`).join('\n');
+  const productList = products.map(p => `- ID ${p.id}: ${p.name} (${p.product_type}): $${p.sale_price} por ${p.unit} (Stock: ${p.stock})`).join('\n');
   const cartSummary = session.cart.length > 0
     ? session.cart.map(i => `${i.quantity}x ${i.product.name} = $${i.quantity * i.product.sale_price}`).join(', ')
     : 'vacío';
@@ -148,44 +164,197 @@ CLIENTE: ${session.userData?.first_name || 'Cliente'} (${customerPhone})
 
 INSTRUCCIONES Y REGLAS DE RESPUESTA:
 - Utiliza la información de productos y precios registrados arriba.
-- Si el cliente solicita hablar con una persona real, un humano, un ejecutivo o soporte técnico, o si no entiendes su consulta técnica, responde incluyendo el comando [DERIVAR_HUMANO].
-- Cuando el cliente quiera CONFIRMAR el pedido, responde incluyendo [CONFIRMAR_PEDIDO].
-- Cuando quiera PAGAR, responde incluyendo [GENERAR_PAGO].
-- Cuando pida DESPACHO a domicilio, responde incluyendo [PEDIR_DIRECCION].
-- Para ver sus PUNTOS, responde incluyendo [VER_PUNTOS].
-- Sé conciso, amable y profesional (máximo 3-4 líneas por respuesta).`;
+- Utiliza las herramientas (tools) disponibles para:
+  - Añadir productos al carrito (add_to_cart)
+  - Consultar puntos (get_loyalty_points)
+  - Derivar a un humano si lo piden explícitamente o si no puedes ayudar (request_human)
+  - Confirmar el pedido cuando el carrito esté listo (confirm_order)
+  - Pedir dirección si elige despacho (set_delivery)
+  - Generar link de pago cuando todo esté confirmado (generate_payment)
+- Sé conciso, amable y profesional (máximo 3-4 líneas por respuesta).
+- Si usas una herramienta, genera una respuesta natural al usuario después de recibir el resultado de la herramienta.`;
 
   session.history.push({ role: 'user', content: userMessage });
   if (session.history.length > 20) session.history = session.history.slice(-20);
 
-  const msg = await anthropic.messages.create({
-    model: 'claude-3-5-sonnet-latest',
-    max_tokens: 400,
-    system: systemPrompt,
-    messages: session.history,
-  });
+  const tools = [
+    {
+      name: "request_human",
+      description: "Deriva al cliente con un operador humano.",
+      input_schema: { type: "object", properties: {} }
+    },
+    {
+      name: "add_to_cart",
+      description: "Agrega productos al carrito por ID y cantidad.",
+      input_schema: {
+        type: "object",
+        properties: {
+          items: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                product_id: { type: "integer", description: "ID numérico del producto" },
+                quantity: { type: "integer", description: "Cantidad" }
+              },
+              required: ["product_id", "quantity"]
+            }
+          }
+        },
+        required: ["items"]
+      }
+    },
+    {
+      name: "get_loyalty_points",
+      description: "Obtiene los puntos de fidelidad del cliente.",
+      input_schema: { type: "object", properties: {} }
+    },
+    {
+      name: "confirm_order",
+      description: "Confirma el carrito y pregunta por el método de entrega (retiro/despacho).",
+      input_schema: { type: "object", properties: {} }
+    },
+    {
+      name: "set_delivery",
+      description: "Guarda el tipo de entrega (retiro o despacho) y la dirección si aplica.",
+      input_schema: {
+        type: "object",
+        properties: {
+          type: { type: "string", enum: ["retiro", "despacho"] },
+          address: { type: "string" },
+          commune: { type: "string" }
+        },
+        required: ["type"]
+      }
+    },
+    {
+      name: "generate_payment",
+      description: "Genera el link de pago y finaliza el pedido.",
+      input_schema: { type: "object", properties: {} }
+    }
+  ];
 
-  const response = msg.content[0].text;
-  session.history.push({ role: 'assistant', content: response });
-  return response;
+  let currentMsg = [...session.history];
+  let finalResponse = "";
+
+  // Bucle para permitir que Claude llame múltiples herramientas si es necesario
+  for (let i = 0; i < 5; i++) {
+    const msg = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-latest',
+      max_tokens: 400,
+      system: systemPrompt,
+      tools: tools,
+      messages: currentMsg,
+    });
+
+    const assistantMsg = { role: 'assistant', content: msg.content };
+    currentMsg.push(assistantMsg);
+    
+    // Extraer texto
+    const textContent = msg.content.find(c => c.type === 'text')?.text;
+    if (textContent) finalResponse = textContent;
+
+    if (msg.stop_reason !== 'tool_use') {
+      break;
+    }
+
+    // Ejecutar herramientas
+    const toolResults = [];
+    for (const contentBlock of msg.content) {
+      if (contentBlock.type === 'tool_use') {
+        const { id, name, input } = contentBlock;
+        let toolResultText = "";
+
+        try {
+          if (name === 'request_human') {
+            session.isHumanMode = true;
+            session.pendingHuman = true;
+            notifyHumanOperator(customerPhone, session.userData?.first_name);
+            toolResultText = "Operador notificado. Avisa al usuario que será atendido pronto.";
+          } 
+          else if (name === 'add_to_cart') {
+            for (const item of input.items) {
+              const product = products.find(p => p.id === item.product_id);
+              if (product) {
+                const existing = session.cart.find(i => i.product.id === product.id);
+                if (existing) existing.quantity += item.quantity;
+                else session.cart.push({ product, quantity: item.quantity });
+              }
+            }
+            toolResultText = "Productos agregados al carrito. Confirma con el usuario.";
+          }
+          else if (name === 'get_loyalty_points') {
+            const loyalty = await getUserPoints(session.userToken);
+            toolResultText = `El usuario tiene ${loyalty.points} puntos. Nivel: ${loyalty.level}.`;
+          }
+          else if (name === 'confirm_order') {
+            session.step = 'confirming';
+            toolResultText = "Pedido confirmado. Pregunta si desea retiro o despacho.";
+          }
+          else if (name === 'set_delivery') {
+            session.deliveryType = input.type;
+            if (input.type === 'despacho') {
+              session.deliveryAddress = input.address || '';
+              session.deliveryCommune = input.commune || '';
+            }
+            session.step = 'awaiting_payment';
+            toolResultText = "Datos de entrega guardados. Procede a generar el pago (generate_payment).";
+          }
+          else if (name === 'generate_payment') {
+            const order = await createOrder(session, session.deliveryType || 'retiro', session.deliveryAddress, session.deliveryCommune, session.deliveryReference);
+            const link = await generatePaymentLink(order.id);
+            session.cart = [];
+            session.step = 'menu';
+            toolResultText = `Pedido creado. Link de MercadoPago generado: ${link}. Puntos ganados: ${order.points_earned}. Entrega esta información al usuario y despídete.`;
+          }
+        } catch (e) {
+          toolResultText = `Error al ejecutar herramienta: ${e.message}`;
+        }
+
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: id,
+          content: toolResultText
+        });
+      }
+    }
+    
+    currentMsg.push({ role: 'user', content: toolResults });
+  }
+
+  // Guardar historial limpio
+  const cleanedHistory = currentMsg.map(m => {
+    if (Array.isArray(m.content)) {
+       return { role: m.role, content: m.content.find(c => c.type === 'text')?.text || '' };
+    }
+    return m;
+  }).filter(m => m.content && m.content.trim() !== '');
+
+  session.history = cleanedHistory;
+  return finalResponse;
 }
 
-// Handler principal de mensajes
+// Wrapper para guardar siempre la sesión
 async function handleMessage(phone, message) {
-  const session = getSession(phone);
+  const session = await getSession(phone);
+  try {
+    return await handleMessageLogic(phone, message, session);
+  } finally {
+    await saveSession(phone, session);
+  }
+}
 
-  // Registrar timestamp del último mensaje
+// Lógica principal de mensajes
+async function handleMessageLogic(phone, message, session) {
   session.lastMessageAt = new Date().toISOString();
   if (!session.messages) session.messages = [];
   session.messages.push({ sender: 'customer', text: message, timestamp: session.lastMessageAt });
 
-  // Si el chat está en modo humano (atendido por operador manual)
   if (session.isHumanMode) {
-    return null; // La IA no interviene
+    return null;
   }
 
   try {
-    // Verificar si usuario está registrado
     if (!session.userToken) {
       const auth = await authenticateWhatsAppUser(phone);
       if (auth && auth.token) {
@@ -216,7 +385,6 @@ async function handleMessage(phone, message) {
       }
     }
 
-    // Solicitud explícita de derivación humana por palabras clave
     const lower = message.toLowerCase().trim();
     if (['humano', 'operador', 'persona', 'agente real', 'atencion humana', 'soporte'].includes(lower)) {
       session.isHumanMode = true;
@@ -227,80 +395,13 @@ async function handleMessage(phone, message) {
       return transferMsg;
     }
 
-    // Comandos rápidos
     if (['hola','inicio','menu','menú','0'].includes(lower)) {
       const menuText = getMenu();
       session.messages.push({ sender: 'bot', text: menuText, timestamp: new Date().toISOString() });
       return menuText;
     }
-    if (lower === 'mis puntos' || lower === 'puntos') {
-      const loyalty = await getUserPoints(session.userToken);
-      const pointsText = `⭐ Tus puntos: *${loyalty.points} pts* (Nivel ${loyalty.level})\n💰 Total compras: $${loyalty.total_purchases}`;
-      session.messages.push({ sender: 'bot', text: pointsText, timestamp: new Date().toISOString() });
-      return pointsText;
-    }
 
-    // Procesar con IA
-    const aiResponse = await processWithAI(session, message, phone);
-
-    // Si la IA decide derivar a humano
-    if (aiResponse.includes('[DERIVAR_HUMANO]')) {
-      session.isHumanMode = true;
-      session.pendingHuman = true;
-      notifyHumanOperator(phone, session.userData?.first_name);
-      const cleanResp = aiResponse.replace('[DERIVAR_HUMANO]','').trim() || '👨‍💼 Te estoy derivando con un representante humano para ayudarte mejor. En breve se comunicarán contigo.';
-      session.messages.push({ sender: 'bot', text: cleanResp, timestamp: new Date().toISOString() });
-      return cleanResp;
-    }
-
-    // Procesar comandos especiales
-    let botReply = '';
-    if (aiResponse.includes('[CONFIRMAR_PEDIDO]')) {
-      if (session.cart.length === 0) botReply = '🛒 Tu carrito está vacío. ¿Qué deseas pedir?';
-      else {
-        const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
-        const cartText = session.cart.map(i => `${i.quantity}x ${i.product.name} = $${i.quantity * i.product.sale_price}`).join('\n');
-        session.step = 'confirming';
-        botReply = `📋 *Tu pedido:*\n${cartText}\n\n💵 Total: *$${total}*\n\n¿Cómo lo recibes?\n1️⃣ Despacho a domicilio\n2️⃣ Retiro en local`;
-      }
-    } else if (aiResponse.includes('[PEDIR_DIRECCION]') || (session.step === 'confirming' && message === '1')) {
-      session.step = 'awaiting_address';
-      botReply = '🏠 Por favor indícame tu dirección de entrega (calle y número, comuna):';
-    } else if (session.step === 'confirming' && message === '2') {
-      session.step = 'awaiting_payment';
-      session.deliveryType = 'retiro';
-      const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
-      botReply = `✅ Retiro en local confirmado.\n\n💳 Total a pagar: *$${total}*\n\n¿Cómo quieres pagar?\n1️⃣ MercadoPago (link de pago)\n2️⃣ Efectivo al retirar\n3️⃣ Transferencia`;
-    } else if (aiResponse.includes('[GENERAR_PAGO]') || (session.step === 'awaiting_payment' && message === '1')) {
-      const order = await createOrder(session, session.deliveryType || 'retiro', session.deliveryAddress, session.deliveryCommune, session.deliveryReference);
-      const link = await generatePaymentLink(order.id);
-      session.cart = [];
-      session.step = 'menu';
-      botReply = `🎉 ¡Pedido #${order.id} creado!\n\n💳 Paga aquí:\n${link}\n\n⭐ Ganaste *${order.points_earned} puntos* con esta compra.`;
-    } else if (session.step === 'awaiting_address') {
-      const parts = message.split(',');
-      session.deliveryAddress = parts[0]?.trim() || message;
-      session.deliveryCommune = parts[1]?.trim() || '';
-      session.deliveryReference = parts[2]?.trim() || '';
-      session.deliveryType = 'despacho';
-      session.step = 'awaiting_payment';
-      const total = session.cart.reduce((s, i) => s + i.quantity * i.product.sale_price, 0);
-      botReply = `📍 Dirección registrada: *${session.deliveryAddress}*\n\n💳 Total: *$${total}* + costo de despacho\n\n¿Cómo quieres pagar?\n1️⃣ MercadoPago (link de pago)\n2️⃣ Efectivo al entregar\n3️⃣ Transferencia`;
-    } else {
-      // Agregar productos al carrito si la IA los menciona
-      const products = await getProducts();
-      for (const product of products) {
-        const regex = new RegExp(`(\\d+)\\s*(${product.name}|${product.product_type})`, 'i');
-        const match = message.match(regex);
-        if (match) {
-          const qty = parseInt(match[1]);
-          const existing = session.cart.find(i => i.product.id === product.id);
-          if (existing) existing.quantity += qty;
-          else session.cart.push({ product, quantity: qty });
-        }
-      }
-      botReply = aiResponse.replace('[CONFIRMAR_PEDIDO]','').replace('[GENERAR_PAGO]','').replace('[PEDIR_DIRECCION]','').replace(/\[DIRECCION:[^\]]+\]/g,'').replace('[VER_PUNTOS]','').replace('[VER_RECETAS]','').trim();
-    }
+    const botReply = await processWithAI(session, message, phone);
 
     if (botReply) {
       session.messages.push({ sender: 'bot', text: botReply, timestamp: new Date().toISOString() });
@@ -318,25 +419,32 @@ function getMenu() {
 }
 
 // Endpoints API para administración de WhatsApp
-app.get('/api/wa/chats', (req, res) => {
-  const chatList = [];
-  for (const [phone, session] of sessions.entries()) {
-    chatList.push({
-      phone,
-      name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : (session.pushName || phone),
-      isHumanMode: !!session.isHumanMode,
-      pendingHuman: !!session.pendingHuman,
-      lastMessageAt: session.lastMessageAt || new Date().toISOString(),
-      messagesCount: session.messages ? session.messages.length : 0,
+app.get('/api/wa/chats', async (req, res) => {
+  try {
+    const resApi = await api.get('/marketing/sessions/');
+    const dbSessions = resApi.data || [];
+    const chatList = dbSessions.map(dbS => {
+      const phone = dbS.phone;
+      const session = dbS.session_data;
+      return {
+        phone,
+        name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : (session.pushName || phone),
+        isHumanMode: !!session.isHumanMode,
+        pendingHuman: !!session.pendingHuman,
+        lastMessageAt: session.lastMessageAt || new Date().toISOString(),
+        messagesCount: session.messages ? session.messages.length : 0,
+      };
     });
+    chatList.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
+    res.json(chatList);
+  } catch (e) {
+    res.status(500).json({ error: 'Error fetching sessions' });
   }
-  chatList.sort((a, b) => new Date(b.lastMessageAt) - new Date(a.lastMessageAt));
-  res.json(chatList);
 });
 
-app.get('/api/wa/chats/:phone/messages', (req, res) => {
+app.get('/api/wa/chats/:phone/messages', async (req, res) => {
   const { phone } = req.params;
-  const session = getSession(phone);
+  const session = await getSession(phone);
   res.json({
     phone,
     name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : (session.pushName || phone),
@@ -351,23 +459,25 @@ app.post('/api/wa/chats/:phone/reply', async (req, res) => {
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Mensaje requerido' });
 
-  const session = getSession(phone);
+  const session = await getSession(phone);
   session.isHumanMode = true;
   session.pendingHuman = false;
   session.lastMessageAt = new Date().toISOString();
   if (!session.messages) session.messages = [];
   session.messages.push({ sender: 'operator', text: message, timestamp: session.lastMessageAt });
 
+  await saveSession(phone, session);
   await sendMessage(phone, message);
   res.json({ success: true });
 });
 
-app.post('/api/wa/chats/:phone/toggle-human', (req, res) => {
+app.post('/api/wa/chats/:phone/toggle-human', async (req, res) => {
   const { phone } = req.params;
   const { isHumanMode } = req.body;
-  const session = getSession(phone);
+  const session = await getSession(phone);
   session.isHumanMode = !!isHumanMode;
   if (!isHumanMode) session.pendingHuman = false;
+  await saveSession(phone, session);
   res.json({ phone, isHumanMode: session.isHumanMode });
 });
 

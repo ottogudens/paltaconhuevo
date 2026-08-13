@@ -244,3 +244,36 @@ class AgentConfigView(APIView):
             return Response(serializer.data)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+from .models import WhatsAppSession
+from .serializers import WhatsAppSessionSerializer
+
+
+class WhatsAppSessionDetailView(APIView):
+    """
+    Endpoint para que el agente Node.js lea y escriba su estado de sesión en Postgres.
+    """
+    permission_classes = [IsAdmin]  # El agente usa DJANGO_API_TOKEN de admin
+
+    def get(self, request, phone):
+        session, _ = WhatsAppSession.objects.get_or_create(phone=phone)
+        return Response(WhatsAppSessionSerializer(session).data)
+
+    def post(self, request, phone):
+        session, _ = WhatsAppSession.objects.get_or_create(phone=phone)
+        session.session_data = request.data.get('session_data', {})
+        session.save()
+        return Response(WhatsAppSessionSerializer(session).data)
+
+class WhatsAppSessionListView(APIView):
+    """
+    Endpoint para que el agente obtenga todas las sesiones (para el panel admin).
+    """
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        sessions = WhatsAppSession.objects.all()
+        return Response(WhatsAppSessionSerializer(sessions, many=True).data)
+
+

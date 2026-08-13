@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Campaign, Contest, Offer, AgentConfig
+from .models import Campaign, Contest, Offer, AgentConfig, WhatsAppSession
 
 class CampaignSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,3 +20,10 @@ class AgentConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentConfig
         fields = '__all__'
+
+
+class WhatsAppSessionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WhatsAppSession
+        fields = '__all__'
+

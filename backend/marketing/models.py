@@ -68,3 +68,17 @@ class AgentConfig(models.Model):
 
     def __str__(self):
         return f"Configuración Agente IA ({self.name})"
+
+
+class WhatsAppSession(models.Model):
+    """
+    Persistencia del estado del agente de WhatsApp en base de datos.
+    Reemplaza el Map() en memoria de Node.js.
+    """
+    phone = models.CharField(max_length=30, unique=True)
+    session_data = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Sesión WhatsApp ({self.phone})"
+
