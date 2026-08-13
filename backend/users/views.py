@@ -29,6 +29,85 @@ class LoginView(APIView):
         token, _ = Token.objects.get_or_create(user=user)
         return Response({'token': token.key, 'user': UserSerializer(user).data})
 
+class WhatsAppAuthView(APIView):
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        phone = str(request.data.get('phone', '')).strip()
+        name = str(request.data.get('name', '')).strip()
+
+        if not phone:
+            return Response({'error': 'El teléfono es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+
+        clean_digits = ''.join(filter(str.isdigit, phone))
+        phone_variants = [phone]
+        if clean_digits:
+            phone_variants.append(clean_digits)
+            if len(clean_digits) == 9:
+                phone_variants.append(f"+56{clean_digits}")
+                phone_variants.append(f"56{clean_digits}")
+            elif len(clean_digits) == 11 and clean_digits.startswith('569'):
+                phone_variants.append(clean_digits[2:])
+                phone_variants.append(f"+{clean_digits}")
+
+        from django.db.models import Q
+        user = User.objects.filter(
+            Q(phone__in=phone_variants) |
+            Q(whatsapp_number__in=phone_variants) |
+            Q(username__in=phone_variants)
+        ).first()
+
+        if user:
+            if name and (not user.first_name or user.first_name.startswith('569') or user.first_name == 'wa'):
+                parts = name.split(' ')
+                user.first_name = parts[0]
+                user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+                user.save()
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({
+                'token': token.key,
+                'user': UserSerializer(user).data,
+                'is_new': False
+            })
+
+        if not name:
+            return Response({
+                'name_required': True,
+                'message': 'Se requiere el nombre del usuario para el registro'
+            }, status=status.HTTP_200_OK)
+
+        parts = name.split(' ')
+        first_name = parts[0]
+        last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
+        username = f"wa_{clean_digits or phone}"
+        
+        if User.objects.filter(username=username).exists():
+            import uuid
+            username = f"{username}_{uuid.uuid4().hex[:4]}"
+
+        user = User.objects.create_user(
+            username=username,
+            email=f"{clean_digits or phone}@whatsapp.cl",
+            first_name=first_name,
+            last_name=last_name,
+            phone=phone,
+            whatsapp_number=phone,
+            role='cliente'
+        )
+        user.set_password(phone)
+        user.save()
+
+        from loyalty.models import LoyaltyAccount
+        LoyaltyAccount.objects.get_or_create(user=user)
+
+        token, _ = Token.objects.get_or_create(user=user)
+        return Response({
+            'token': token.key,
+            'user': UserSerializer(user).data,
+            'is_new': True
+        }, status=status.HTTP_201_CREATED)
+
+
 class LogoutView(APIView):
     def post(self, request):
         request.user.auth_token.delete()

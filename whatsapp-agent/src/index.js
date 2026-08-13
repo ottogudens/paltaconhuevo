@@ -40,31 +40,21 @@ function getSession(phone) {
 // Responder al usuario
 async function sendMessage(phone, message) {
   if (!waSocket) return;
-  const jid = phone.includes('@') ? phone : `${phone}@s.whatsapp.net`;
+  const session = sessions.get(phone);
+  let jid = session?.remoteJid || phone;
+  if (!jid.includes('@')) {
+    jid = `${jid}@s.whatsapp.net`;
+  }
   await waSocket.sendMessage(jid, { text: message });
 }
 
-// Login del cliente
-async function loginUser(phone) {
+// Autenticar / Registrar cliente de WhatsApp
+async function authenticateWhatsAppUser(phone, name = '') {
   try {
-    const res = await api.post('/auth/login/', { username: phone, password: phone });
-    return { token: res.data.token, user: res.data.user };
-  } catch {
-    return null;
-  }
-}
-
-// Registrar cliente nuevo
-async function registerUser(phone, name) {
-  try {
-    const res = await api.post('/auth/register/', {
-      username: phone, password: phone,
-      first_name: name.split(' ')[0],
-      last_name: name.split(' ').slice(1).join(' ') || '',
-      phone, whatsapp_number: phone, email: `${phone}@whatsapp.cl`
-    });
-    return { token: res.data.token, user: res.data.user };
+    const res = await api.post('/auth/whatsapp/', { phone, name });
+    return res.data;
   } catch (e) {
+    console.error('Error autenticando cliente WhatsApp:', e.response?.data || e.message);
     return null;
   }
 }
@@ -196,29 +186,32 @@ async function handleMessage(phone, message) {
   try {
     // Verificar si usuario está registrado
     if (!session.userToken) {
-      const auth = await loginUser(phone);
-      if (auth) {
+      const auth = await authenticateWhatsAppUser(phone);
+      if (auth && auth.token) {
         session.userToken = auth.token;
         session.userData = auth.user;
-      } else {
-        // Nuevo usuario
+      } else if (auth && auth.name_required) {
         if (!session.awaitingName) {
           session.awaitingName = true;
           const welcome = `¡Hola! 👋 Bienvenid@ a *Palta con Huevo* 🥑🥚\nSoy Paltín, tu asistente virtual.\n\n¿Cuál es tu nombre para registrarte?`;
           session.messages.push({ sender: 'bot', text: welcome, timestamp: new Date().toISOString() });
           return welcome;
         } else {
-          const auth = await registerUser(phone, message);
-          if (auth) {
-            session.userToken = auth.token;
-            session.userData = auth.user;
+          const regAuth = await authenticateWhatsAppUser(phone, message);
+          if (regAuth && regAuth.token) {
+            session.userToken = regAuth.token;
+            session.userData = regAuth.user;
             session.awaitingName = false;
-            const regSuccess = `¡Listo ${auth.user.first_name}! ✅ Te registré con éxito.\n\n${getMenu()}`;
+            const regSuccess = `¡Listo ${regAuth.user.first_name}! ✅ Te registré con éxito.\n\n${getMenu()}`;
             session.messages.push({ sender: 'bot', text: regSuccess, timestamp: new Date().toISOString() });
             return regSuccess;
           }
-          return '❌ Hubo un problema al registrarte. Intenta de nuevo.';
+          session.awaitingName = false;
+          return '❌ Hubo un problema al registrarte. Escribe *hola* para intentar de nuevo.';
         }
+      } else {
+        session.awaitingName = false;
+        return '❌ Error de comunicación con el sistema. Escribe *hola* para intentar de nuevo.';
       }
     }
 
@@ -329,7 +322,7 @@ app.get('/api/wa/chats', (req, res) => {
   for (const [phone, session] of sessions.entries()) {
     chatList.push({
       phone,
-      name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : phone,
+      name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : (session.pushName || phone),
       isHumanMode: !!session.isHumanMode,
       pendingHuman: !!session.pendingHuman,
       lastMessageAt: session.lastMessageAt || new Date().toISOString(),
@@ -345,7 +338,7 @@ app.get('/api/wa/chats/:phone/messages', (req, res) => {
   const session = getSession(phone);
   res.json({
     phone,
-    name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : phone,
+    name: session.userData?.first_name ? `${session.userData.first_name} ${session.userData.last_name || ''}`.trim() : (session.pushName || phone),
     isHumanMode: !!session.isHumanMode,
     pendingHuman: !!session.pendingHuman,
     messages: session.messages || []
@@ -433,11 +426,28 @@ async function startWhatsApp() {
   sock.ev.on('messages.upsert', async ({ messages }) => {
     for (const msg of messages) {
       if (!msg.message || msg.key.fromMe) continue;
-      const phone = msg.key.remoteJid.replace('@s.whatsapp.net', '').replace('@g.us', '');
-      if (msg.key.remoteJid.includes('@g.us')) continue; // Ignorar grupos
+
+      const remoteJid = msg.key.remoteJid || '';
+      if (remoteJid.includes('@g.us')) continue; // Ignorar grupos
+
+      let realJid = remoteJid;
+      if (remoteJid.endsWith('@lid')) {
+        if (msg.key.remoteJidAlt && msg.key.remoteJidAlt.endsWith('@s.whatsapp.net')) {
+          realJid = msg.key.remoteJidAlt;
+        } else if (msg.key.participant && msg.key.participant.endsWith('@s.whatsapp.net')) {
+          realJid = msg.key.participant;
+        }
+      }
+
+      const phone = realJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace('@g.us', '');
       const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
       if (!text) continue;
-      console.log(`📩 ${phone}: ${text}`);
+
+      const session = getSession(phone);
+      session.remoteJid = remoteJid;
+      if (msg.pushName) session.pushName = msg.pushName;
+
+      console.log(`📩 ${phone} (${msg.pushName || 'Sin nombre'}): ${text}`);
       const response = await handleMessage(phone, text);
       if (response) await sendMessage(phone, response);
     }
