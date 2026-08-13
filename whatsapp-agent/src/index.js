@@ -413,6 +413,17 @@ app.post('/api/wa/pairing-code', async (req, res) => {
     res.status(500).json({ error: error.message || 'Error al solicitar el código de vinculación a WhatsApp.' });
   }
 });
+function safeRemoveAuthInfo() {
+  if (fs.existsSync('auth_info')) {
+    try {
+      fs.rmSync('auth_info', { recursive: true, force: true });
+      console.log('🗑️ Carpeta auth_info borrada con éxito');
+    } catch (e) {
+      console.error('⚠️ No se pudo eliminar auth_info (recurso ocupado):', e.message);
+    }
+  }
+}
+
 app.post('/api/wa/logout', async (req, res) => {
   try {
     if (waSocket) {
@@ -430,12 +441,11 @@ app.post('/api/wa/logout', async (req, res) => {
     currentQR = null;
     sessions.clear();
 
-    if (fs.existsSync('auth_info')) {
-      fs.rmSync('auth_info', { recursive: true, force: true });
-      console.log('🗑️ Carpeta auth_info borrada con éxito');
-    }
+    setTimeout(() => {
+      safeRemoveAuthInfo();
+      startWhatsApp();
+    }, 1000);
 
-    setTimeout(startWhatsApp, 1500);
     res.json({ success: true });
   } catch (e) {
     console.error('Error en /api/wa/logout:', e);
@@ -466,10 +476,10 @@ async function startWhatsApp() {
       } else {
         console.log('Cierre de sesión manual. Borrando auth_info...');
         currentQR = null;
-        if (fs.existsSync('auth_info')) {
-          fs.rmSync('auth_info', { recursive: true, force: true });
-        }
-        setTimeout(startWhatsApp, 2000);
+        setTimeout(() => {
+          safeRemoveAuthInfo();
+          startWhatsApp();
+        }, 1500);
       }
     }
     if (connection === 'open') {
