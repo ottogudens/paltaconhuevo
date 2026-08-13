@@ -71,6 +71,8 @@ TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates','DIRS
 WSGI_APPLICATION = 'core.wsgi.application'
 
 import sys
+import dj_database_url
+
 if 'test' in sys.argv:
     DATABASES = {
         'default': {
