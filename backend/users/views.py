@@ -111,10 +111,11 @@ class LoginView(APIView):
 class WhatsAppAuthView(APIView):
     """
     Endpoint exclusivo para el agente WhatsApp.
-    Protegido con IsWhatsAppService: requiere
-      Authorization: Bearer <WHATSAPP_SERVICE_TOKEN>
+    Protegido con IsAdmin: solo el agente Node (autenticado con el token DRF
+    de un usuario admin — DJANGO_API_TOKEN) puede llamar este endpoint.
+    Los clientes normales no pueden obtener tokens de otros usuarios.
     """
-    permission_classes = [IsWhatsAppService]
+    permission_classes = [IsAdmin]
 
     def post(self, request):
         phone = str(request.data.get('phone', '')).strip()
