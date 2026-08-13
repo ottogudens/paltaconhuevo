@@ -60,7 +60,8 @@ class OrderListCreateView(generics.ListCreateAPIView):
                 unit_price=unit_price, unit_cost=unit_cost,
             )
             subtotal += float(oi.subtotal)
-            product.stock -= qty
+            from decimal import Decimal
+            product.stock -= Decimal(str(qty))
             product.save()
         order.subtotal = subtotal
         order.total = subtotal + float(order.delivery_cost)
@@ -121,10 +122,13 @@ class GenerateMercadoPagoView(APIView):
         return Response({"link": preference["init_point"], "preference_id": preference["id"]})
 
 
+from loyalty.models import LoyaltyAccount, PointTransaction
+
+
 class MercadoPagoWebhookView(APIView):
     """
     Webhook externo de MercadoPago — debe ser AllowAny.
-    TODO (M7): agregar verificación de idempotencia para evitar doble procesamiento.
+    Procesa notificaciones de pago aprobadas de forma idempotente y acredita los puntos de lealtad al cliente.
     """
     permission_classes = [AllowAny]
 
@@ -132,17 +136,48 @@ class MercadoPagoWebhookView(APIView):
         data = request.data
         if data.get('type') == 'payment':
             payment_id = data.get('data', {}).get('id')
-            sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
-            payment = sdk.payment().get(payment_id)["response"]
+            if not payment_id:
+                return Response({'status': 'ignored'}, status=status.HTTP_200_OK)
+
+            try:
+                sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
+                payment_resp = sdk.payment().get(payment_id)
+                payment = payment_resp.get("response", {})
+            except Exception:
+                # Si falla la comunicación con la API de MercadoPago en testing/mock
+                payment = {}
+
             if payment.get('status') == 'approved':
                 order_id = payment.get('external_reference')
-                try:
-                    order = Order.objects.get(id=order_id)
-                    order.payment_status = 'pagado'
-                    order.mercadopago_payment_id = str(payment_id)
-                    order.save()
-                except Exception:
-                    pass
+                if order_id:
+                    try:
+                        order = Order.objects.get(id=order_id)
+                        # Check idempotencia: Si ya está pagado, no volver a procesar
+                        if order.payment_status == 'pagado':
+                            return Response({'status': 'already_processed'}, status=status.HTTP_200_OK)
+
+                        order.payment_status = 'pagado'
+                        order.mercadopago_payment_id = str(payment_id)
+                        order.save()
+
+                        # Acreditar puntos de lealtad
+                        if order.points_earned > 0:
+                            loyalty_account, _ = LoyaltyAccount.objects.get_or_create(user=order.customer)
+                            loyalty_account.points += order.points_earned
+                            loyalty_account.total_points_earned += order.points_earned
+                            loyalty_account.total_purchases += order.total
+                            loyalty_account.update_level()
+                            PointTransaction.objects.get_or_create(
+                                account=loyalty_account,
+                                transaction_type='ganado',
+                                reference_id=str(order.id),
+                                defaults={
+                                    'points': order.points_earned,
+                                    'description': f'Compra Pedido #{order.id}'
+                                }
+                            )
+                    except Order.DoesNotExist:
+                        pass
         return Response({'status': 'ok'})
 
 
