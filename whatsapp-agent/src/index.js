@@ -9,7 +9,10 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const pino = require('pino');
 
-const logger = pino({ level: 'silent' });
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  base: { service: 'whatsapp-agent' }
+});
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -17,6 +20,10 @@ app.use(express.json());
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const API_URL = process.env.DJANGO_API_URL;
 const API_TOKEN = process.env.DJANGO_API_TOKEN;
+
+// Cache en memoria con TTL (60s)
+let productsCache = { data: null, expiresAt: 0 };
+let agentConfigCache = { data: null, expiresAt: 0 };
 
 // (Memoria movida a Postgres vía API Django)
 let waSocket = null;
@@ -39,7 +46,7 @@ async function getSession(phone) {
     }
     return data;
   } catch (e) {
-    console.error('Error obteniendo sesión:', e.response?.data || e.message);
+    logger.error({ error: e.response?.data || e.message, phone }, 'Error obteniendo sesión');
     return { history: [], step: 'menu', cart: [], userToken: null, userData: null };
   }
 }
@@ -49,7 +56,7 @@ async function saveSession(phone, sessionData) {
   try {
     await api.post(`/marketing/sessions/${phone}/`, { session_data: sessionData });
   } catch (e) {
-    console.error('Error guardando sesión:', e.response?.data || e.message);
+    logger.error({ error: e.response?.data || e.message, phone }, 'Error guardando sesión');
   }
 }
 
@@ -70,15 +77,26 @@ async function authenticateWhatsAppUser(phone, name = '') {
     const res = await api.post('/auth/whatsapp/', { phone, name });
     return res.data;
   } catch (e) {
-    console.error('Error autenticando cliente WhatsApp:', e.response?.data || e.message);
+    logger.error({ error: e.response?.data || e.message, phone }, 'Error autenticando cliente WhatsApp');
     return null;
   }
 }
 
-// Obtener productos disponibles
+// Obtener productos disponibles con caché de 60 segundos
 async function getProducts() {
-  const res = await api.get('/products/');
-  return res.data.results || res.data;
+  const now = Date.now();
+  if (productsCache.data && productsCache.expiresAt > now) {
+    return productsCache.data;
+  }
+  try {
+    const res = await api.get('/products/');
+    const data = res.data.results || res.data;
+    productsCache = { data, expiresAt: now + 60000 };
+    return data;
+  } catch (e) {
+    logger.error({ error: e.message }, 'Error obteniendo productos');
+    return productsCache.data || [];
+  }
 }
 
 // Obtener puntos del usuario
@@ -108,13 +126,20 @@ async function generatePaymentLink(orderId) {
   return res.data.link;
 }
 
-// Obtener configuración dinámica del agente desde Django
+// Obtener configuración dinámica del agente desde Django con caché de 60 segundos
 async function getAgentConfig() {
+  const now = Date.now();
+  if (agentConfigCache.data && agentConfigCache.expiresAt > now) {
+    return agentConfigCache.data;
+  }
   try {
     const res = await api.get('/marketing/agent-config/');
-    return res.data;
+    const data = res.data;
+    agentConfigCache = { data, expiresAt: now + 60000 };
+    return data;
   } catch (e) {
-    return {
+    logger.error({ error: e.message }, 'Error obteniendo agent-config');
+    return agentConfigCache.data || {
       name: 'Paltín',
       system_prompt: 'Eres el asistente virtual de "Palta con Huevo" 🥑, un negocio chileno de venta de paltas y huevos.',
       additional_info: '',
@@ -239,6 +264,7 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
 
   // Bucle para permitir que Claude llame múltiples herramientas si es necesario
   for (let i = 0; i < 5; i++) {
+    const callStart = Date.now();
     const msg = await anthropic.messages.create({
       model: 'claude-3-5-sonnet-latest',
       max_tokens: 400,
@@ -246,9 +272,21 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
       tools: tools,
       messages: currentMsg,
     });
+    const latencyMs = Date.now() - callStart;
+
+    logger.info({
+      event: 'ai_completion',
+      model: 'claude-3-5-sonnet-latest',
+      latency_ms: latencyMs,
+      input_tokens: msg.usage?.input_tokens || 0,
+      output_tokens: msg.usage?.output_tokens || 0,
+      stop_reason: msg.stop_reason,
+      customer_phone: customerPhone
+    }, `Claude API call finished in ${latencyMs}ms (input: ${msg.usage?.input_tokens}, output: ${msg.usage?.output_tokens})`);
 
     const assistantMsg = { role: 'assistant', content: msg.content };
     currentMsg.push(assistantMsg);
+
     
     // Extraer texto
     const textContent = msg.content.find(c => c.type === 'text')?.text;
@@ -396,6 +434,7 @@ async function handleMessageLogic(phone, message, session) {
     }
 
     if (['hola','inicio','menu','menú','0'].includes(lower)) {
+      logger.info({ event: 'heuristic_short_circuit', intent: 'menu', phone }, 'Respondiendo menú por heurística (0 tokens consumidos)');
       const menuText = getMenu();
       session.messages.push({ sender: 'bot', text: menuText, timestamp: new Date().toISOString() });
       return menuText;
