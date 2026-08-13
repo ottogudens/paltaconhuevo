@@ -141,22 +141,38 @@ class AgentConfigView(APIView):
             "5. Derivación Humana: Si el cliente solicita hablar con una persona real o manifiesta una duda compleja que no puedas resolver, mantén la cortesía e indica que lo transferirás de inmediato con un ejecutivo humano."
         )
 
-        config, created = AgentConfig.objects.get_or_create(id=1, defaults={
-            'name': 'Paltín',
-            'system_prompt': default_prompt,
-            'additional_info': 'Horarios de atención: Lunes a Sábado de 09:00 a 19:00 hrs. Entregas a domicilio y retiro gratuito en local.',
-            'human_notification_phone': ''
-        })
+        try:
+            config, created = AgentConfig.objects.get_or_create(id=1, defaults={
+                'name': 'Paltín',
+                'system_prompt': default_prompt,
+                'additional_info': 'Horarios de atención: Lunes a Sábado de 09:00 a 19:00 hrs. Entregas a domicilio y retiro gratuito en local.',
+                'human_notification_phone': ''
+            })
 
-        if not config.system_prompt:
-            config.system_prompt = default_prompt
-            config.save()
+            if not config.system_prompt:
+                config.system_prompt = default_prompt
+                config.save()
 
-        return Response(AgentConfigSerializer(config).data)
+            return Response(AgentConfigSerializer(config).data)
+        except Exception:
+            return Response({
+                'id': 1,
+                'name': 'Paltín',
+                'system_prompt': default_prompt,
+                'additional_info': 'Horarios de atención: Lunes a Sábado de 09:00 a 19:00 hrs.',
+                'human_notification_phone': '',
+                'whatsapp_connected_phone': '',
+                'ai_provider': 'claude',
+                'api_key': ''
+            })
 
     def post(self, request):
-        config, _ = AgentConfig.objects.get_or_create(id=1)
-        serializer = AgentConfigSerializer(config, data=request.data, partial=True)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response(serializer.data)
+        try:
+            config, _ = AgentConfig.objects.get_or_create(id=1)
+            serializer = AgentConfigSerializer(config, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+

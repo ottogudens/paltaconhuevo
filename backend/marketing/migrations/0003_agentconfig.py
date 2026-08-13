@@ -18,7 +18,6 @@ class Migration(migrations.Migration):
                 ('system_prompt', models.TextField(blank=True)),
                 ('additional_info', models.TextField(blank=True)),
                 ('human_notification_phone', models.CharField(blank=True, max_length=30)),
-                ('whatsapp_connected_phone', models.CharField(blank=True, max_length=30)),
                 ('ai_provider', models.CharField(choices=[('claude', 'Claude (Anthropic)'), ('chatgpt', 'ChatGPT (OpenAI)'), ('gemini', 'Gemini (Google)')], default='claude', max_length=20)),
                 ('api_key', models.CharField(blank=True, max_length=255)),
                 ('updated_at', models.DateTimeField(auto_now=True)),

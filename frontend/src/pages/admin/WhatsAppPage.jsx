@@ -223,7 +223,7 @@ export default function WhatsAppPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{chat.phone}</p>
+                      <p className="text-xs text-gray-500 truncate">{chat.displayPhone || chat.phone}</p>
                     </div>
                   ))
                 ) : (
@@ -243,7 +243,7 @@ export default function WhatsAppPage() {
                   <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between shadow-xs">
                     <div>
                       <h3 className="font-bold text-gray-900 text-base">{currentChatData.name}</h3>
-                      <p className="text-xs text-gray-500">{currentChatData.phone}</p>
+                      <p className="text-xs text-gray-500">{currentChatData.displayPhone || currentChatData.phone}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <button

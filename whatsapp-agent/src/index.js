@@ -6,6 +6,7 @@ const cors = require('cors');
 const axios = require('axios');
 const Anthropic = require('@anthropic-ai/sdk');
 const qrcode = require('qrcode-terminal');
+const fs = require('fs');
 const pino = require('pino');
 
 const logger = pino({ level: 'silent' });
@@ -158,7 +159,7 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
   if (session.history.length > 20) session.history = session.history.slice(-20);
 
   const msg = await anthropic.messages.create({
-    model: 'claude-sonnet-4-6',
+    model: 'claude-3-5-sonnet-latest',
     max_tokens: 400,
     system: systemPrompt,
     messages: session.history,
@@ -382,13 +383,33 @@ app.get('/health', (req, res) => res.json({ status: 'ok', connected: isConnected
 app.get('/api/wa/status', (req, res) => res.json({ connected: isConnected, has_qr: !!currentQR }));
 app.get('/api/wa/qr', (req, res) => res.json({ qr: currentQR }));
 app.post('/api/wa/logout', async (req, res) => {
-  if (waSocket) {
-    await waSocket.logout();
+  try {
+    if (waSocket) {
+      try {
+        await waSocket.logout();
+      } catch (e) {
+        console.error('Error enviando logout a WhatsApp:', e.message);
+      }
+      try {
+        waSocket.end(new Error('Logout manual'));
+      } catch {}
+      waSocket = null;
+    }
     isConnected = false;
     currentQR = null;
-    startWhatsApp(); // Restart connection loop
+    sessions.clear();
+
+    if (fs.existsSync('auth_info')) {
+      fs.rmSync('auth_info', { recursive: true, force: true });
+      console.log('🗑️ Carpeta auth_info borrada con éxito');
+    }
+
+    setTimeout(startWhatsApp, 1500);
+    res.json({ success: true });
+  } catch (e) {
+    console.error('Error en /api/wa/logout:', e);
+    res.status(500).json({ error: 'Error al desvincular WhatsApp' });
   }
-  res.json({ success: true });
 });
 
 // Iniciar Baileys
@@ -414,6 +435,10 @@ async function startWhatsApp() {
       } else {
         console.log('Cierre de sesión manual. Borrando auth_info...');
         currentQR = null;
+        if (fs.existsSync('auth_info')) {
+          fs.rmSync('auth_info', { recursive: true, force: true });
+        }
+        setTimeout(startWhatsApp, 2000);
       }
     }
     if (connection === 'open') {
