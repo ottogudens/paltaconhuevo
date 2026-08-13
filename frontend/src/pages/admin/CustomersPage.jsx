@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus, Trash2 } from 'lucide-react'
+import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus, Trash2, Pencil } from 'lucide-react'
 
-function CustomerDetail({ customer, onClose }) {
+function CustomerDetail({ customer, onClose, onEdit }) {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
@@ -54,30 +54,29 @@ function CustomerDetail({ customer, onClose }) {
               <span className="text-sm text-gray-700">Registrado: {customer.created_at ? new Date(customer.created_at).toLocaleDateString('es-CL') : '-'}</span>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-3 mt-2">
-            <div className="p-3 bg-palta-50 rounded-lg text-center">
-              <p className="text-xs text-palta-600 font-medium">Método Pago</p>
-              <p className="text-sm font-bold text-palta-800 capitalize">{customer.preferred_payment_method || '-'}</p>
-            </div>
-            <div className="p-3 bg-huevo-50 rounded-lg text-center">
-              <p className="text-xs text-huevo-700 font-medium">Condición Pago</p>
-              <p className="text-sm font-bold text-huevo-800 capitalize">{customer.preferred_payment_condition || '-'}</p>
-            </div>
-          </div>
         </div>
-        <div className="p-6 border-t border-gray-100 flex justify-end">
+        <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200">Cerrar</button>
+          <button onClick={() => { onClose(); onEdit(customer); }} className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 flex items-center gap-1.5">
+            <Pencil className="w-4 h-4" /> Editar Cliente
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-const EMPTY_CUSTOMER = { first_name: '', last_name: '', phone: '', address: '', commune: '', email: '' }
-
-function CustomerModal({ onClose, onSave }) {
-  const [form, setForm] = useState(EMPTY_CUSTOMER)
+function CustomerModal({ customer, onClose, onSave }) {
+  const isEditing = !!customer
+  const [form, setForm] = useState({
+    first_name: customer?.first_name || '',
+    last_name: customer?.last_name || '',
+    phone: customer?.phone || '',
+    email: customer?.email || '',
+    address: customer?.address || '',
+    commune: customer?.commune || '',
+    whatsapp_number: customer?.whatsapp_number || ''
+  })
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e) => {
@@ -88,12 +87,16 @@ function CustomerModal({ onClose, onSave }) {
     }
     setSaving(true)
     try {
-      await api.post('/auth/customers/', form)
+      if (isEditing) {
+        await api.patch(`/auth/customers/${customer.id}/`, form)
+      } else {
+        await api.post('/auth/customers/', form)
+      }
       onSave()
       onClose()
     } catch (e) {
       console.error(e)
-      alert('Error al crear el cliente')
+      alert(isEditing ? 'Error al actualizar el cliente' : 'Error al crear el cliente')
     } finally { setSaving(false) }
   }
 
@@ -101,7 +104,7 @@ function CustomerModal({ onClose, onSave }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Nuevo Cliente</h2>
+          <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -139,11 +142,17 @@ function CustomerModal({ onClose, onSave }) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Santiago" />
             </div>
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <input type="text" value={form.whatsapp_number} onChange={e => setForm({...form, whatsapp_number: e.target.value})}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
+          </div>
           <div className="flex justify-end gap-3 pt-3">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving}
               className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center gap-2">
-              <Plus className="w-4 h-4" /> {saving ? 'Guardando...' : 'Crear Cliente'}
+              {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+              {saving ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear Cliente')}
             </button>
           </div>
         </form>
@@ -158,6 +167,7 @@ export default function CustomersPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [customerToEdit, setCustomerToEdit] = useState(null)
   const [importing, setImporting] = useState(false)
 
   const fetchCustomers = async () => {
@@ -227,7 +237,7 @@ export default function CustomersPage() {
   }
 
   return (
-    <AdminLayout>
+    <AdminLayout title="Clientes">
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -299,6 +309,9 @@ export default function CustomersPage() {
                           <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Ver detalle">
                             <Eye className="w-4 h-4" />
                           </button>
+                          <button onClick={(e) => { e.stopPropagation(); setCustomerToEdit(c); }} className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600" title="Editar cliente">
+                            <Pencil className="w-4 h-4" />
+                          </button>
                           <button onClick={(e) => handleDeleteCustomer(e, c.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-500" title="Eliminar cliente">
                             <Trash2 className="w-4 h-4" />
                           </button>
@@ -318,8 +331,9 @@ export default function CustomersPage() {
         </div>
       </div>
 
-      {selected && <CustomerDetail customer={selected} onClose={() => setSelected(null)} />}
+      {selected && <CustomerDetail customer={selected} onClose={() => setSelected(null)} onEdit={(cust) => setCustomerToEdit(cust)} />}
       {showCreateModal && <CustomerModal onClose={() => setShowCreateModal(false)} onSave={fetchCustomers} />}
+      {customerToEdit && <CustomerModal customer={customerToEdit} onClose={() => setCustomerToEdit(null)} onSave={fetchCustomers} />}
     </AdminLayout>
   )
 }

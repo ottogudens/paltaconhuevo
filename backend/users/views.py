@@ -171,8 +171,11 @@ class CustomerListView(generics.ListCreateAPIView):
         serializer.save(role='cliente')
 
 class CustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
-    serializer_class = UserSerializer
     queryset = User.objects.filter(role='cliente')
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return CreateUserSerializer
+        return UserSerializer
 
 class SystemUserListView(generics.ListCreateAPIView):
     def get_serializer_class(self):
