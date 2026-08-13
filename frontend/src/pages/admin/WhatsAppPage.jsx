@@ -541,10 +541,17 @@ export default function WhatsAppPage() {
                     <Smartphone className="w-8 h-8 text-gray-400" />
                   </div>
                   <h2 className="text-xl font-medium text-gray-900 mb-2">Generando código QR...</h2>
-                  <p className="text-gray-500 text-sm">
-                    El agente está preparando el código para que lo escanees. Esto puede tomar unos segundos.
+                  <p className="text-gray-500 text-sm mb-4">
+                    El agente está preparando el código para que lo escanees. Si no aparece en unos segundos, haz clic en el botón de abajo.
                   </p>
-                  <RefreshCw className="w-6 h-6 text-palta-500 animate-spin mt-6" />
+                  <RefreshCw className="w-6 h-6 text-palta-500 animate-spin mb-6" />
+
+                  <button
+                    onClick={handleLogout}
+                    className="px-5 py-2.5 bg-palta-600 hover:bg-palta-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Forzar generación de nuevo QR
+                  </button>
                 </div>
               )}
 
