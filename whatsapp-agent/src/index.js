@@ -382,6 +382,37 @@ app.post('/send', (req, res) => {
 app.get('/health', (req, res) => res.json({ status: 'ok', connected: isConnected }));
 app.get('/api/wa/status', (req, res) => res.json({ connected: isConnected, has_qr: !!currentQR }));
 app.get('/api/wa/qr', (req, res) => res.json({ qr: currentQR }));
+app.post('/api/wa/pairing-code', async (req, res) => {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      return res.status(400).json({ error: 'Debes ingresar un número de teléfono.' });
+    }
+    if (!waSocket) {
+      return res.status(500).json({ error: 'El agente de WhatsApp no se ha inicializado todavía.' });
+    }
+    if (isConnected) {
+      return res.status(400).json({ error: 'WhatsApp ya está conectado.' });
+    }
+
+    let cleanPhone = phone.replace(/\D/g, '');
+    if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
+      cleanPhone = '56' + cleanPhone;
+    }
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+      return res.status(400).json({ error: 'Número no válido. Debe incluir código de país (ej: 56912345678).' });
+    }
+
+    const code = await waSocket.requestPairingCode(cleanPhone);
+    const formattedCode = code ? (code.includes('-') ? code : code.match(/.{1,4}/g)?.join('-') || code) : code;
+
+    res.json({ code: formattedCode, phone: cleanPhone });
+  } catch (error) {
+    console.error('Error al generar código de vinculación por número:', error);
+    res.status(500).json({ error: error.message || 'Error al solicitar el código de vinculación a WhatsApp.' });
+  }
+});
 app.post('/api/wa/logout', async (req, res) => {
   try {
     if (waSocket) {

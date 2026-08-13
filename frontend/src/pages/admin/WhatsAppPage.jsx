@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2, Settings, UserCheck, Send, Bot, AlertCircle, Phone, Info, Save } from 'lucide-react'
+import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2, Settings, UserCheck, Send, Bot, AlertCircle, Phone, Info, Save, Copy, Check, QrCode, Hash } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
 const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agente-production-a1fc.up.railway.app/api/wa')
@@ -13,7 +13,7 @@ export default function WhatsAppPage() {
   const [loading, setLoading] = useState(true)
 
   // Config del Agente
-  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', system_prompt: '', additional_info: '', human_notification_phone: '' })
+  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', system_prompt: '', additional_info: '', human_notification_phone: '', ai_provider: 'claude', api_key: '', whatsapp_connected_phone: '' })
   const [savingConfig, setSavingConfig] = useState(false)
 
   // Live Chats
@@ -22,6 +22,14 @@ export default function WhatsAppPage() {
   const [currentChatData, setCurrentChatData] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
+
+  // Vinculación por número de teléfono
+  const [pairingMethod, setPairingMethod] = useState('qr') // 'qr' | 'phone'
+  const [phoneToPair, setPhoneToPair] = useState('')
+  const [pairingCode, setPairingCode] = useState(null)
+  const [requestingCode, setRequestingCode] = useState(false)
+  const [codeError, setCodeError] = useState(null)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   // Cargar estado de WA
   const fetchStatus = async () => {
@@ -72,6 +80,9 @@ export default function WhatsAppPage() {
     try {
       const res = await api.get('/marketing/agent-config/')
       setAgentConfig(res.data)
+      if (res.data?.whatsapp_connected_phone && !phoneToPair) {
+        setPhoneToPair(res.data.whatsapp_connected_phone)
+      }
     } catch (e) {
       console.error('Error fetching agent config:', e)
     }
@@ -143,11 +154,45 @@ export default function WhatsAppPage() {
     setLoading(true)
     try {
       await fetch(`${WA_API_URL}/logout`, { method: 'POST' })
+      setPairingCode(null)
       await fetchStatus()
     } catch (e) {
       alert('Error al desvincular WhatsApp')
     }
     setLoading(false)
+  }
+
+  const handleRequestPairingCode = async (e) => {
+    if (e) e.preventDefault()
+    if (!phoneToPair.trim()) {
+      setCodeError('Por favor ingresa un número de teléfono.')
+      return
+    }
+    setRequestingCode(true)
+    setCodeError(null)
+    try {
+      const res = await fetch(`${WA_API_URL}/pairing-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneToPair })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.error || 'Error al generar el código')
+      }
+      setPairingCode(data.code)
+    } catch (err) {
+      setCodeError(err.message)
+    } finally {
+      setRequestingCode(false)
+    }
+  }
+
+  const handleCopyCode = () => {
+    if (!pairingCode) return
+    navigator.clipboard.writeText(pairingCode.replace(/\s+/g, ''))
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
   }
 
   return (
@@ -184,7 +229,7 @@ export default function WhatsAppPage() {
               onClick={() => setActiveTab('qr')}
               className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'qr' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
             >
-              <Smartphone className="w-4 h-4" /> Vincular QR
+              <Smartphone className="w-4 h-4" /> Vinculación WhatsApp
             </button>
           </div>
         </div>
@@ -199,275 +244,161 @@ export default function WhatsAppPage() {
                 <h3 className="font-bold text-gray-800 text-sm">Conversaciones ({chats.length})</h3>
                 <button onClick={fetchChats} className="p-1 text-gray-400 hover:text-palta-600"><RefreshCw className="w-4 h-4" /></button>
               </div>
-              <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
-                {chats.length > 0 ? (
+              <div className="divide-y divide-gray-100 overflow-y-auto max-h-[500px] flex-1">
+                {chats.length === 0 ? (
+                  <p className="p-6 text-center text-sm text-gray-400">No hay chats activos</p>
+                ) : (
                   chats.map(chat => (
                     <div
                       key={chat.phone}
                       onClick={() => setSelectedChatPhone(chat.phone)}
-                      className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors ${selectedChatPhone === chat.phone ? 'bg-palta-50/60 border-l-4 border-palta-600' : ''}`}
+                      className={`p-4 cursor-pointer hover:bg-gray-50 transition-colors flex items-start justify-between ${selectedChatPhone === chat.phone ? 'bg-palta-50 border-l-4 border-palta-600' : ''}`}
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-gray-900 text-sm truncate">{chat.name}</span>
-                        {chat.pendingHuman ? (
-                          <span className="text-[10px] bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-bold animate-pulse flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" /> Requiere Humano
-                          </span>
-                        ) : chat.isHumanMode ? (
-                          <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full font-bold">
-                            Modo Humano
-                          </span>
-                        ) : (
-                          <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                            <Bot className="w-3 h-3" /> IA Activa
-                          </span>
-                        )}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-gray-900">{chat.name}</span>
+                          {chat.pendingHuman && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-bold animate-pulse">
+                              Derivado
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-500">{chat.phone}</p>
                       </div>
-                      <p className="text-xs text-gray-500 truncate">{chat.displayPhone || chat.phone}</p>
+                      <div className="text-right">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${chat.isHumanMode ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
+                          {chat.isHumanMode ? 'Humano' : 'IA (Paltín)'}
+                        </span>
+                      </div>
                     </div>
                   ))
-                ) : (
-                  <div className="p-8 text-center text-gray-400 text-sm">
-                    <MessageSquare className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-                    No hay conversaciones activas aún.
-                  </div>
                 )}
               </div>
             </div>
 
             {/* Ventana de Chat */}
-            <div className="md:col-span-2 flex flex-col bg-gray-50/50">
+            <div className="col-span-2 flex flex-col bg-gray-50/50">
               {selectedChatPhone && currentChatData ? (
                 <>
-                  {/* Chat Header */}
-                  <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between shadow-xs">
+                  {/* Header Chat */}
+                  <div className="p-4 bg-white border-b border-gray-100 flex items-center justify-between shadow-2xs">
                     <div>
-                      <h3 className="font-bold text-gray-900 text-base">{currentChatData.name}</h3>
-                      <p className="text-xs text-gray-500">{currentChatData.displayPhone || currentChatData.phone}</p>
+                      <h3 className="font-bold text-gray-900">{currentChatData.name}</h3>
+                      <p className="text-xs text-gray-400">{currentChatData.phone}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => handleToggleHumanMode(currentChatData.phone, currentChatData.isHumanMode)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 ${
-                          currentChatData.isHumanMode
-                            ? 'bg-purple-600 text-white hover:bg-purple-700'
-                            : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                        }`}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${currentChatData.isHumanMode ? 'bg-palta-100 text-palta-700 hover:bg-palta-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-2xs'}`}
                       >
-                        {currentChatData.isHumanMode ? <UserCheck className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                        {currentChatData.isHumanMode ? 'Modo Humano (Intervenir)' : 'Activar Modo Humano'}
+                        {currentChatData.isHumanMode ? <Bot className="w-3.5 h-3.5" /> : <UserCheck className="w-3.5 h-3.5" />}
+                        {currentChatData.isHumanMode ? 'Devolver a IA (Paltín)' : 'Tomar Control Humano'}
                       </button>
                     </div>
                   </div>
 
-                  {/* Mensajes del Chat */}
-                  <div className="flex-1 p-4 overflow-y-auto space-y-3">
-                    {(currentChatData.messages || []).map((m, idx) => {
-                      const isCustomer = m.sender === 'customer'
-                      const isOperator = m.sender === 'operator'
-                      return (
-                        <div key={idx} className={`flex flex-col ${isCustomer ? 'items-start' : 'items-end'}`}>
-                          <div className={`max-w-[75%] p-3 rounded-2xl text-sm shadow-xs ${
-                            isCustomer
-                              ? 'bg-white text-gray-800 rounded-tl-xs border border-gray-100'
-                              : isOperator
-                              ? 'bg-palta-600 text-white rounded-tr-xs'
-                              : 'bg-green-100 text-green-900 rounded-tr-xs border border-green-200'
-                          }`}>
-                            <p className="text-xs font-semibold mb-1 opacity-75">
-                              {isCustomer ? 'Cliente' : isOperator ? 'Operador Humano' : 'Paltín (IA)'}
-                            </p>
-                            <p className="whitespace-pre-wrap">{m.text}</p>
-                            <span className="text-[10px] opacity-60 mt-1 block text-right">
-                              {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
+                  {/* Mensajes */}
+                  <div className="flex-1 p-4 overflow-y-auto space-y-3 max-h-[420px]">
+                    {currentChatData.messages.map((m, idx) => (
+                      <div
+                        key={idx}
+                        className={`flex flex-col ${m.sender === 'customer' ? 'items-start' : 'items-end'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] p-3 rounded-2xl text-sm ${m.sender === 'customer' ? 'bg-white text-gray-800 shadow-2xs border border-gray-100 rounded-tl-none' : m.sender === 'operator' ? 'bg-blue-600 text-white shadow-2xs rounded-tr-none' : 'bg-palta-600 text-white shadow-2xs rounded-tr-none'}`}
+                        >
+                          <p className="whitespace-pre-wrap leading-relaxed">{m.text}</p>
+                          <span className={`text-[10px] block mt-1 text-right ${m.sender === 'customer' ? 'text-gray-400' : 'text-white/70'}`}>
+                            {m.sender === 'customer' ? 'Cliente' : m.sender === 'operator' ? 'Operador' : 'Paltín IA'} • {new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                      )
-                    })}
+                      </div>
+                    ))}
                   </div>
 
-                  {/* Formulario para Responder */}
+                  {/* Input Respuesta */}
                   <form onSubmit={handleSendReply} className="p-3 bg-white border-t border-gray-100 flex gap-2">
                     <input
                       type="text"
-                      placeholder="Escribe un mensaje para responder al cliente como operador..."
                       value={replyText}
                       onChange={e => setReplyText(e.target.value)}
-                      className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-palta-500"
+                      placeholder="Escribe un mensaje (asumes el control manual)..."
+                      className="flex-1 px-4 py-2 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-palta-500"
                     />
                     <button
                       type="submit"
-                      disabled={sendingReply || !replyText.trim()}
-                      className="px-4 py-2.5 bg-palta-600 text-white font-medium rounded-xl hover:bg-palta-700 disabled:opacity-50 flex items-center gap-1"
+                      disabled={sendingReply}
+                      className="px-4 py-2 bg-palta-600 hover:bg-palta-700 text-white font-bold rounded-xl text-sm transition-colors flex items-center gap-1.5 shadow"
                     >
-                      <Send className="w-4 h-4" /> Responder
+                      <Send className="w-4 h-4" /> Enviar
                     </button>
                   </form>
                 </>
               ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-8 text-gray-400">
-                  <MessageSquare className="w-12 h-12 mb-3 text-gray-300" />
-                  <p className="font-medium text-gray-600">Selecciona un chat de la izquierda</p>
-                  <p className="text-xs text-gray-400 mt-1">Podrás ver la conversación en tiempo real y responder manualmente cuando sea derivado a un humano.</p>
+                <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-gray-400">
+                  <MessageSquare className="w-12 h-12 stroke-1 mb-2 text-gray-300" />
+                  <p className="text-sm">Selecciona una conversación a la izquierda para ver los mensajes o responder.</p>
                 </div>
               )}
             </div>
-
           </div>
         )}
 
-        {/* TAB 2: CONFIGURACIÓN DEL PROMPT E INFORMACIÓN DEL AGENTE */}
+        {/* TAB 2: CONFIGURACIÓN DEL AGENTE */}
         {activeTab === 'config' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Bot className="w-6 h-6 text-palta-600" />
-                Configuración del Agente IA (Paltín)
-              </h2>
-              <p className="text-sm text-gray-500 mt-1">Personaliza las instrucciones del sistema, prompt principal e información de contacto para derivación humana.</p>
-            </div>
+            <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center gap-2">
+              <Bot className="w-5 h-5 text-palta-600" /> Personalidad y Reglas de la IA
+            </h2>
 
             <form onSubmit={handleSaveConfig} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Asistente</label>
-                  <input
-                    type="text"
-                    value={agentConfig.name || 'Paltín'}
-                    onChange={e => setAgentConfig({ ...agentConfig, name: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono de WhatsApp Vinculado (Predeterminado)</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={agentConfig.whatsapp_connected_phone || ''}
-                      onChange={e => setAgentConfig({ ...agentConfig, whatsapp_connected_phone: e.target.value })}
-                      className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500"
-                      placeholder="+56912345678 (Se usará al redirigir nuevos clientes desde el registro)"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Selección de Modelo / Proveedor de IA */}
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-4">
-                <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
-                  <Bot className="w-4 h-4 text-palta-600" /> Motor de Inteligencia Artificial
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <label className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${agentConfig.ai_provider === 'claude' ? 'bg-palta-50 border-palta-500 ring-2 ring-palta-500/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
-                    <input type="radio" name="ai_provider" value="claude" checked={agentConfig.ai_provider === 'claude'} onChange={e => setAgentConfig({...agentConfig, ai_provider: e.target.value})} className="text-palta-600" />
-                    <div>
-                      <p className="font-bold text-xs text-gray-900">Claude (Anthropic)</p>
-                      <p className="text-[10px] text-gray-500">Sonnet 3.5 / Haiku</p>
-                    </div>
-                  </label>
-
-                  <label className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${agentConfig.ai_provider === 'chatgpt' ? 'bg-palta-50 border-palta-500 ring-2 ring-palta-500/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
-                    <input type="radio" name="ai_provider" value="chatgpt" checked={agentConfig.ai_provider === 'chatgpt'} onChange={e => setAgentConfig({...agentConfig, ai_provider: e.target.value})} className="text-palta-600" />
-                    <div>
-                      <p className="font-bold text-xs text-gray-900">ChatGPT (OpenAI)</p>
-                      <p className="text-[10px] text-gray-500">GPT-4o / GPT-4o-mini</p>
-                    </div>
-                  </label>
-
-                  <label className={`p-3 rounded-lg border cursor-pointer transition-all flex items-center gap-3 ${agentConfig.ai_provider === 'gemini' ? 'bg-palta-50 border-palta-500 ring-2 ring-palta-500/20' : 'bg-white border-gray-200 hover:bg-gray-50'}`}>
-                    <input type="radio" name="ai_provider" value="gemini" checked={agentConfig.ai_provider === 'gemini'} onChange={e => setAgentConfig({...agentConfig, ai_provider: e.target.value})} className="text-palta-600" />
-                    <div>
-                      <p className="font-bold text-xs text-gray-900">Gemini (Google)</p>
-                      <p className="text-[10px] text-gray-500">Gemini 1.5 Pro / Flash</p>
-                    </div>
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">API Key Personalizada ({agentConfig.ai_provider ? agentConfig.ai_provider.toUpperCase() : 'IA'})</label>
-                  <input
-                    type="password"
-                    value={agentConfig.api_key || ''}
-                    onChange={e => setAgentConfig({ ...agentConfig, api_key: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm font-mono"
-                    placeholder="sk-ant-... / sk-... / AIzaSy..."
-                  />
-                  <p className="text-[11px] text-gray-400 mt-1">Si la dejas en blanco, se utilizará la clave de API configurada en el servidor por defecto.</p>
-                </div>
-              </div>
-
-              {/* Mini Tutorial para Obtener API Keys */}
-              <div className="p-4 bg-blue-50/70 rounded-xl border border-blue-100 text-xs space-y-3">
-                <h4 className="font-bold text-blue-900 flex items-center gap-1.5">
-                  <Info className="w-4 h-4 text-blue-600" /> Guía para Obtener las Claves de API (API Keys)
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-blue-800">
-                  <div className="bg-white p-3 rounded-lg shadow-2xs border border-blue-100">
-                    <p className="font-bold text-blue-950 mb-1">🟧 Claude (Anthropic):</p>
-                    <ol className="list-decimal list-inside space-y-1 text-[11px]">
-                      <li>Ingresa a <a href="https://console.anthropic.com/" target="_blank" rel="noreferrer" className="underline font-semibold">console.anthropic.com</a></li>
-                      <li>Inicia sesión o crea una cuenta.</li>
-                      <li>Ve a <strong>API Keys</strong> y haz clic en <strong>Create Key</strong>.</li>
-                    </ol>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg shadow-2xs border border-blue-100">
-                    <p className="font-bold text-blue-950 mb-1">🟩 ChatGPT (OpenAI):</p>
-                    <ol className="list-decimal list-inside space-y-1 text-[11px]">
-                      <li>Ingresa a <a href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer" className="underline font-semibold">platform.openai.com</a></li>
-                      <li>Inicia sesión en tu cuenta.</li>
-                      <li>Haz clic en <strong>Create new secret key</strong>.</li>
-                    </ol>
-                  </div>
-
-                  <div className="bg-white p-3 rounded-lg shadow-2xs border border-blue-100">
-                    <p className="font-bold text-blue-950 mb-1">🟦 Gemini (Google AI):</p>
-                    <ol className="list-decimal list-inside space-y-1 text-[11px]">
-                      <li>Ingresa a <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="underline font-semibold">aistudio.google.com</a></li>
-                      <li>Inicia sesión con tu cuenta de Google.</li>
-                      <li>Haz clic en <strong>Get API key</strong> y luego en <strong>Create API key</strong>.</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">System Prompt / Instrucciones de Comportamiento</label>
-                <textarea
-                  rows={5}
-                  value={agentConfig.system_prompt}
-                  onChange={e => setAgentConfig({ ...agentConfig, system_prompt: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 font-mono"
-                  placeholder="Instrucciones con las que responderá el bot de IA..."
+                <label className="block text-sm font-medium text-gray-700 mb-1">Nombre del Asistente</label>
+                <input
+                  type="text"
+                  value={agentConfig.name}
+                  onChange={e => setAgentConfig({ ...agentConfig, name: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Información Adicional del Negocio</label>
-                <textarea
-                  rows={3}
-                  value={agentConfig.additional_info}
-                  onChange={e => setAgentConfig({ ...agentConfig, additional_info: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500"
-                  placeholder="Horarios de atención, políticas de despacho, promociones especiales..."
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor de Inteligencia Artificial (LLM)</label>
+                <select
+                  value={agentConfig.ai_provider || 'claude'}
+                  onChange={e => setAgentConfig({ ...agentConfig, ai_provider: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white font-medium text-gray-800"
+                >
+                  <option value="claude">Claude 3.5 Sonnet (Anthropic) - Recomendado</option>
+                  <option value="chatgpt">ChatGPT / GPT-4o (OpenAI)</option>
+                  <option value="gemini">Gemini 1.5 Flash (Google AI)</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Selecciona el cerebro con el que responderá Paltín a tus clientes.</p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono para Notificaciones de Operador Humano</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clave de API (API Key)</label>
+                <input
+                  type="password"
+                  value={agentConfig.api_key || ''}
+                  onChange={e => setAgentConfig({ ...agentConfig, api_key: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 font-mono"
+                  placeholder="sk-ant-... o sk-... (Deja en blanco si usas las credenciales por defecto)"
+                />
+                <p className="text-xs text-gray-400 mt-1">Si ingresas una clave aquí, el sistema utilizará tu propia cuenta del proveedor seleccionado.</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono de WhatsApp Vinculado (Predeterminado)</label>
                 <div className="relative">
                   <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    value={agentConfig.human_notification_phone || ''}
-                    onChange={e => setAgentConfig({ ...agentConfig, human_notification_phone: e.target.value })}
+                    value={agentConfig.whatsapp_connected_phone || ''}
+                    onChange={e => setAgentConfig({ ...agentConfig, whatsapp_connected_phone: e.target.value })}
                     className="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500"
-                    placeholder="+56912345678 (Número al que el bot enviará la alerta cuando un cliente pida hablar con un humano)"
+                    placeholder="+56912345678 (Número oficial de tu tienda)"
                   />
                 </div>
               </div>
@@ -485,16 +416,33 @@ export default function WhatsAppPage() {
           </div>
         )}
 
-        {/* TAB 3: VINCULAR CÓDIGO QR */}
+        {/* TAB 3: VINCULACIÓN WHATSAPP (QR O NÚMERO TELEFÓNICO) */}
         {activeTab === 'qr' && (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            
+            {!status.connected && (
+              <div className="flex border-b border-gray-100 bg-gray-50/50 p-2 gap-2 justify-center">
+                <button
+                  onClick={() => setPairingMethod('qr')}
+                  className={`px-5 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all flex items-center gap-2 ${pairingMethod === 'qr' ? 'bg-white text-palta-700 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <QrCode className="w-4 h-4 text-palta-600" /> Escanear Código QR
+                </button>
+                <button
+                  onClick={() => setPairingMethod('phone')}
+                  className={`px-5 py-2 text-xs md:text-sm font-semibold rounded-xl transition-all flex items-center gap-2 ${pairingMethod === 'phone' ? 'bg-white text-palta-700 shadow-sm border border-gray-200' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                  <Phone className="w-4 h-4 text-palta-600" /> Número de Teléfono (Código)
+                </button>
+              </div>
+            )}
+
             <div className="p-8 flex flex-col items-center justify-center min-h-[400px]">
               
               {loading && !qr && !status.connected ? (
                 <div className="flex flex-col items-center">
                   <RefreshCw className="w-8 h-8 text-palta-500 animate-spin mb-4" />
                   <p className="text-gray-500">Conectando con el agente...</p>
-                  <p className="text-xs text-gray-400 mt-2">Asegúrate de que el agente de WhatsApp esté corriendo.</p>
                 </div>
               ) : status.connected ? (
                 <div className="flex flex-col items-center text-center max-w-md">
@@ -502,13 +450,111 @@ export default function WhatsAppPage() {
                     <CheckCircle2 className="w-10 h-10 text-green-600" />
                   </div>
                   <h2 className="text-2xl font-bold text-gray-900 mb-2">¡WhatsApp Conectado!</h2>
-                  <p className="text-gray-600 mb-8">
-                    Paltín está activo y la sesión se mantiene guardada persistentemente incluso ante reinicios.
-                  </p>
+                  <p className="text-gray-600 mb-8">La cuenta se encuentra vinculada correctamente.</p>
                   <button onClick={handleLogout}
                     className="px-6 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 font-medium rounded-lg transition-colors flex items-center gap-2">
                     <LogOut className="w-4 h-4" /> Desvincular Cuenta
                   </button>
+                </div>
+              ) : pairingMethod === 'phone' ? (
+                <div className="max-w-md w-full space-y-6">
+                  <div className="text-center space-y-2">
+                    <div className="w-12 h-12 bg-palta-100 text-palta-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <Hash className="w-6 h-6" />
+                    </div>
+                    <h2 className="text-xl font-bold text-gray-900">Vincular por Número Telefónico</h2>
+                    <p className="text-sm text-gray-500">
+                      Ingresa tu número de WhatsApp para recibir un código de 8 dígitos e ingresarlo en tu teléfono.
+                    </p>
+                  </div>
+
+                  {!pairingCode ? (
+                    <form onSubmit={handleRequestPairingCode} className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1">
+                          Número de Teléfono (con código de país)
+                        </label>
+                        <div className="relative">
+                          <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="text"
+                            value={phoneToPair}
+                            onChange={e => setPhoneToPair(e.target.value)}
+                            placeholder="Ej: +56912345678"
+                            className="w-full pl-9 pr-3 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-palta-500 font-mono"
+                            required
+                          />
+                        </div>
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          Ejemplo para Chile: +56912345678 o 56912345678
+                        </p>
+                      </div>
+
+                      {codeError && (
+                        <div className="p-3 bg-red-50 text-red-600 text-xs rounded-xl flex items-center gap-2 border border-red-100">
+                          <AlertCircle className="w-4 h-4 shrink-0" />
+                          <span>{codeError}</span>
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={requestingCode}
+                        className="w-full py-3 bg-palta-600 hover:bg-palta-700 text-white font-bold text-sm rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                      >
+                        {requestingCode ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" /> Solicitando Código...
+                          </>
+                        ) : (
+                          'Obtener Código de Vinculación'
+                        )}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="space-y-6 text-center">
+                      <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl">
+                        <p className="text-xs font-semibold text-emerald-800 uppercase tracking-wider mb-2">
+                          Tu Código de Vinculación
+                        </p>
+                        <div className="flex items-center justify-center gap-3">
+                          <span className="text-3xl md:text-4xl font-extrabold tracking-widest text-emerald-950 font-mono bg-white px-5 py-3 rounded-xl border border-emerald-200 shadow-inner">
+                            {pairingCode}
+                          </span>
+                          <button
+                            onClick={handleCopyCode}
+                            className="p-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow transition-colors flex items-center justify-center"
+                            title="Copiar código"
+                          >
+                            {codeCopied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                          </button>
+                        </div>
+                        {codeCopied && (
+                          <p className="text-xs text-emerald-700 font-medium mt-2">¡Código copiado al portapapeles!</p>
+                        )}
+                      </div>
+
+                      <div className="bg-gray-50 p-4 rounded-xl text-left border border-gray-200 text-xs text-gray-700 space-y-2">
+                        <p className="font-bold text-gray-900">Pasos en tu teléfono:</p>
+                        <ol className="list-decimal list-inside space-y-1.5 leading-relaxed">
+                          <li>Abre <strong>WhatsApp</strong> en tu teléfono.</li>
+                          <li>Ve a <strong>Menú (⋮)</strong> o <strong>Configuración</strong>.</li>
+                          <li>Toca <strong>Dispositivos vinculados</strong> y luego <strong>Vincular un dispositivo</strong>.</li>
+                          <li>En la pantalla del escáner, toca <strong>"Vincular con el número de teléfono"</strong> (al pie).</li>
+                          <li>Ingresa el código <strong className="font-mono bg-yellow-100 px-1 py-0.5 rounded">{pairingCode}</strong>.</li>
+                        </ol>
+                      </div>
+
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => setPairingCode(null)}
+                          className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold text-xs rounded-xl transition-colors"
+                        >
+                          Solicitar con otro número
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : qr ? (
                 <div className="flex flex-col md:flex-row items-center gap-8 md:gap-12 w-full max-w-2xl">
@@ -547,7 +593,7 @@ export default function WhatsAppPage() {
                   <RefreshCw className="w-6 h-6 text-palta-500 animate-spin mb-6" />
 
                   <button
-                    onClick={handleLogout}
+                    onClick={fetchStatus}
                     className="px-5 py-2.5 bg-palta-600 hover:bg-palta-700 text-white font-semibold text-sm rounded-xl shadow-md transition-all flex items-center gap-2"
                   >
                     <RefreshCw className="w-4 h-4" /> Forzar generación de nuevo QR
