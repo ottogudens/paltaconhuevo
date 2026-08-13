@@ -1,12 +1,82 @@
-from rest_framework import generics, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.authtoken.models import Token
-from rest_framework.permissions import AllowAny, IsAuthenticated
+import logging
+
+from django.conf import settings
+from django.contrib.auth import get_user_model
+from django.db.models import Q
 from django.http import HttpResponse
 import openpyxl
-from .models import User
-from .serializers import UserSerializer, RegisterSerializer, LoginSerializer
+from rest_framework import generics, status
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.authtoken.models import Token
+from rest_framework.views import APIView
+
+from core.permissions import IsAdmin, IsAdminOrVendedor, IsWhatsAppService
+from .models import PasswordResetToken
+from .serializers import (
+    UserSerializer,
+    RegisterSerializer,
+    LoginSerializer,
+    CreateUserSerializer,
+)
+
+User = get_user_model()
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _phone_variants(phone: str) -> list:
+    """Genera variantes normalizadas de un número de teléfono chileno."""
+    clean = ''.join(filter(str.isdigit, phone))
+    variants = [phone]
+    if clean:
+        variants.append(clean)
+        if len(clean) == 9:
+            variants += [f"+56{clean}", f"56{clean}"]
+        elif len(clean) == 11 and clean.startswith('569'):
+            variants += [clean[2:], f"+{clean}"]
+    return list(dict.fromkeys(variants))  # deduplica manteniendo orden
+
+
+def _send_reset_email(user, token_str: str) -> bool:
+    """Envía el email de recuperación con SendGrid. Retorna True si tuvo éxito."""
+    try:
+        import sendgrid
+        from sendgrid.helpers.mail import Mail
+
+        api_key = getattr(settings, 'SENDGRID_API_KEY', '')
+        from_email = getattr(settings, 'SENDGRID_FROM_EMAIL', 'noreply@paltaconhuevo.cl')
+        if not api_key:
+            logger.error("SENDGRID_API_KEY no configurada; no se pudo enviar email de reset.")
+            return False
+
+        message = Mail(
+            from_email=from_email,
+            to_emails=user.email,
+            subject="Recuperación de contraseña — Palta con Huevo",
+            html_content=(
+                f"<p>Hola {user.first_name or user.username},</p>"
+                f"<p>Tu código de recuperación de contraseña es:</p>"
+                f"<h2 style='letter-spacing:4px'>{token_str}</h2>"
+                f"<p>Este código expira en <strong>15 minutos</strong>.</p>"
+                f"<p>Si no solicitaste este cambio, ignora este mensaje.</p>"
+                f"<p>— Equipo Palta con Huevo 🥑</p>"
+            ),
+        )
+        sg = sendgrid.SendGridAPIClient(api_key=api_key)
+        sg.send(message)
+        return True
+    except Exception as exc:
+        logger.exception("Error enviando email de reset: %s", exc)
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Auth público
+# ---------------------------------------------------------------------------
 
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
@@ -17,7 +87,11 @@ class RegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({'token': token.key, 'user': UserSerializer(user).data}, status=status.HTTP_201_CREATED)
+        return Response(
+            {'token': token.key, 'user': UserSerializer(user).data},
+            status=status.HTTP_201_CREATED,
+        )
+
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
@@ -29,58 +103,66 @@ class LoginView(APIView):
         token, _ = Token.objects.get_or_create(user=user)
         return Response({'token': token.key, 'user': UserSerializer(user).data})
 
+
+# ---------------------------------------------------------------------------
+# C2 — WhatsAppAuthView: solo el agente Node puede llamarlo
+# ---------------------------------------------------------------------------
+
 class WhatsAppAuthView(APIView):
-    permission_classes = [AllowAny]
+    """
+    Endpoint exclusivo para el agente WhatsApp.
+    Protegido con IsWhatsAppService: requiere
+      Authorization: Bearer <WHATSAPP_SERVICE_TOKEN>
+    """
+    permission_classes = [IsWhatsAppService]
 
     def post(self, request):
         phone = str(request.data.get('phone', '')).strip()
         name = str(request.data.get('name', '')).strip()
 
         if not phone:
-            return Response({'error': 'El teléfono es requerido'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'error': 'El teléfono es requerido'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
+        phone_variants = _phone_variants(phone)
         clean_digits = ''.join(filter(str.isdigit, phone))
-        phone_variants = [phone]
-        if clean_digits:
-            phone_variants.append(clean_digits)
-            if len(clean_digits) == 9:
-                phone_variants.append(f"+56{clean_digits}")
-                phone_variants.append(f"56{clean_digits}")
-            elif len(clean_digits) == 11 and clean_digits.startswith('569'):
-                phone_variants.append(clean_digits[2:])
-                phone_variants.append(f"+{clean_digits}")
 
-        from django.db.models import Q
         user = User.objects.filter(
-            Q(phone__in=phone_variants) |
-            Q(whatsapp_number__in=phone_variants) |
-            Q(username__in=phone_variants)
+            Q(phone__in=phone_variants)
+            | Q(whatsapp_number__in=phone_variants)
+            | Q(username__in=phone_variants)
         ).first()
 
         if user:
-            if name and (not user.first_name or user.first_name.startswith('569') or user.first_name == 'wa'):
+            if name and (
+                not user.first_name
+                or user.first_name.startswith('569')
+                or user.first_name == 'wa'
+            ):
                 parts = name.split(' ')
                 user.first_name = parts[0]
                 user.last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
-                user.save()
+                user.save(update_fields=['first_name', 'last_name'])
             token, _ = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
                 'user': UserSerializer(user).data,
-                'is_new': False
+                'is_new': False,
             })
 
         if not name:
-            return Response({
-                'name_required': True,
-                'message': 'Se requiere el nombre del usuario para el registro'
-            }, status=status.HTTP_200_OK)
+            return Response(
+                {'name_required': True, 'message': 'Se requiere el nombre del usuario para el registro'},
+                status=status.HTTP_200_OK,
+            )
 
         parts = name.split(' ')
         first_name = parts[0]
         last_name = ' '.join(parts[1:]) if len(parts) > 1 else ''
         username = f"wa_{clean_digits or phone}"
-        
+
         if User.objects.filter(username=username).exists():
             import uuid
             username = f"{username}_{uuid.uuid4().hex[:4]}"
@@ -92,73 +174,126 @@ class WhatsAppAuthView(APIView):
             last_name=last_name,
             phone=phone,
             whatsapp_number=phone,
-            role='cliente'
+            role='cliente',
         )
-        user.set_password(phone)
+        # C2 fix: contraseña aleatoria, no derivada del número de teléfono
+        user.set_password(User.objects.make_random_password(length=24))
         user.save()
 
         from loyalty.models import LoyaltyAccount
         LoyaltyAccount.objects.get_or_create(user=user)
 
         token, _ = Token.objects.get_or_create(user=user)
-        return Response({
-            'token': token.key,
-            'user': UserSerializer(user).data,
-            'is_new': True
-        }, status=status.HTTP_201_CREATED)
+        return Response(
+            {'token': token.key, 'user': UserSerializer(user).data, 'is_new': True},
+            status=status.HTTP_201_CREATED,
+        )
 
+
+# ---------------------------------------------------------------------------
+# Logout / Perfil
+# ---------------------------------------------------------------------------
 
 class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         request.user.auth_token.delete()
         return Response({'message': 'Sesión cerrada'})
 
-class PasswordResetView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request):
-        identifier = (request.data.get('identifier') or '').strip()
-        new_password = (request.data.get('new_password') or '').strip()
-
-        if not identifier or not new_password:
-            return Response({'error': 'Debes proporcionar tu correo/teléfono y la nueva contraseña'}, status=400)
-
-        if len(new_password) < 4:
-            return Response({'error': 'La contraseña debe tener al menos 4 caracteres'}, status=400)
-
-        clean_digits = ''.join(filter(str.isdigit, identifier))
-        phone_variants = [identifier]
-        if clean_digits:
-            phone_variants.append(clean_digits)
-            if len(clean_digits) == 9:
-                phone_variants.append(f"+56{clean_digits}")
-            elif len(clean_digits) == 11 and clean_digits.startswith('569'):
-                phone_variants.append(clean_digits[2:])
-                phone_variants.append(f"+{clean_digits}")
-
-        from django.db.models import Q
-        user = User.objects.filter(
-            Q(email__iexact=identifier) |
-            Q(username__iexact=identifier) |
-            Q(phone__in=phone_variants) |
-            Q(whatsapp_number__in=phone_variants)
-        ).first()
-
-        if not user:
-            return Response({'error': 'No se encontró ninguna cuenta asociada a este correo o teléfono'}, status=404)
-
-        user.set_password(new_password)
-        user.save()
-        return Response({'message': 'Contraseña restablecida con éxito. Ya puedes iniciar sesión con tu nueva clave.'})
 
 class ProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+
     def get_object(self):
         return self.request.user
 
-from .serializers import UserSerializer, RegisterSerializer, LoginSerializer, CreateUserSerializer
+
+# ---------------------------------------------------------------------------
+# C3 — Reset de contraseña en dos pasos con token temporal
+# ---------------------------------------------------------------------------
+
+class PasswordResetRequestView(APIView):
+    """
+    Paso 1: el usuario envía su email o teléfono.
+    Genera un token y lo envía por email.
+    Siempre responde con el mismo mensaje genérico para evitar
+    enumeración de usuarios.
+    """
+    permission_classes = [AllowAny]
+
+    _GENERIC_OK = {'message': 'Si existe una cuenta asociada recibirás un email con instrucciones.'}
+
+    def post(self, request):
+        identifier = (request.data.get('identifier') or '').strip()
+        if not identifier:
+            return Response({'error': 'Debes proporcionar tu correo o teléfono.'}, status=400)
+
+        phone_variants = _phone_variants(identifier)
+        user = User.objects.filter(
+            Q(email__iexact=identifier)
+            | Q(username__iexact=identifier)
+            | Q(phone__in=phone_variants)
+            | Q(whatsapp_number__in=phone_variants)
+        ).first()
+
+        if not user:
+            # Respuesta genérica — no confirmar si el usuario existe
+            return Response(self._GENERIC_OK)
+
+        if not user.email or '@whatsapp.cl' in user.email:
+            # Clientes creados por WhatsApp sin email real no pueden recibir reset
+            return Response(self._GENERIC_OK)
+
+        reset_token = PasswordResetToken.generate_for(user)
+        sent = _send_reset_email(user, reset_token.token)
+        if not sent:
+            logger.error("No se pudo enviar email de reset a user_id=%s", user.id)
+
+        return Response(self._GENERIC_OK)
+
+
+class PasswordResetConfirmView(APIView):
+    """
+    Paso 2: el usuario envía el token recibido y su nueva contraseña.
+    El token expira en 15 minutos y es de un solo uso.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        token_str = (request.data.get('token') or '').strip()
+        new_password = (request.data.get('new_password') or '').strip()
+
+        if not token_str or not new_password:
+            return Response({'error': 'Se requiere el token y la nueva contraseña.'}, status=400)
+
+        if len(new_password) < 8:
+            return Response({'error': 'La contraseña debe tener al menos 8 caracteres.'}, status=400)
+
+        try:
+            reset_token = PasswordResetToken.objects.select_related('user').get(token=token_str)
+        except PasswordResetToken.DoesNotExist:
+            return Response({'error': 'Token inválido o expirado.'}, status=400)
+
+        if not reset_token.is_valid:
+            return Response({'error': 'Token inválido o expirado.'}, status=400)
+
+        reset_token.user.set_password(new_password)
+        reset_token.user.save(update_fields=['password'])
+        reset_token.used = True
+        reset_token.save(update_fields=['used'])
+
+        return Response({'message': 'Contraseña restablecida con éxito. Ya puedes iniciar sesión.'})
+
+
+# ---------------------------------------------------------------------------
+# Gestión de clientes — solo staff (C1)
+# ---------------------------------------------------------------------------
 
 class CustomerListView(generics.ListCreateAPIView):
+    permission_classes = [IsAdminOrVendedor]
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return CreateUserSerializer
@@ -170,14 +305,24 @@ class CustomerListView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         serializer.save(role='cliente')
 
+
 class CustomerDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdminOrVendedor]
     queryset = User.objects.filter(role='cliente')
+
     def get_serializer_class(self):
-        if self.request.method in ['PUT', 'PATCH']:
+        if self.request.method in ('PUT', 'PATCH'):
             return CreateUserSerializer
         return UserSerializer
 
+
+# ---------------------------------------------------------------------------
+# Gestión de usuarios del sistema — solo admin (C1)
+# ---------------------------------------------------------------------------
+
 class SystemUserListView(generics.ListCreateAPIView):
+    permission_classes = [IsAdmin]
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return CreateUserSerializer
@@ -186,32 +331,55 @@ class SystemUserListView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = User.objects.filter(role__in=['admin', 'vendedor']).order_by('-created_at')
         role = self.request.query_params.get('role')
-        if role and role in ['admin', 'vendedor']:
+        if role and role in ('admin', 'vendedor'):
             qs = qs.filter(role=role)
         return qs
 
+
 class SystemUserDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [IsAdmin]
     queryset = User.objects.filter(role__in=['admin', 'vendedor'])
+
     def get_serializer_class(self):
-        if self.request.method in ['PUT', 'PATCH']:
+        if self.request.method in ('PUT', 'PATCH'):
             return CreateUserSerializer
         return UserSerializer
 
+
+# ---------------------------------------------------------------------------
+# Exportación / Importación de clientes — staff (C1)
+# ---------------------------------------------------------------------------
+
 class ExportCustomersView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
     def get(self, request):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Clientes"
-        headers = ['ID','Nombre','Email','Teléfono','WhatsApp','Dirección','Comuna','Método de pago','Condición pago','Fecha registro']
+        headers = [
+            'ID', 'Nombre', 'Email', 'Teléfono', 'WhatsApp',
+            'Dirección', 'Comuna', 'Método de pago', 'Condición pago', 'Fecha registro',
+        ]
         ws.append(headers)
         for u in User.objects.filter(role='cliente'):
-            ws.append([u.id, u.get_full_name(), u.email, u.phone, u.whatsapp_number, u.address, u.commune, u.preferred_payment_method, u.preferred_payment_condition, str(u.created_at.date())])
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ws.append([
+                u.id, u.get_full_name(), u.email, u.phone,
+                u.whatsapp_number, u.address, u.commune,
+                u.preferred_payment_method, u.preferred_payment_condition,
+                str(u.created_at.date()),
+            ])
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
         response['Content-Disposition'] = 'attachment; filename="clientes.xlsx"'
         wb.save(response)
         return response
 
+
 class ImportCustomersView(APIView):
+    permission_classes = [IsAdmin]
+
     def post(self, request):
         file = request.FILES.get('file')
         if not file:
@@ -222,20 +390,24 @@ class ImportCustomersView(APIView):
         errors = []
         for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             try:
-                name_parts = (row[0] or '').split(' ', 1)
-                email = row[1] or ''
-                phone = str(row[2] or '')
+                name_parts = (str(row[0] or '')).split(' ', 1)
+                email = str(row[1] or '').strip()
+                phone = str(row[2] or '').strip()
                 if not email:
                     continue
-                user, c = User.objects.get_or_create(email=email, defaults={
-                    'username': email.split('@')[0],
-                    'first_name': name_parts[0],
-                    'last_name': name_parts[1] if len(name_parts) > 1 else '',
-                    'phone': phone,
-                    'role': 'cliente',
-                })
+                user, c = User.objects.get_or_create(
+                    email=email,
+                    defaults={
+                        'username': email.split('@')[0],
+                        'first_name': name_parts[0],
+                        'last_name': name_parts[1] if len(name_parts) > 1 else '',
+                        'phone': phone,
+                        'role': 'cliente',
+                    },
+                )
                 if c:
-                    user.set_password('paltaconhuevo2024')
+                    # Contraseña aleatoria — no la misma para todos (A6 fix parcial)
+                    user.set_password(User.objects.make_random_password(length=20))
                     user.save()
                     from loyalty.models import LoyaltyAccount
                     LoyaltyAccount.objects.get_or_create(user=user)

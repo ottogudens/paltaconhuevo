@@ -1,5 +1,9 @@
+import secrets
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
+from datetime import timedelta
+
 
 class User(AbstractUser):
     ROLE_CHOICES = [('admin', 'Admin'), ('vendedor', 'Vendedor'), ('cliente', 'Cliente')]
@@ -26,3 +30,37 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.get_full_name() or self.username} ({self.role})"
+
+
+class PasswordResetToken(models.Model):
+    """
+    Token de un solo uso para el flujo de recuperación de contraseña en dos pasos.
+    Expira a los 15 minutos de su creación.
+    """
+    TOKEN_EXPIRY_MINUTES = 15
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reset_tokens')
+    token = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    used = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"ResetToken({self.user.username}, used={self.used})"
+
+    @classmethod
+    def generate_for(cls, user):
+        """Invalida tokens anteriores del usuario y genera uno nuevo."""
+        cls.objects.filter(user=user, used=False).update(used=True)
+        return cls.objects.create(
+            user=user,
+            token=secrets.token_urlsafe(48),
+        )
+
+    @property
+    def is_valid(self):
+        """Retorna True si el token no fue usado y no expiró."""
+        expiry = self.created_at + timedelta(minutes=self.TOKEN_EXPIRY_MINUTES)
+        return not self.used and timezone.now() < expiry

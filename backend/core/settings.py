@@ -6,8 +6,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-production')
-DEBUG = os.getenv('DEBUG', 'True') == 'True'
+# C4 fix: SECRET_KEY es obligatoria en producción — falla fuerte si falta.
+# En desarrollo local, setear DEBUG=True en el .env
+_secret_key = os.getenv('SECRET_KEY')
+if not _secret_key:
+    if os.getenv('RAILWAY_ENVIRONMENT'):  # entorno de Railway
+        raise RuntimeError(
+            "La variable de entorno SECRET_KEY es obligatoria. "
+            "Configúrala en Railway antes de deployar."
+        )
+    # Solo en desarrollo local se permite un fallback
+    _secret_key = 'django-insecure-dev-key-ONLY-for-local-dev'
+SECRET_KEY = _secret_key
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # ALLOWED_HOSTS: include Railway domains and custom domain
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
@@ -96,12 +107,31 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # C4 fix: throttling para proteger contra fuerza bruta y abuso masivo
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '30/min',
+        'user': '120/min',
+    },
 }
 
 APPEND_SLASH = False
 
-# CORS - allow all origins in production for now
-CORS_ALLOW_ALL_ORIGINS = True
+# C4 fix: CORS con whitelist en producción
+# En desarrollo local (DEBUG=True) se permite todo para facilidad.
+# En producción, setear CORS_ALLOWED_ORIGINS en Railway con los dominios reales
+# separados por coma. Ejemplo:
+#   CORS_ALLOWED_ORIGINS=https://paltaconhuevo.cl,https://admin.paltaconhuevo.cl
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    _cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', '')
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
+
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
     'DELETE',
@@ -122,6 +152,17 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+
+# C4 fix: HTTPS y cabeceras de seguridad en producción
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 AUTHENTICATION_BACKENDS = [
     'django.contrib.auth.backends.ModelBackend',
