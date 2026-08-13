@@ -413,38 +413,40 @@ app.post('/api/wa/pairing-code', async (req, res) => {
     res.status(500).json({ error: error.message || 'Error al solicitar el código de vinculación a WhatsApp.' });
   }
 });
+let isInitializing = false;
+
 function safeRemoveAuthInfo() {
   if (fs.existsSync('auth_info')) {
     try {
-      fs.rmSync('auth_info', { recursive: true, force: true });
+      fs.rmSync('auth_info', { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
       console.log('🗑️ Carpeta auth_info borrada con éxito');
     } catch (e) {
-      console.error('⚠️ No se pudo eliminar auth_info (recurso ocupado):', e.message);
+      console.error('⚠️ No se pudo eliminar auth_info:', e.message);
     }
   }
 }
 
 app.post('/api/wa/logout', async (req, res) => {
   try {
-    if (waSocket) {
-      try {
-        await waSocket.logout();
-      } catch (e) {
-        console.error('Error enviando logout a WhatsApp:', e.message);
-      }
-      try {
-        waSocket.end(new Error('Logout manual'));
-      } catch {}
-      waSocket = null;
-    }
     isConnected = false;
     currentQR = null;
     sessions.clear();
 
-    setTimeout(() => {
+    if (waSocket) {
+      const sock = waSocket;
+      waSocket = null;
+      try {
+        await sock.logout();
+      } catch (e) {
+        console.error('Error enviando logout a WhatsApp:', e.message);
+      }
+      try {
+        sock.end(new Error('Logout manual'));
+      } catch {}
+    } else {
       safeRemoveAuthInfo();
-      startWhatsApp();
-    }, 1000);
+      setTimeout(startWhatsApp, 1000);
+    }
 
     res.json({ success: true });
   } catch (e) {
@@ -455,39 +457,50 @@ app.post('/api/wa/logout', async (req, res) => {
 
 // Iniciar Baileys
 async function startWhatsApp() {
-  const { state, saveCreds } = await useMultiFileAuthState('auth_info');
-  const sock = makeWASocket({ auth: state, logger, printQRInTerminal: false });
-  waSocket = sock;
+  if (isInitializing) return;
+  isInitializing = true;
 
-  sock.ev.on('creds.update', saveCreds);
+  try {
+    const { state, saveCreds } = await useMultiFileAuthState('auth_info');
+    const sock = makeWASocket({ auth: state, logger, printQRInTerminal: false });
+    waSocket = sock;
 
-  sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
-      console.log('\n📱 Escanea este QR con WhatsApp:');
-      qrcode.generate(qr, { small: true });
-      currentQR = qr;
-      isConnected = false;
-    }
-    if (connection === 'close') {
-      isConnected = false;
-      const shouldReconnect = lastDisconnect?.error?.output?.statusCode !== DisconnectReason.loggedOut;
-      if (shouldReconnect) {
-        setTimeout(startWhatsApp, 5000);
-      } else {
-        console.log('Cierre de sesión manual. Borrando auth_info...');
-        currentQR = null;
-        setTimeout(() => {
-          safeRemoveAuthInfo();
-          startWhatsApp();
-        }, 1500);
+    sock.ev.on('creds.update', saveCreds);
+
+    sock.ev.on('connection.update', ({ connection, lastDisconnect, qr }) => {
+      if (qr) {
+        console.log('\n📱 Escanea este QR con WhatsApp:');
+        qrcode.generate(qr, { small: true });
+        currentQR = qr;
+        isConnected = false;
       }
-    }
-    if (connection === 'open') {
-      console.log('✅ WhatsApp conectado');
-      isConnected = true;
-      currentQR = null;
-    }
-  });
+      if (connection === 'close') {
+        isConnected = false;
+        waSocket = null;
+        isInitializing = false;
+
+        const statusCode = lastDisconnect?.error?.output?.statusCode;
+        const isLoggedOut = statusCode === DisconnectReason.loggedOut;
+
+        if (isLoggedOut) {
+          console.log('Cierre de sesión detectado. Borrando auth_info...');
+          currentQR = null;
+          setTimeout(() => {
+            safeRemoveAuthInfo();
+            startWhatsApp();
+          }, 1500);
+        } else {
+          console.log('Desconexión de WhatsApp. Reintentando en 5s...');
+          setTimeout(startWhatsApp, 5000);
+        }
+      }
+      if (connection === 'open') {
+        console.log('✅ WhatsApp conectado');
+        isConnected = true;
+        currentQR = null;
+        isInitializing = false;
+      }
+    });
 
   sock.ev.on('messages.upsert', async ({ messages }) => {
     for (const msg of messages) {
@@ -518,6 +531,11 @@ async function startWhatsApp() {
       if (response) await sendMessage(phone, response);
     }
   });
+  } catch (e) {
+    console.error('Error iniciando WhatsApp:', e);
+    isInitializing = false;
+    setTimeout(startWhatsApp, 5000);
+  }
 }
 
 const PORT = process.env.PORT || 3001;
