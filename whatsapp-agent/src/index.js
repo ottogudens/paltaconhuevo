@@ -163,6 +163,9 @@ async function notifyHumanOperator(customerPhone, customerName) {
 }
 
 
+// Helper para formato de moneda CLP ($1.500)
+const formatCLP = (amount) => `$${Math.round(amount || 0).toLocaleString('es-CL')}`;
+
 // IA conversacional principal
 async function processWithAI(session, userMessage, customerPhone) {
   const [products, config] = await Promise.all([
@@ -170,9 +173,9 @@ async function processWithAI(session, userMessage, customerPhone) {
     getAgentConfig()
   ]);
 
-  const productList = products.map(p => `- ID ${p.id}: ${p.name} (${p.product_type}): $${p.sale_price} por ${p.unit} (Stock: ${p.stock})`).join('\n');
+  const productList = products.map(p => `- ID ${p.id}: ${p.name} (${p.product_type}): ${formatCLP(p.sale_price)} por ${p.unit} (Stock disponible: ${p.stock})`).join('\n');
   const cartSummary = session.cart.length > 0
-    ? session.cart.map(i => `${i.quantity}x ${i.product.name} = $${i.quantity * i.product.sale_price}`).join(', ')
+    ? session.cart.map(i => `${i.quantity}x ${i.product.name} = ${formatCLP(i.quantity * i.product.sale_price)}`).join(', ')
     : 'vacío';
 
   const basePrompt = config.system_prompt || 'Eres el asistente virtual de "Palta con Huevo" 🥑.';
@@ -189,6 +192,7 @@ CLIENTE: ${session.userData?.first_name || 'Cliente'} (${customerPhone})
 
 INSTRUCCIONES Y REGLAS DE RESPUESTA:
 - Utiliza la información de productos y precios registrados arriba.
+- Si el usuario solicita un producto sin stock o una cantidad superior al disponible, infórmale amigablemente la disponibilidad real.
 - Utiliza las herramientas (tools) disponibles para:
   - Añadir productos al carrito (add_to_cart)
   - Consultar puntos (get_loyalty_points)
@@ -311,15 +315,35 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
             toolResultText = "Operador notificado. Avisa al usuario que será atendido pronto.";
           } 
           else if (name === 'add_to_cart') {
+            const addedItems = [];
+            const stockWarnings = [];
+
             for (const item of input.items) {
               const product = products.find(p => p.id === item.product_id);
               if (product) {
                 const existing = session.cart.find(i => i.product.id === product.id);
-                if (existing) existing.quantity += item.quantity;
-                else session.cart.push({ product, quantity: item.quantity });
+                const currentInCart = existing ? existing.quantity : 0;
+                const requestedTotal = currentInCart + item.quantity;
+
+                if (parseFloat(product.stock) <= 0) {
+                  stockWarnings.push(`El producto "${product.name}" está actualmente AGOTADO (stock: 0).`);
+                } else if (requestedTotal > parseFloat(product.stock)) {
+                  const maxAddable = Math.max(0, parseFloat(product.stock) - currentInCart);
+                  if (maxAddable > 0) {
+                    if (existing) existing.quantity += maxAddable;
+                    else session.cart.push({ product, quantity: maxAddable });
+                    stockWarnings.push(`Solo pudimos agregar ${maxAddable} de "${product.name}" porque es todo el stock disponible.`);
+                  } else {
+                    stockWarnings.push(`No se pudo agregar más de "${product.name}" porque ya tienes todo el stock disponible en tu carrito.`);
+                  }
+                } else {
+                  if (existing) existing.quantity += item.quantity;
+                  else session.cart.push({ product, quantity: item.quantity });
+                  addedItems.push(`${item.quantity} x ${product.name}`);
+                }
               }
             }
-            toolResultText = "Productos agregados al carrito. Confirma con el usuario.";
+            toolResultText = `Productos agregados: ${addedItems.join(', ') || 'ninguno'}. ${stockWarnings.join(' ')}`;
           }
           else if (name === 'get_loyalty_points') {
             const loyalty = await getUserPoints(session.userToken);
