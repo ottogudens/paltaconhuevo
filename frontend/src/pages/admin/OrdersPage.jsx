@@ -104,6 +104,18 @@ function OrderDetail({ order, onClose, onUpdate }) {
     }
   }
 
+  const handleItemUpdate = async (itemId, field, value) => {
+    try {
+      await api.patch(`/orders/${currentOrder.id}/items/${itemId}/`, { [field]: value })
+      fetchOrder()
+    } catch (e) { alert('Error al actualizar producto') }
+  }
+
+  const handleItemChangeLocal = (itemId, field, value) => {
+    const updatedItems = currentOrder.items.map(i => i.id === itemId ? { ...i, [field]: value } : i)
+    setCurrentOrder({ ...currentOrder, items: updatedItems })
+  }
+
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
   return (
@@ -149,10 +161,16 @@ function OrderDetail({ order, onClose, onUpdate }) {
                   </tr></thead>
                   <tbody>
                     {(currentOrder.items || []).map((item, i) => (
-                      <tr key={i} className="border-b border-gray-100 last:border-0">
+                      <tr key={item.id || i} className="border-b border-gray-100 last:border-0">
                         <td className="px-4 py-2">{item.product_name || `Producto #${item.product}`}</td>
-                        <td className="px-4 py-2 text-right">{item.quantity}</td>
-                        <td className="px-4 py-2 text-right">{formatCLP(item.unit_price)}</td>
+                        <td className="px-4 py-2 text-right">
+                          <input type="number" value={item.quantity} onChange={e => handleItemChangeLocal(item.id, 'quantity', e.target.value)} onBlur={e => handleItemUpdate(item.id, 'quantity', e.target.value)} min="0.01" step="0.01"
+                            className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-xs" />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <input type="number" value={item.unit_price} onChange={e => handleItemChangeLocal(item.id, 'unit_price', e.target.value)} onBlur={e => handleItemUpdate(item.id, 'unit_price', e.target.value)} min="0"
+                            className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-xs" />
+                        </td>
                         <td className="px-4 py-2 text-right font-medium">{formatCLP(item.subtotal)}</td>
                         <td className="px-4 py-2 text-right">
                           <select value={item.status} onChange={e => handleItemStatusChange(item.id, e.target.value)}

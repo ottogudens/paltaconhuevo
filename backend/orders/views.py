@@ -308,8 +308,26 @@ class OrderItemUpdateView(APIView):
         from .models import OrderItem
         item = get_object_or_404(OrderItem, pk=item_id, order=order)
         status_val = request.data.get('status')
+        quantity = request.data.get('quantity')
+        unit_price = request.data.get('unit_price')
+        
+        needs_order_recalc = False
+        
         if status_val:
             item.status = status_val
-            item.save()
+        if quantity is not None:
+            item.quantity = quantity
+            needs_order_recalc = True
+        if unit_price is not None:
+            item.unit_price = unit_price
+            needs_order_recalc = True
+            
+        item.save()
+        
+        if needs_order_recalc:
+            order.subtotal = sum(i.subtotal for i in order.items.all())
+            order.total = order.subtotal + order.delivery_cost
+            order.save(update_fields=['subtotal', 'total'])
+            
         from .serializers import OrderItemSerializer
         return Response(OrderItemSerializer(item).data)
