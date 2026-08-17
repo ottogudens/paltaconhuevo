@@ -252,27 +252,39 @@ class DashboardView(APIView):
     permission_classes = [IsAdminOrVendedor]
 
     def get(self, request):
-        from django.db.models import Sum, Count
+        from django.db.models import Sum
         from django.utils import timezone
+        import datetime
+        from products.models import Product
+        from users.models import User
+        from .serializers import OrderSerializer
+        from .models import Order
+
         today = datetime.date.today()
         month_start = today.replace(day=1)
         orders_today = Order.objects.filter(created_at__date=today)
         orders_month = Order.objects.filter(created_at__date__gte=month_start)
-        from products.models import Product
-        from users.models import User
-        from .serializers import OrderSerializer
-        pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('created_at')[:5]
+        
+        # Pedidos entregados y pagados (suma de totales)
+        sales_paid = float(Order.objects.filter(status='entregado', payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
+        
+        # Pedidos entregados pero no pagados (suma de total a cobrar, o sea suma de totales de esos pedidos)
+        sales_unpaid = float(Order.objects.filter(status='entregado').exclude(payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
+        
+        # Pedidos pendientes (no entregados y no pagados) (cantidad)
+        orders_pending = Order.objects.exclude(status='entregado').exclude(payment_status='pagado').count()
+
+        # Listado de pedidos pendientes: no entregados, ordenados por más recientes
+        pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
 
         return Response({
             'sales_today': float(orders_today.aggregate(t=Sum('total'))['t'] or 0),
             'sales_month': float(orders_month.aggregate(t=Sum('total'))['t'] or 0),
             'orders_today': orders_today.count(),
-            'orders_pending': Order.objects.filter(status='pendiente').count(),
+            'sales_paid': sales_paid,
+            'sales_unpaid': sales_unpaid,
+            'orders_pending': orders_pending,
             'orders_in_transit': Order.objects.filter(status='en_camino').count(),
-            'accounts_receivable': float(
-                Order.objects.filter(status='entregado', payment_status='pendiente')
-                .aggregate(t=Sum('total'))['t'] or 0
-            ),
             'total_customers': User.objects.filter(role='cliente').count(),
             'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,

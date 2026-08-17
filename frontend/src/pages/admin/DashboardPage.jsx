@@ -42,16 +42,23 @@ export default function DashboardPage() {
   const [lowStock, setLowStock] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const fetchDashboard = async () => {
+    try {
+      const dashRes = await api.get('/orders/dashboard/')
+      setDashboard(dashRes.data)
+    } catch (e) {
+      console.error('Dashboard fetch error:', e)
+    }
+  }
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [dashRes, ordersRes, stockRes] = await Promise.all([
+        const [dashRes, stockRes] = await Promise.all([
           api.get('/orders/dashboard/'),
-          api.get('/orders/?page_size=5'),
           api.get('/products/low-stock/'),
         ])
         setDashboard(dashRes.data)
-        setRecentOrders(ordersRes.data.results || ordersRes.data || [])
         setLowStock(stockRes.data || [])
       } catch (e) {
         console.error('Dashboard fetch error:', e)
@@ -61,6 +68,24 @@ export default function DashboardPage() {
     }
     fetchAll()
   }, [])
+
+  const handleOrderStatusChange = async (orderId, newStatus) => {
+    try {
+      await api.patch(`/orders/${orderId}/`, { status: newStatus })
+      fetchDashboard()
+    } catch (e) {
+      alert('Error al actualizar estado')
+    }
+  }
+
+  const STATUS_OPTIONS = [
+    { value: 'pendiente', label: 'Pendiente' },
+    { value: 'preparando', label: 'Preparando' },
+    { value: 'en_camino', label: 'En camino' },
+    { value: 'parcialmente_entregado', label: 'Parcial. Entregado' },
+    { value: 'entregado', label: 'Entregado' },
+    { value: 'cancelado', label: 'Cancelado' },
+  ]
 
   if (loading) {
     return (
@@ -118,16 +143,16 @@ export default function DashboardPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={DollarSign} label="Ventas Hoy" value={formatCLP(dashboard?.sales_today)} color="huevo" />
-          <StatCard icon={ShoppingCart} label="Pedidos Hoy" value={dashboard?.orders_today || 0} color="palta" />
-          <StatCard icon={Users} label="Total Clientes" value={dashboard?.total_customers || 0} color="blue" />
-          <StatCard icon={TrendingUp} label="Cuentas por Cobrar" value={formatCLP(dashboard?.accounts_receivable)} color="red" />
+          <StatCard icon={CheckCircle2} label="Ventas Pagadas" value={formatCLP(dashboard?.sales_paid)} color="palta" />
+          <StatCard icon={TrendingUp} label="Por Pagar" value={formatCLP(dashboard?.sales_unpaid)} color="red" />
+          <StatCard icon={Clock} label="Pedidos Pendientes" value={dashboard?.orders_pending || 0} color="huevo" />
+          <StatCard icon={DollarSign} label="Ventas Hoy" value={formatCLP(dashboard?.sales_today)} color="blue" />
         </div>
 
         {/* Second row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <StatCard icon={DollarSign} label="Ventas del Mes" value={formatCLP(dashboard?.sales_month)} color="palta" />
-          <StatCard icon={Clock} label="Pedidos Pendientes" value={dashboard?.orders_pending || 0} color="huevo" />
+          <StatCard icon={Users} label="Total Clientes" value={dashboard?.total_customers || 0} color="blue" />
+          <StatCard icon={ShoppingCart} label="Pedidos Hoy" value={dashboard?.orders_today || 0} color="palta" />
           <StatCard icon={AlertTriangle} label="Stock Bajo" value={dashboard?.low_stock_count || 0} color="red" />
         </div>
 
@@ -146,6 +171,7 @@ export default function DashboardPage() {
                     <th className="text-left px-5 py-3 font-medium">#</th>
                     <th className="text-left px-5 py-3 font-medium">Cliente</th>
                     <th className="text-left px-5 py-3 font-medium">Productos</th>
+                    <th className="text-left px-5 py-3 font-medium">Estado</th>
                     <th className="text-left px-5 py-3 font-medium">Total</th>
                   </tr>
                 </thead>
@@ -155,10 +181,16 @@ export default function DashboardPage() {
                       <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
                       <td className="px-5 py-3 font-medium text-gray-900">{o.customer_name || 'N/A'}</td>
                       <td className="px-5 py-3 text-gray-700">{formatProducts(o.items)}</td>
+                      <td className="px-5 py-3">
+                        <select value={o.status} onChange={e => handleOrderStatusChange(o.id, e.target.value)}
+                          className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-palta-500">
+                          {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                        </select>
+                      </td>
                       <td className="px-5 py-3 font-medium text-gray-900">{formatCLP(o.total)}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">No hay pedidos pendientes</td></tr>
+                    <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">No hay pedidos pendientes</td></tr>
                   )}
                 </tbody>
               </table>
