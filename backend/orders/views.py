@@ -37,8 +37,26 @@ class OrderListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         data = request.data
         items_data = data.get('items', [])
+        
+        # Security: Prevent customer ID spoofing
+        if request.user.role in ['admin', 'vendedor']:
+            customer_id = data.get('customer_id', request.user.id)
+        else:
+            customer_id = request.user.id
+            
+        # Pre-validate stock
+        from decimal import Decimal
+        for item in items_data:
+            try:
+                product = Product.objects.get(id=item['product_id'])
+                qty = Decimal(str(item['quantity']))
+                if product.stock < qty:
+                    return Response({'error': f'Stock insuficiente para {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
+            except Product.DoesNotExist:
+                return Response({'error': 'Producto no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
+
         order = Order.objects.create(
-            customer_id=data.get('customer_id', request.user.id),
+            customer_id=customer_id,
             delivery_type=data.get('delivery_type', 'retiro'),
             delivery_address=data.get('delivery_address', ''),
             delivery_commune=data.get('delivery_commune', ''),
@@ -51,7 +69,8 @@ class OrderListCreateView(generics.ListCreateAPIView):
         for item in items_data:
             product = Product.objects.get(id=item['product_id'])
             qty = float(item['quantity'])
-            unit_price = float(item.get('unit_price', product.sale_price))
+            # Security: Always use product.sale_price instead of user input
+            unit_price = float(product.sale_price)
             # A5 fix: usar order_by explícito para obtener el costo más reciente
             last_purchase = product.purchases.order_by('-purchase_date').first()
             unit_cost = float(last_purchase.unit_cost) if last_purchase else 0
@@ -60,7 +79,6 @@ class OrderListCreateView(generics.ListCreateAPIView):
                 unit_price=unit_price, unit_cost=unit_cost,
             )
             subtotal += float(oi.subtotal)
-            from decimal import Decimal
             product.stock -= Decimal(str(qty))
             product.save()
         order.subtotal = subtotal
@@ -93,6 +111,16 @@ class OrderDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
     permission_classes = [IsOwnerOrAdmin]
+
+    def perform_update(self, serializer):
+        # Security: Prevent non-staff users from updating restricted fields
+        user = self.request.user
+        if user.role not in ['admin', 'vendedor']:
+            restricted_fields = ['status', 'payment_status', 'total', 'subtotal', 'delivery_cost', 'points_earned', 'mercadopago_preference_id', 'mercadopago_payment_id', 'mercadopago_link']
+            for field in restricted_fields:
+                if field in serializer.validated_data:
+                    serializer.validated_data.pop(field)
+        serializer.save()
 
 
 class GenerateMercadoPagoView(APIView):

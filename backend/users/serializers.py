@@ -6,7 +6,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id','username','email','first_name','last_name','role','phone','address','commune','birth_date','preferred_payment_method','preferred_payment_condition','whatsapp_number','email_notifications','whatsapp_notifications','avatar','social_location','social_interests','created_at']
-        read_only_fields = ['id','created_at']
+        read_only_fields = ['id', 'username', 'role', 'created_at']
 
 class CreateUserSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=4, required=False, allow_blank=True)
