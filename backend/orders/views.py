@@ -260,6 +260,9 @@ class DashboardView(APIView):
         orders_month = Order.objects.filter(created_at__date__gte=month_start)
         from products.models import Product
         from users.models import User
+        from .serializers import OrderSerializer
+        pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('created_at')[:5]
+
         return Response({
             'sales_today': float(orders_today.aggregate(t=Sum('total'))['t'] or 0),
             'sales_month': float(orders_month.aggregate(t=Sum('total'))['t'] or 0),
@@ -267,9 +270,10 @@ class DashboardView(APIView):
             'orders_pending': Order.objects.filter(status='pendiente').count(),
             'orders_in_transit': Order.objects.filter(status='en_camino').count(),
             'accounts_receivable': float(
-                Order.objects.filter(payment_status='pendiente', payment_condition='plazo')
+                Order.objects.filter(status='entregado', payment_status='pendiente')
                 .aggregate(t=Sum('total'))['t'] or 0
             ),
             'total_customers': User.objects.filter(role='cliente').count(),
             'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),
+            'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,
         })

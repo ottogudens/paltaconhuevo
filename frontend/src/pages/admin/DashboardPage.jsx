@@ -80,6 +80,11 @@ export default function DashboardPage() {
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
+  const formatProducts = (items) => {
+    if (!items || items.length === 0) return 'Sin productos'
+    return items.map(i => `${i.quantity}x ${i.product_name}`).join(', ')
+  }
+
   const statusBadge = (status) => {
     const map = {
       pendiente: 'bg-yellow-100 text-yellow-800',
@@ -131,7 +136,7 @@ export default function DashboardPage() {
           {/* Recent Orders */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h2 className="font-semibold text-gray-900">Últimos Pedidos</h2>
+              <h2 className="font-semibold text-gray-900">Pedidos pendientes de entrega</h2>
               <a href="/orders" className="text-sm text-palta-600 hover:text-palta-700 font-medium">Ver todos →</a>
             </div>
             <div className="overflow-x-auto">
@@ -140,20 +145,20 @@ export default function DashboardPage() {
                   <tr>
                     <th className="text-left px-5 py-3 font-medium">#</th>
                     <th className="text-left px-5 py-3 font-medium">Cliente</th>
+                    <th className="text-left px-5 py-3 font-medium">Productos</th>
                     <th className="text-left px-5 py-3 font-medium">Total</th>
-                    <th className="text-left px-5 py-3 font-medium">Estado</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {(recentOrders.length > 0) ? recentOrders.slice(0, 5).map(o => (
+                  {dashboard?.pending_delivery_orders?.length > 0 ? dashboard.pending_delivery_orders.map(o => (
                     <tr key={o.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
                       <td className="px-5 py-3 font-medium text-gray-900">{o.customer_name || 'N/A'}</td>
-                      <td className="px-5 py-3 text-gray-700">{formatCLP(o.total)}</td>
-                      <td className="px-5 py-3">{statusBadge(o.status)}</td>
+                      <td className="px-5 py-3 text-gray-700">{formatProducts(o.items)}</td>
+                      <td className="px-5 py-3 font-medium text-gray-900">{formatCLP(o.total)}</td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">No hay pedidos aún</td></tr>
+                    <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400">No hay pedidos pendientes</td></tr>
                   )}
                 </tbody>
               </table>
