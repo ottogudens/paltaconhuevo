@@ -395,18 +395,28 @@ class ImportCustomersView(APIView):
                 # 0: ID, 1: Nombre, 2: Email, 3: Teléfono
                 name_parts = (str(row[1] or '')).split(' ', 1)
                 email = str(row[2] or '').strip()
-                phone = str(row[3] or '').strip()
+                phone = str(row[3] or '').strip() if len(row) > 3 else ''
+                whatsapp = str(row[4] or '').strip() if len(row) > 4 else ''
+                address = str(row[5] or '').strip() if len(row) > 5 else ''
+                commune = str(row[6] or '').strip() if len(row) > 6 else ''
+
                 if not email:
                     continue
+
+                defaults_data = {
+                    'username': email.split('@')[0],
+                    'first_name': name_parts[0],
+                    'last_name': name_parts[1] if len(name_parts) > 1 else '',
+                    'phone': phone,
+                    'whatsapp_number': whatsapp,
+                    'address': address,
+                    'commune': commune,
+                    'role': 'cliente',
+                }
+
                 user, c = User.objects.get_or_create(
                     email=email,
-                    defaults={
-                        'username': email.split('@')[0],
-                        'first_name': name_parts[0],
-                        'last_name': name_parts[1] if len(name_parts) > 1 else '',
-                        'phone': phone,
-                        'role': 'cliente',
-                    },
+                    defaults=defaults_data,
                 )
                 if c:
                     # Contraseña aleatoria — no la misma para todos (A6 fix parcial)
@@ -415,6 +425,15 @@ class ImportCustomersView(APIView):
                     from loyalty.models import LoyaltyAccount
                     LoyaltyAccount.objects.get_or_create(user=user)
                     created += 1
+                else:
+                    # Actualizar usuario existente
+                    updated = False
+                    for field, value in defaults_data.items():
+                        if field != 'username' and getattr(user, field) != value:
+                            setattr(user, field, value)
+                            updated = True
+                    if updated:
+                        user.save()
             except Exception as e:
                 errors.append(f"Fila {i}: {str(e)}")
         return Response({'created': created, 'errors': errors})
