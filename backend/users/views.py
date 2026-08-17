@@ -378,6 +378,26 @@ class ExportCustomersView(APIView):
         return response
 
 
+class DownloadCustomerTemplateView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Plantilla Clientes"
+        headers = [
+            'ID', 'Nombre', 'Email', 'Teléfono', 'WhatsApp',
+            'Dirección', 'Comuna', 'Método de pago', 'Condición pago', 'Fecha registro'
+        ]
+        ws.append(headers)
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="plantilla_clientes.xlsx"'
+        wb.save(response)
+        return response
+
+
 class ImportCustomersView(APIView):
     permission_classes = [IsAdmin]
 
@@ -400,8 +420,16 @@ class ImportCustomersView(APIView):
                 address = str(row[5] or '').strip() if len(row) > 5 else ''
                 commune = str(row[6] or '').strip() if len(row) > 6 else ''
 
-                if not email:
+                if not name_parts[0]:
+                    errors.append(f"Fila {i}: Falta el Nombre")
                     continue
+                if not whatsapp:
+                    errors.append(f"Fila {i}: Falta el WhatsApp")
+                    continue
+
+                if not email:
+                    clean_whatsapp = ''.join(filter(str.isdigit, whatsapp))
+                    email = f"{clean_whatsapp}@whatsapp.cl"
 
                 defaults_data = {
                     'username': email.split('@')[0],

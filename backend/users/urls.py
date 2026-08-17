@@ -21,6 +21,7 @@ urlpatterns = [
     path('customers/', views.CustomerListView.as_view()),
     path('customers/export/', views.ExportCustomersView.as_view()),
     path('customers/import/', views.ImportCustomersView.as_view()),
+    path('customers/template/', views.DownloadCustomerTemplateView.as_view()),
     path('customers/<int:pk>/', views.CustomerDetailView.as_view()),
 
     # --- Usuarios del sistema (solo admin) ---

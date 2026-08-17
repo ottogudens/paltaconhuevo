@@ -209,6 +209,22 @@ export default function CustomersPage() {
     }
   }
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await api.get('/auth/customers/template/', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'plantilla_clientes.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Error al descargar la plantilla')
+    }
+  }
+
   const handleImport = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -248,6 +264,10 @@ export default function CustomersPage() {
             <button onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
               <Plus className="w-4 h-4" /> Nuevo Cliente
+            </button>
+            <button onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" title="Descargar Plantilla">
+              <Download className="w-4 h-4" /> Plantilla
             </button>
             <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium cursor-pointer">
               <Upload className="w-4 h-4" /> {importing ? 'Importando...' : 'Importar'}
