@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { ShoppingCart, Search, Filter, Download, Plus, Eye, Edit3, X, Check } from 'lucide-react'
+import { ShoppingCart, Search, Filter, Download, Plus, Eye, Edit3, X, Check, Trash2 } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos' },
@@ -428,6 +428,18 @@ export default function OrdersPage() {
     finally { setLoading(false) }
   }
 
+  const handleDelete = async (e, orderId) => {
+    e.stopPropagation()
+    if (window.confirm('¿Está seguro de que desea eliminar este pedido? Esta acción restaurará el stock y no se puede deshacer.')) {
+      try {
+        await api.delete(`/orders/${orderId}/`)
+        fetchOrders()
+      } catch (err) {
+        alert('Error al eliminar el pedido')
+      }
+    }
+  }
+
   useEffect(() => { fetchOrders() }, [statusFilter])
 
   const filtered = orders.filter(o => {
@@ -531,9 +543,14 @@ export default function OrdersPage() {
                       <td className="px-5 py-3">{payBadge(o.payment_status)}</td>
                       <td className="px-5 py-3 text-gray-500">{new Date(o.created_at).toLocaleDateString('es-CL')}</td>
                       <td className="px-5 py-3 text-right">
-                        <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600">
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex justify-end gap-1">
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); }} className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Ver / Editar">
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button onClick={(e) => handleDelete(e, o.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-600" title="Eliminar">
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )) : (

@@ -104,9 +104,9 @@ class OrderListCreateView(generics.ListCreateAPIView):
         return Response(OrderSerializer(order).data, status=status.HTTP_201_CREATED)
 
 
-class OrderDetailView(generics.RetrieveUpdateAPIView):
+class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
-    El propietario del pedido o un admin/vendedor pueden ver/editar.
+    El propietario del pedido o un admin/vendedor pueden ver/editar/eliminar.
     """
     serializer_class = OrderSerializer
     queryset = Order.objects.all()
@@ -121,6 +121,27 @@ class OrderDetailView(generics.RetrieveUpdateAPIView):
                 if field in serializer.validated_data:
                     serializer.validated_data.pop(field)
         serializer.save()
+
+    def perform_destroy(self, instance):
+        # Devolver el stock
+        from decimal import Decimal
+        for item in instance.items.all():
+            product = item.product
+            product.stock += Decimal(str(item.quantity))
+            product.save()
+        
+        # Opcional: Eliminar puntos obtenidos si aplicara
+        try:
+            if instance.points_earned > 0:
+                acc = instance.customer.loyalty
+                acc.points -= instance.points_earned
+                acc.total_points_earned -= instance.points_earned
+                acc.total_purchases -= instance.total
+                acc.update_level()
+        except Exception:
+            pass
+
+        instance.delete()
 
 
 class GenerateMercadoPagoView(APIView):

@@ -391,9 +391,11 @@ class ImportCustomersView(APIView):
         errors = []
         for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             try:
-                name_parts = (str(row[0] or '')).split(' ', 1)
-                email = str(row[1] or '').strip()
-                phone = str(row[2] or '').strip()
+                # Índices mapeados según la exportación:
+                # 0: ID, 1: Nombre, 2: Email, 3: Teléfono
+                name_parts = (str(row[1] or '')).split(' ', 1)
+                email = str(row[2] or '').strip()
+                phone = str(row[3] or '').strip()
                 if not email:
                     continue
                 user, c = User.objects.get_or_create(
