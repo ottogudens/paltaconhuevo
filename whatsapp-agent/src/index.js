@@ -721,9 +721,10 @@ async function startWhatsApp() {
         const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         if (!text) continue;
 
-        const session = getSession(phone);
+        const session = await getSession(phone);
         session.remoteJid = remoteJid;
         if (msg.pushName) session.pushName = msg.pushName;
+        await saveSession(phone, session);
 
         console.log(`📩 ${phone} (${msg.pushName || 'Sin nombre'}): ${text}`);
         const response = await handleMessage(phone, text);
