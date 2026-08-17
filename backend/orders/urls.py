@@ -8,4 +8,6 @@ urlpatterns = [
     path('webhook/mercadopago/', views.MercadoPagoWebhookView.as_view()),
     path('export/', views.ExportOrdersView.as_view()),
     path('dashboard/', views.DashboardView.as_view()),
+    path('<int:pk>/payments/', views.OrderPaymentCreateView.as_view()),
+    path('<int:pk>/items/<int:item_id>/', views.OrderItemUpdateView.as_view()),
 ]

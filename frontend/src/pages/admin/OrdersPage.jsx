@@ -8,6 +8,7 @@ const STATUS_OPTIONS = [
   { value: 'pendiente', label: 'Pendiente' },
   { value: 'preparando', label: 'Preparando' },
   { value: 'en_camino', label: 'En camino' },
+  { value: 'parcialmente_entregado', label: 'Parcialmente Entregado' },
   { value: 'entregado', label: 'Entregado' },
   { value: 'cancelado', label: 'Cancelado' },
 ]
@@ -19,10 +20,11 @@ const statusBadge = (status) => {
     en_camino: 'bg-purple-100 text-purple-800',
     entregado: 'bg-green-100 text-green-800',
     cancelado: 'bg-red-100 text-red-800',
+    parcialmente_entregado: 'bg-teal-100 text-teal-800',
   }
   const labelMap = {
     pendiente: 'Pendiente', preparando: 'Preparando', en_camino: 'En camino',
-    entregado: 'Entregado', cancelado: 'Cancelado',
+    entregado: 'Entregado', cancelado: 'Cancelado', parcialmente_entregado: 'Parcial. Entregado'
   }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100'}`}>
@@ -34,29 +36,72 @@ const statusBadge = (status) => {
 const payBadge = (status) => {
   const map = {
     pendiente: 'bg-orange-100 text-orange-800',
+    abonado: 'bg-blue-100 text-blue-800',
     pagado: 'bg-green-100 text-green-800',
     vencido: 'bg-red-100 text-red-800',
   }
   return (
     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${map[status] || 'bg-gray-100'}`}>
-      {status === 'pendiente' ? 'Por pagar' : status === 'pagado' ? 'Pagado' : 'Vencido'}
+      {status === 'pendiente' ? 'Por pagar' : status === 'pagado' ? 'Pagado' : status === 'abonado' ? 'Abonado' : 'Vencido'}
     </span>
   )
 }
 
 function OrderDetail({ order, onClose, onUpdate }) {
+  const [currentOrder, setCurrentOrder] = useState(order)
   const [status, setStatus] = useState(order.status)
   const [paymentStatus, setPaymentStatus] = useState(order.payment_status)
   const [saving, setSaving] = useState(false)
+  const [activeTab, setActiveTab] = useState('detalles')
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('transferencia')
+  const [paymentNotes, setPaymentNotes] = useState('')
+
+  const fetchOrder = async () => {
+    try {
+      const res = await api.get(`/orders/${currentOrder.id}/`)
+      setCurrentOrder(res.data)
+      setStatus(res.data.status)
+      setPaymentStatus(res.data.payment_status)
+      onUpdate()
+    } catch (e) { console.error(e) }
+  }
 
   const handleSave = async () => {
     setSaving(true)
     try {
-      await api.patch(`/orders/${order.id}/`, { status, payment_status: paymentStatus })
+      await api.patch(`/orders/${currentOrder.id}/`, { status, payment_status: paymentStatus })
       onUpdate()
       onClose()
     } catch (e) { console.error(e) }
     finally { setSaving(false) }
+  }
+
+  const handleItemStatusChange = async (itemId, newStatus) => {
+    try {
+      await api.patch(`/orders/${currentOrder.id}/items/${itemId}/`, { status: newStatus })
+      fetchOrder()
+    } catch (e) { alert('Error al actualizar producto') }
+  }
+
+  const handleAddPayment = async (e) => {
+    e.preventDefault()
+    if (!paymentAmount) return
+    setSaving(true)
+    try {
+      await api.post(`/orders/${currentOrder.id}/payments/`, {
+        amount: paymentAmount,
+        payment_method: paymentMethod,
+        notes: paymentNotes
+      })
+      setPaymentAmount('')
+      setPaymentNotes('')
+      fetchOrder()
+    } catch (err) {
+      alert('Error al registrar abono')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
@@ -65,79 +110,159 @@ function OrderDetail({ order, onClose, onUpdate }) {
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Pedido #{order.id}</h2>
+          <h2 className="text-xl font-bold text-gray-900">Pedido #{currentOrder.id}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
-        <div className="p-6 space-y-6">
-          {/* Customer info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Cliente</p>
-              <p className="font-medium">{order.customer_name || 'N/A'}</p>
-              <p className="text-sm text-gray-500">{order.customer_phone || ''}</p>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Entrega</p>
-              <p className="font-medium capitalize">{order.delivery_type === 'despacho' ? 'Despacho' : 'Retiro'}</p>
-              {order.delivery_address && <p className="text-sm text-gray-500">{order.delivery_address}</p>}
-            </div>
-          </div>
-
-          {/* Items */}
-          <div>
-            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Productos</p>
-            <div className="bg-gray-50 rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead><tr className="border-b border-gray-200">
-                  <th className="text-left px-4 py-2 font-medium text-gray-600">Producto</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Cant.</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Precio</th>
-                  <th className="text-right px-4 py-2 font-medium text-gray-600">Subtotal</th>
-                </tr></thead>
-                <tbody>
-                  {(order.items || []).map((item, i) => (
-                    <tr key={i} className="border-b border-gray-100 last:border-0">
-                      <td className="px-4 py-2">{item.product_name || `Producto #${item.product}`}</td>
-                      <td className="px-4 py-2 text-right">{item.quantity}</td>
-                      <td className="px-4 py-2 text-right">{formatCLP(item.unit_price)}</td>
-                      <td className="px-4 py-2 text-right font-medium">{formatCLP(item.subtotal)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-2 text-right">
-              <span className="text-lg font-bold text-gray-900">Total: {formatCLP(order.total)}</span>
-            </div>
-          </div>
-
-          {/* Status controls */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Estado del pedido</label>
-              <select value={status} onChange={e => setStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent">
-                {STATUS_OPTIONS.filter(s => s.value).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Estado de pago</label>
-              <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent">
-                <option value="pendiente">Pendiente</option>
-                <option value="pagado">Pagado</option>
-                <option value="vencido">Vencido</option>
-              </select>
-            </div>
-          </div>
-
-          {order.notes && (
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Notas</p>
-              <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{order.notes}</p>
-            </div>
-          )}
+        
+        <div className="flex border-b border-gray-200">
+          <button onClick={() => setActiveTab('detalles')} className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'detalles' ? 'border-palta-600 text-palta-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Detalles</button>
+          <button onClick={() => setActiveTab('abonos')} className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${activeTab === 'abonos' ? 'border-palta-600 text-palta-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>Pagos y Abonos</button>
         </div>
+
+        {activeTab === 'detalles' ? (
+          <div className="p-6 space-y-6">
+            {/* Customer info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Cliente</p>
+                <p className="font-medium">{currentOrder.customer_name || 'N/A'}</p>
+                <p className="text-sm text-gray-500">{currentOrder.customer_phone || ''}</p>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Entrega</p>
+                <p className="font-medium capitalize">{currentOrder.delivery_type === 'despacho' ? 'Despacho' : 'Retiro'}</p>
+                {currentOrder.delivery_address && <p className="text-sm text-gray-500">{currentOrder.delivery_address}</p>}
+              </div>
+            </div>
+
+            {/* Items */}
+            <div>
+              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Productos</p>
+              <div className="bg-gray-50 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b border-gray-200">
+                    <th className="text-left px-4 py-2 font-medium text-gray-600">Producto</th>
+                    <th className="text-right px-4 py-2 font-medium text-gray-600">Cant.</th>
+                    <th className="text-right px-4 py-2 font-medium text-gray-600">Precio</th>
+                    <th className="text-right px-4 py-2 font-medium text-gray-600">Subtotal</th>
+                    <th className="text-right px-4 py-2 font-medium text-gray-600">Estado</th>
+                  </tr></thead>
+                  <tbody>
+                    {(currentOrder.items || []).map((item, i) => (
+                      <tr key={i} className="border-b border-gray-100 last:border-0">
+                        <td className="px-4 py-2">{item.product_name || `Producto #${item.product}`}</td>
+                        <td className="px-4 py-2 text-right">{item.quantity}</td>
+                        <td className="px-4 py-2 text-right">{formatCLP(item.unit_price)}</td>
+                        <td className="px-4 py-2 text-right font-medium">{formatCLP(item.subtotal)}</td>
+                        <td className="px-4 py-2 text-right">
+                          <select value={item.status} onChange={e => handleItemStatusChange(item.id, e.target.value)}
+                            className="px-2 py-1 border border-gray-300 rounded text-xs">
+                            {STATUS_OPTIONS.filter(s => s.value).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                          </select>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-2 text-right">
+                <span className="text-lg font-bold text-gray-900">Total: {formatCLP(currentOrder.total)}</span>
+              </div>
+            </div>
+
+            {/* Status controls */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Estado general (Autocalculado)</label>
+                <select value={status} onChange={e => setStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent bg-gray-50 text-gray-700" disabled>
+                  {STATUS_OPTIONS.filter(s => s.value).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 uppercase tracking-wider mb-1">Estado de pago</label>
+                <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent bg-gray-50 text-gray-700" disabled>
+                  <option value="pendiente">Pendiente</option>
+                  <option value="abonado">Abonado</option>
+                  <option value="pagado">Pagado</option>
+                  <option value="vencido">Vencido</option>
+                </select>
+              </div>
+            </div>
+
+            {currentOrder.notes && (
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wider mb-1">Notas</p>
+                <p className="text-sm text-gray-700 bg-gray-50 p-3 rounded-lg">{currentOrder.notes}</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="bg-gray-50 p-4 rounded-lg text-center">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Total Pedido</p>
+                <p className="text-lg font-bold text-gray-900">{formatCLP(currentOrder.total)}</p>
+              </div>
+              <div className="bg-palta-50 p-4 rounded-lg text-center">
+                <p className="text-xs text-palta-600 uppercase tracking-wider">Total Abonado</p>
+                <p className="text-lg font-bold text-palta-700">{formatCLP((currentOrder.payments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0))}</p>
+              </div>
+              <div className="bg-orange-50 p-4 rounded-lg text-center">
+                <p className="text-xs text-orange-600 uppercase tracking-wider">Saldo Pendiente</p>
+                <p className="text-lg font-bold text-orange-700">{formatCLP(currentOrder.total - (currentOrder.payments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0))}</p>
+              </div>
+            </div>
+
+            {currentOrder.payments && currentOrder.payments.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 mb-3">Historial de Pagos</h3>
+                <div className="space-y-3">
+                  {currentOrder.payments.map((p, i) => (
+                    <div key={i} className="flex justify-between items-center p-3 border border-gray-100 rounded-lg">
+                      <div>
+                        <p className="font-medium text-sm text-gray-900">{p.payment_method_display}</p>
+                        <p className="text-xs text-gray-500">{new Date(p.date).toLocaleString('es-CL')} {p.notes && `- ${p.notes}`}</p>
+                      </div>
+                      <p className="font-bold text-gray-900">{formatCLP(p.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(currentOrder.total - (currentOrder.payments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0)) > 0 && (
+              <form onSubmit={handleAddPayment} className="border-t border-gray-100 pt-6">
+                <h3 className="text-sm font-bold text-gray-900 mb-3">Registrar Nuevo Pago o Abono</h3>
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Monto a abonar</label>
+                    <input type="number" required min="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Método</label>
+                    <select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                      <option value="efectivo">Efectivo</option>
+                      <option value="transferencia">Transferencia</option>
+                      <option value="mercadopago">MercadoPago</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="mb-3">
+                  <label className="block text-xs text-gray-500 mb-1">Notas (opcional)</label>
+                  <input type="text" value={paymentNotes} onChange={e => setPaymentNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <button type="submit" disabled={saving} className="w-full py-2 bg-palta-600 text-white rounded-lg text-sm font-medium hover:bg-palta-700 disabled:opacity-50">
+                  {saving ? 'Registrando...' : 'Registrar Abono'}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
         <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
           <button onClick={handleSave} disabled={saving}

@@ -277,3 +277,39 @@ class DashboardView(APIView):
             'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,
         })
+
+class OrderPaymentCreateView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+    def post(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        order = get_object_or_404(Order, pk=pk)
+        amount = request.data.get('amount')
+        payment_method = request.data.get('payment_method')
+        notes = request.data.get('notes', '')
+        if not amount or not payment_method:
+            return Response({'error': 'amount y payment_method requeridos'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        from .models import OrderPayment
+        payment = OrderPayment.objects.create(
+            order=order,
+            amount=amount,
+            payment_method=payment_method,
+            notes=notes,
+            created_by=request.user
+        )
+        from .serializers import OrderPaymentSerializer
+        return Response(OrderPaymentSerializer(payment).data)
+
+class OrderItemUpdateView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+    def patch(self, request, pk, item_id):
+        from django.shortcuts import get_object_or_404
+        order = get_object_or_404(Order, pk=pk)
+        from .models import OrderItem
+        item = get_object_or_404(OrderItem, pk=item_id, order=order)
+        status_val = request.data.get('status')
+        if status_val:
+            item.status = status_val
+            item.save()
+        from .serializers import OrderItemSerializer
+        return Response(OrderItemSerializer(item).data)

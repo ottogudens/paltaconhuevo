@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Order, OrderItem
+from .models import Order, OrderItem, OrderPayment
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)
@@ -7,8 +7,15 @@ class OrderItemSerializer(serializers.ModelSerializer):
         model = OrderItem
         fields = '__all__'
 
+class OrderPaymentSerializer(serializers.ModelSerializer):
+    payment_method_display = serializers.CharField(source='get_payment_method_display', read_only=True)
+    class Meta:
+        model = OrderPayment
+        fields = '__all__'
+
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    payments = OrderPaymentSerializer(many=True, read_only=True)
     customer_name = serializers.CharField(source='customer.get_full_name', read_only=True)
     customer_phone = serializers.CharField(source='customer.phone', read_only=True)
     class Meta:
