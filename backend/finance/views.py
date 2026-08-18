@@ -12,6 +12,7 @@ from core.permissions import IsAdminOrVendedor
 class TransactionListCreateView(generics.ListCreateAPIView):
     serializer_class = TransactionSerializer
     permission_classes = [IsAdminOrVendedor]
+    pagination_class = None
 
     def get_queryset(self):
         qs = Transaction.objects.all().order_by('-date')

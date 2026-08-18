@@ -169,6 +169,15 @@ export default function ProductsPage() {
     } catch (e) { alert('Error al eliminar') }
   }
 
+  const handleQuickUpdate = async (id, field, value) => {
+    try {
+      await api.patch(`/products/${id}/`, { [field]: value })
+      fetchProducts()
+    } catch (e) {
+      alert('Error al actualizar')
+    }
+  }
+
   const filtered = products.filter(p => {
     if (!search) return true
     return p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -192,14 +201,12 @@ export default function ProductsPage() {
           </button>
         </div>
 
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <input type="text" placeholder="Buscar producto..." value={search} onChange={e => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 focus:border-transparent" />
         </div>
 
-        {/* Product Cards Grid */}
         {loading ? (
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-palta-600" />
@@ -219,8 +226,19 @@ export default function ProductsPage() {
                           <span className="text-3xl">{typeEmoji[p.product_type] || '📦'}</span>
                         )}
                         <div>
-                          <h3 className="font-semibold text-gray-900">{p.name}</h3>
-                          <p className="text-xs text-gray-500 capitalize">{p.product_type} · {p.unit}</p>
+                          <input 
+                            type="text" 
+                            defaultValue={p.name}
+                            onBlur={e => {
+                              if (e.target.value !== p.name && e.target.value.trim() !== '') {
+                                handleQuickUpdate(p.id, 'name', e.target.value.trim())
+                              } else {
+                                e.target.value = p.name
+                              }
+                            }}
+                            className="font-semibold text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none w-full max-w-[150px] p-0 focus:ring-0"
+                          />
+                          <p className="text-xs text-gray-500 capitalize mt-1">{p.product_type} · {p.unit}</p>
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -236,15 +254,41 @@ export default function ProductsPage() {
                     </div>
                     <div className="flex items-end justify-between mt-4">
                       <div>
-                        <p className="text-2xl font-bold text-palta-700">{formatCLP(p.sale_price)}</p>
-                        <p className="text-xs text-gray-500">Costo: {formatCLP(p.purchase_price)} / {p.unit}</p>
+                        <div className="flex items-center">
+                          <span className="text-palta-700 font-bold text-xl">$</span>
+                          <input 
+                            type="number"
+                            defaultValue={p.sale_price}
+                            onBlur={e => {
+                              if (e.target.value != p.sale_price && e.target.value !== '') {
+                                handleQuickUpdate(p.id, 'sale_price', e.target.value)
+                              } else {
+                                e.target.value = p.sale_price
+                              }
+                            }}
+                            className="w-24 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none focus:ring-0 text-xl font-bold text-palta-700 p-0 ml-1"
+                          />
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1">Costo: {formatCLP(p.purchase_price)} / {p.unit}</p>
                       </div>
-                      <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'}`}>
+                      <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'} flex flex-col items-end`}>
                         <div className="flex items-center gap-1">
                           {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
-                          <p className={`text-sm font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>{p.stock}</p>
+                          <input 
+                            type="number" 
+                            step="0.01"
+                            defaultValue={p.stock}
+                            onBlur={e => {
+                              if (e.target.value != p.stock && e.target.value !== '') {
+                                handleQuickUpdate(p.id, 'stock', e.target.value)
+                              } else {
+                                e.target.value = p.stock
+                              }
+                            }}
+                            className={`w-16 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none focus:ring-0 text-sm font-bold text-right p-0 ${isLow ? 'text-red-600' : 'text-gray-700'}`}
+                          />
                         </div>
-                        <p className="text-xs text-gray-500">stock</p>
+                        <p className="text-xs text-gray-500 mt-0.5">stock</p>
                       </div>
                     </div>
                   </div>
@@ -253,9 +297,9 @@ export default function ProductsPage() {
             })}
           </div>
         ) : (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 py-16 text-center">
-            <Package className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-            <p className="text-gray-400">No hay productos</p>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+            <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 font-medium">No se encontraron productos</p>
           </div>
         )}
       </div>
