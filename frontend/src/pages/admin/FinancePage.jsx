@@ -345,8 +345,21 @@ export default function FinancePage() {
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
-  const handleExport = () => {
-    window.open(`${api.defaults.baseURL}/finance/export/`, '_blank')
+  const handleExport = async () => {
+    try {
+      const res = await api.get('/finance/export/', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'finanzas.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error(e)
+      alert('Error al exportar finanzas')
+    }
   }
 
   return (
