@@ -560,13 +560,24 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const fetchOrders = async () => {
-    setLoading(true)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+
+  const fetchOrders = async (pageNum = 1) => {
+    if (pageNum === 1) setLoading(true)
     try {
-      const params = {}
+      const params = { page: pageNum }
       if (statusFilter) params.status = statusFilter
       const res = await api.get('/orders/', { params })
-      setOrders(res.data.results || res.data || [])
+      const newOrders = res.data.results || res.data || []
+      
+      if (pageNum === 1) {
+        setOrders(newOrders)
+      } else {
+        setOrders(prev => [...prev, ...newOrders])
+      }
+      setHasMore(!!res.data.next)
+      setPage(pageNum)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -583,7 +594,7 @@ export default function OrdersPage() {
     }
   }
 
-  useEffect(() => { fetchOrders() }, [statusFilter])
+  useEffect(() => { fetchOrders(1) }, [statusFilter])
 
   const filtered = orders.filter(o => {
     if (!search) return true
@@ -704,6 +715,17 @@ export default function OrdersPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {hasMore && !loading && (
+            <div className="flex justify-center p-4 border-t border-gray-100">
+              <button 
+                onClick={() => fetchOrders(page + 1)} 
+                className="px-6 py-2 bg-palta-50 text-palta-700 font-medium rounded-lg hover:bg-palta-100 transition-colors"
+              >
+                Cargar más pedidos
+              </button>
             </div>
           )}
         </div>

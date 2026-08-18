@@ -170,16 +170,27 @@ export default function CustomersPage() {
   const [customerToEdit, setCustomerToEdit] = useState(null)
   const [importing, setImporting] = useState(false)
 
-  const fetchCustomers = async () => {
-    setLoading(true)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+
+  const fetchCustomers = async (pageNum = 1) => {
+    if (pageNum === 1) setLoading(true)
     try {
-      const res = await api.get('/auth/customers/')
-      setCustomers(res.data.results || res.data || [])
+      const res = await api.get('/auth/customers/', { params: { page: pageNum } })
+      const newCustomers = res.data.results || res.data || []
+      
+      if (pageNum === 1) {
+        setCustomers(newCustomers)
+      } else {
+        setCustomers(prev => [...prev, ...newCustomers])
+      }
+      setHasMore(!!res.data.next)
+      setPage(pageNum)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchCustomers() }, [])
+  useEffect(() => { fetchCustomers(1) }, [])
 
   const filtered = customers.filter(c => {
     if (!search) return true
@@ -346,6 +357,17 @@ export default function CustomersPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {hasMore && !loading && (
+            <div className="flex justify-center p-4 border-t border-gray-100">
+              <button 
+                onClick={() => fetchCustomers(page + 1)} 
+                className="px-6 py-2 bg-palta-50 text-palta-700 font-medium rounded-lg hover:bg-palta-100 transition-colors"
+              >
+                Cargar más clientes
+              </button>
             </div>
           )}
         </div>

@@ -5,6 +5,7 @@ import {
   TrendingUp, Users, ShoppingCart, DollarSign,
   AlertTriangle, Clock, Truck, CheckCircle2
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
 
 const COLORS = ['#3cb853', '#ffc127', '#ef4444', '#6366f1']
@@ -162,7 +163,7 @@ export default function DashboardPage() {
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">Pedidos pendientes de entrega</h2>
-              <a href="/orders" className="text-sm text-palta-600 hover:text-palta-700 font-medium">Ver todos →</a>
+              <Link to="/orders" className="text-sm text-palta-600 hover:text-palta-700 font-medium">Ver todos →</Link>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -201,7 +202,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
               <h2 className="font-semibold text-gray-900">⚠️ Stock Bajo</h2>
-              <a href="/products" className="text-sm text-palta-600 hover:text-palta-700 font-medium">Ver productos →</a>
+              <Link to="/products" className="text-sm text-palta-600 hover:text-palta-700 font-medium">Ver productos →</Link>
             </div>
             <div className="p-4 space-y-3">
               {lowStock.length > 0 ? lowStock.slice(0, 5).map(p => (
