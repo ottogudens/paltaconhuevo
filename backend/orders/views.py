@@ -143,6 +143,13 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             product = item.product
             product.stock += Decimal(str(item.quantity))
             product.save()
+            
+        # Eliminar transacciones financieras asociadas
+        try:
+            from finance.models import Transaction
+            Transaction.objects.filter(reference_id=f"ORDER-{instance.id}").delete()
+        except Exception as e:
+            pass
         
         # Opcional: Eliminar puntos obtenidos si aplicara
         try:
