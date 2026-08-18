@@ -9,6 +9,13 @@ export default function OffersPage() {
   const [showModal, setShowModal] = useState(false)
   const [sendingId, setSendingId] = useState(null)
 
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [targetOfferId, setTargetOfferId] = useState(null)
+  const [targetOption, setTargetOption] = useState('all')
+  const [selectedCustomers, setSelectedCustomers] = useState([])
+  const [customers, setCustomers] = useState([])
+  const [loadingCustomers, setLoadingCustomers] = useState(false)
+
   const [formData, setFormData] = useState({
     title: '', description: '', discount_percentage: 10, valid_from: new Date().toISOString().split('T')[0], valid_until: '', is_active: true
   })
@@ -55,17 +62,47 @@ export default function OffersPage() {
     }
   }
 
-  const handleSendBroadcast = async (offerId, channel = 'whatsapp') => {
-    if (!confirm(`¿Seguro que deseas enviar masivamente esta oferta por ${channel.toUpperCase()} a todos los clientes?`)) return
-    setSendingId(offerId)
+  const openSendModal = async (offerId) => {
+    setTargetOfferId(offerId)
+    setTargetOption('all')
+    setSelectedCustomers([])
+    setShowSendModal(true)
+    if (customers.length === 0) {
+      setLoadingCustomers(true)
+      try {
+        const res = await api.get('/auth/customers/', { params: { page_size: 1000 } })
+        setCustomers(res.data.results || res.data || [])
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoadingCustomers(false)
+      }
+    }
+  }
+
+  const handleSendSubmit = async () => {
+    if (targetOption === 'specific' && selectedCustomers.length === 0) {
+      alert('Debes seleccionar al menos un cliente')
+      return
+    }
+    setSendingId(targetOfferId)
+    setShowSendModal(false)
     try {
-      const res = await api.post(`/marketing/offers/${offerId}/send/`, { channel })
+      const payload = { channel: 'whatsapp' }
+      if (targetOption === 'specific') payload.customer_ids = selectedCustomers
+      const res = await api.post(`/marketing/offers/${targetOfferId}/send/`, payload)
       alert(`¡Oferta enviada con éxito! Receptores: ${res.data.sent}`)
     } catch (e) {
       alert('Error al enviar la oferta masiva')
     } finally {
       setSendingId(null)
     }
+  }
+
+  const toggleCustomer = (id) => {
+    setSelectedCustomers(prev => 
+      prev.includes(id) ? prev.filter(cId => cId !== id) : [...prev, id]
+    )
   }
 
   const handleDelete = async (offerId) => {
@@ -128,7 +165,7 @@ export default function OffersPage() {
 
                 <div className="p-5 pt-0 border-t border-gray-50 flex items-center justify-between gap-2 mt-4">
                   <button
-                    onClick={() => handleSendBroadcast(offer.id, 'whatsapp')}
+                    onClick={() => openSendModal(offer.id)}
                     disabled={sendingId === offer.id}
                     className="flex-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-50"
                   >
@@ -227,6 +264,65 @@ export default function OffersPage() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal Enviar Oferta */}
+        {showSendModal && (
+          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <h2 className="text-lg font-bold text-gray-900">Enviar Oferta por WhatsApp</h2>
+                <button onClick={() => setShowSendModal(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Selecciona a quién enviar:</label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="targetOption" value="all" checked={targetOption === 'all'} onChange={() => setTargetOption('all')} className="w-4 h-4 text-palta-600 focus:ring-palta-500" />
+                      <span className="text-sm text-gray-700">A todos los clientes</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" name="targetOption" value="specific" checked={targetOption === 'specific'} onChange={() => setTargetOption('specific')} className="w-4 h-4 text-palta-600 focus:ring-palta-500" />
+                      <span className="text-sm text-gray-700">Selección específica</span>
+                    </label>
+                  </div>
+                </div>
+
+                {targetOption === 'specific' && (
+                  <div className="mt-4 border rounded-lg p-3 bg-gray-50 h-64 overflow-y-auto">
+                    {loadingCustomers ? (
+                      <p className="text-xs text-gray-500 text-center py-10">Cargando clientes...</p>
+                    ) : customers.length === 0 ? (
+                      <p className="text-xs text-gray-500 text-center py-10">No hay clientes disponibles</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {customers.map(c => (
+                          <label key={c.id} className="flex items-center gap-2 cursor-pointer p-1.5 hover:bg-white rounded">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedCustomers.includes(c.id)} 
+                              onChange={() => toggleCustomer(c.id)} 
+                              className="w-4 h-4 text-palta-600 rounded focus:ring-palta-500" 
+                            />
+                            <span className="text-sm text-gray-700">{c.first_name} {c.last_name || ''} <span className="text-xs text-gray-400">({c.whatsapp_number || 'Sin WP'})</span></span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <button onClick={() => setShowSendModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+                <button onClick={handleSendSubmit} className="px-4 py-2 text-sm bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 flex items-center gap-2">
+                  <Send className="w-4 h-4" /> Enviar Ahora
+                </button>
+              </div>
             </div>
           </div>
         )}

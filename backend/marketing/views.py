@@ -95,7 +95,13 @@ class SendOfferView(APIView):
     def post(self, request, pk):
         offer = Offer.objects.get(pk=pk)
         channel = request.data.get('channel', 'whatsapp')
-        users = User.objects.filter(role='cliente')
+        customer_ids = request.data.get('customer_ids', None)
+        
+        if customer_ids and isinstance(customer_ids, list):
+            users = User.objects.filter(role='cliente', id__in=customer_ids)
+        else:
+            users = User.objects.filter(role='cliente')
+            
         message_text = (
             f"🔥 *¡OFERTA IMPERDIBLE EN PALTA CON HUEVO!* 🔥\n\n"
             f"*{offer.title}*\n{offer.description}\n\n"
