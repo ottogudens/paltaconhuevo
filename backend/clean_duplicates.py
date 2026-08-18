@@ -30,8 +30,14 @@ def clean_duplicates():
         if "@whatsapp.cl" in email:
             email = ""
             
-        phone = ''.join(filter(str.isdigit, client.phone))
-        whatsapp = ''.join(filter(str.isdigit, client.whatsapp_number))
+        def normalize_phone(p):
+            digits = ''.join(filter(str.isdigit, str(p or '')))
+            if len(digits) >= 9:
+                return digits[-9:]
+            return digits if digits else None
+
+        phone = normalize_phone(client.phone)
+        whatsapp = normalize_phone(client.whatsapp_number)
         
         # Buscamos si ya existe
         if email and email in seen_emails:
@@ -43,7 +49,6 @@ def clean_duplicates():
         elif whatsapp and whatsapp in seen_phones:
             is_duplicate = True
             primary_client = seen_phones[whatsapp]
-            
         if is_duplicate and primary_client:
             print(f"Duplicado encontrado: {client.username} (ID: {client.id}) -> Manteniendo ID: {primary_client.id}")
             

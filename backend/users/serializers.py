@@ -24,10 +24,18 @@ class CreateUserSerializer(serializers.ModelSerializer):
         query = Q()
         if email:
             query |= Q(email__iexact=email)
-        if phone:
-            query |= Q(phone__icontains=phone) | Q(whatsapp_number__icontains=phone)
-        if whatsapp:
-            query |= Q(phone__icontains=whatsapp) | Q(whatsapp_number__icontains=whatsapp)
+            
+        def get_base_phone(p):
+            digits = ''.join(filter(str.isdigit, p))
+            return digits[-9:] if len(digits) >= 9 else digits
+
+        base_phone = get_base_phone(phone)
+        base_wa = get_base_phone(whatsapp)
+
+        if base_phone:
+            query |= Q(phone__endswith=base_phone) | Q(whatsapp_number__endswith=base_phone)
+        if base_wa:
+            query |= Q(phone__endswith=base_wa) | Q(whatsapp_number__endswith=base_wa)
             
         if query:
             existing = User.objects.filter(query)
@@ -83,10 +91,18 @@ class RegisterSerializer(serializers.ModelSerializer):
         query = Q()
         if email:
             query |= Q(email__iexact=email)
-        if phone:
-            query |= Q(phone__icontains=phone) | Q(whatsapp_number__icontains=phone)
-        if whatsapp:
-            query |= Q(phone__icontains=whatsapp) | Q(whatsapp_number__icontains=whatsapp)
+
+        def get_base_phone(p):
+            digits = ''.join(filter(str.isdigit, p))
+            return digits[-9:] if len(digits) >= 9 else digits
+
+        base_phone = get_base_phone(phone)
+        base_wa = get_base_phone(whatsapp)
+
+        if base_phone:
+            query |= Q(phone__endswith=base_phone) | Q(whatsapp_number__endswith=base_phone)
+        if base_wa:
+            query |= Q(phone__endswith=base_wa) | Q(whatsapp_number__endswith=base_wa)
             
         if query and User.objects.filter(query).exists():
             raise serializers.ValidationError("Ya existe un cliente con este correo o número de teléfono.")
