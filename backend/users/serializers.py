@@ -19,6 +19,10 @@ class CreateUserSerializer(serializers.ModelSerializer):
         email = data.get('email', '').strip()
         phone = data.get('phone', '').strip()
         whatsapp = data.get('whatsapp_number', '').strip()
+
+        if phone and not whatsapp:
+            whatsapp = phone
+            data['whatsapp_number'] = phone
         
         from django.db.models import Q
         query = Q()
@@ -86,6 +90,10 @@ class RegisterSerializer(serializers.ModelSerializer):
         email = data.get('email', '').strip()
         phone = data.get('phone', '').strip()
         whatsapp = data.get('whatsapp_number', '').strip()
+
+        if phone and not whatsapp:
+            whatsapp = phone
+            data['whatsapp_number'] = phone
         
         from django.db.models import Q
         query = Q()

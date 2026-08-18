@@ -42,10 +42,11 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState([])
   const [lowStock, setLowStock] = useState([])
   const [loading, setLoading] = useState(true)
+  const [salesPeriod, setSalesPeriod] = useState('month')
 
   const fetchDashboard = async () => {
     try {
-      const dashRes = await api.get('/orders/dashboard/')
+      const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}`)
       setDashboard(dashRes.data)
     } catch (e) {
       console.error('Dashboard fetch error:', e)
@@ -55,10 +56,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const [dashRes, stockRes] = await Promise.all([
-          api.get('/orders/dashboard/'),
-          api.get('/products/low-stock/'),
-        ])
+        const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}`)
         setDashboard(dashRes.data)
         setLowStock(stockRes.data || [])
       } catch (e) {
@@ -68,7 +66,7 @@ export default function DashboardPage() {
       }
     }
     fetchAll()
-  }, [])
+  }, [salesPeriod])
 
   const handleOrderStatusChange = async (orderId, newStatus) => {
     try {
@@ -141,13 +139,26 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 text-sm mt-1">Resumen general de tu negocio</p>
         </div>
+        
+        <div className="flex justify-end gap-2 mb-4">
+             <span className="text-sm text-gray-500 self-center">Ver ventas por:</span>
+             <select 
+               value={salesPeriod} 
+               onChange={e => setSalesPeriod(e.target.value)}
+               className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-palta-500 focus:border-palta-500 block p-2"
+             >
+                <option value="day">Hoy</option>
+                <option value="week">Esta Semana</option>
+                <option value="month">Este Mes</option>
+             </select>
+        </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={CheckCircle2} label="Ventas Pagadas" value={formatCLP(dashboard?.sales_paid)} color="palta" />
-          <StatCard icon={TrendingUp} label="Por Pagar" value={formatCLP(dashboard?.sales_unpaid)} color="red" />
-          <StatCard icon={Clock} label="Pedidos Pendientes" value={dashboard?.orders_pending || 0} color="huevo" />
-          <StatCard icon={DollarSign} label="Ventas Hoy" value={formatCLP(dashboard?.sales_today)} color="blue" />
+          <StatCard icon={CheckCircle2} label="Ventas Pagadas (Mes)" value={formatCLP(dashboard?.sales_paid)} color="palta" />
+          <StatCard icon={TrendingUp} label="Por Pagar (Entregado)" value={formatCLP(dashboard?.sales_unpaid)} color="red" />
+          <StatCard icon={Clock} label="Pedidos Pendientes" value={dashboard?.orders_pending + ' (' + formatCLP(dashboard?.orders_pending_value) + ')'} color="huevo" />
+          <StatCard icon={DollarSign} label="Ventas Período" value={formatCLP(dashboard?.sales_period_value)} color="blue" />
         </div>
 
         {/* Second row */}

@@ -43,15 +43,51 @@ class FinanceSummaryView(APIView):
             start = today - datetime.timedelta(days=7)
         else:
             start = today.replace(day=1)
-        qs = Transaction.objects.filter(date__gte=start)
-        ingresos = float(qs.filter(transaction_type='ingreso').aggregate(t=Sum('amount'))['t'] or 0)
-        egresos = float(qs.filter(transaction_type='egreso').aggregate(t=Sum('amount'))['t'] or 0)
+        qs_transactions = Transaction.objects.filter(date__gte=start)
+        ingresos_manuales = float(qs_transactions.filter(transaction_type='ingreso').exclude(category='venta').aggregate(t=Sum('amount'))['t'] or 0)
+        egresos = float(qs_transactions.filter(transaction_type='egreso').aggregate(t=Sum('amount'))['t'] or 0)
+
+        from orders.models import Order
+        qs_orders = Order.objects.filter(created_at__date__gte=start, payment_status='pagado')
+        ingresos_ventas = float(qs_orders.aggregate(t=Sum('total'))['t'] or 0)
+        
+        ingresos = ingresos_manuales + ingresos_ventas
+
         return Response({
             'ingresos': ingresos,
             'egresos': egresos,
             'balance': ingresos - egresos,
             'period': period,
         })
+
+class FinanceSalesView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        from orders.models import OrderItem
+        qs = OrderItem.objects.filter(order__payment_status='pagado').select_related('order', 'order__customer', 'product').order_by('-order__created_at')
+        
+        # Opcional: filtros basicos si mandan parametros
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        if start_date:
+            qs = qs.filter(order__created_at__date__gte=start_date)
+        if end_date:
+            qs = qs.filter(order__created_at__date__lte=end_date)
+            
+        data = []
+        for item in qs:
+            data.append({
+                'id': item.id,
+                'order_id': item.order.id,
+                'product_name': item.product.name,
+                'quantity': float(item.quantity),
+                'subtotal': float(item.subtotal),
+                'customer_name': item.order.customer.get_full_name() or item.order.customer.username,
+                'payment_method': item.order.payment_method,
+                'date': str(item.order.created_at.date())
+            })
+        return Response(data)
 
 
 class ExportTransactionsView(APIView):

@@ -6,4 +6,5 @@ urlpatterns = [
     path('<int:pk>/', views.TransactionDetailView.as_view()),
     path('summary/', views.FinanceSummaryView.as_view()),
     path('export/', views.ExportTransactionsView.as_view()),
+    path('sales/', views.FinanceSalesView.as_view()),
 ]

@@ -5,10 +5,30 @@ import ImportModal from '../../components/ImportModal'
 import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus, Trash2, Pencil } from 'lucide-react'
 
 function CustomerDetail({ customer, onClose, onEdit }) {
+  const [history, setHistory] = useState(null)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      setLoadingHistory(true)
+      try {
+        const res = await api.get(`/auth/customers/${customer.id}/history/`)
+        setHistory(res.data)
+      } catch (e) {
+        console.error(e)
+      } finally {
+        setLoadingHistory(false)
+      }
+    }
+    if (customer?.id) {
+       fetchHistory()
+    }
+  }, [customer?.id])
+
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white z-10">
           <h2 className="text-xl font-bold text-gray-900">Detalle de Cliente</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
@@ -54,6 +74,40 @@ function CustomerDetail({ customer, onClose, onEdit }) {
               <Calendar className="w-4 h-4 text-gray-400 flex-shrink-0" />
               <span className="text-sm text-gray-700">Registrado: {customer.created_at ? new Date(customer.created_at).toLocaleDateString('es-CL') : '-'}</span>
             </div>
+            
+            {loadingHistory ? (
+              <div className="flex justify-center p-4">
+                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-palta-600" />
+              </div>
+            ) : history ? (
+              <div className="mt-4 border-t border-gray-100 pt-4">
+                 <h4 className="font-semibold text-gray-900 mb-2">Puntos Acumulados</h4>
+                 <div className="bg-palta-50 border border-palta-200 text-palta-800 p-3 rounded-lg text-sm font-bold flex items-center justify-between">
+                    <span>Saldo Actual de Puntos:</span>
+                    <span className="text-lg">{history.points_balance}</span>
+                 </div>
+                 
+                 <h4 className="font-semibold text-gray-900 mt-4 mb-2">Últimos Pedidos</h4>
+                 {history.orders && history.orders.length > 0 ? (
+                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2">
+                       {history.orders.map(order => (
+                          <div key={order.id} className="flex justify-between items-center p-2 hover:bg-gray-50 border border-gray-100 rounded-lg text-sm transition-colors">
+                             <div>
+                                <span className="font-medium text-gray-800">Pedido #{order.id}</span>
+                                <span className="text-gray-500 text-xs ml-2">{new Date(order.created_at).toLocaleDateString('es-CL')}</span>
+                             </div>
+                             <div className="flex flex-col items-end">
+                                <span className="font-bold text-gray-900">${order.total}</span>
+                                <span className="text-xs text-palta-600 capitalize">{order.status}</span>
+                             </div>
+                          </div>
+                       ))}
+                    </div>
+                 ) : (
+                    <p className="text-sm text-gray-500">No hay compras registradas.</p>
+                 )}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="p-6 border-t border-gray-100 flex justify-end gap-3">
@@ -374,7 +428,7 @@ export default function CustomersPage() {
 
       {selected && <CustomerDetail customer={selected} onClose={() => setSelected(null)} onEdit={(cust) => setCustomerToEdit(cust)} />}
       {showCreateModal && (
-        <CreateCustomerModal onClose={() => setShowCreateModal(false)} onSuccess={fetchCustomers} />
+        <CustomerModal onClose={() => setShowCreateModal(false)} onSave={fetchCustomers} />
       )}
 
       <ImportModal

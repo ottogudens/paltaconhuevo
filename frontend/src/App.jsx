@@ -13,7 +13,8 @@ import ShopPage from './pages/ShopPage'
 import MyOrdersPage from './pages/MyOrdersPage'
 import MyLoyaltyPage from './pages/MyLoyaltyPage'
 import NotFoundPage from './pages/NotFoundPage'
-import FinancePage from './pages/admin/FinancePage'
+import FinanceVentasPage from './pages/admin/FinanceVentasPage'
+import FinanceComprasPage from './pages/admin/FinanceComprasPage'
 import WhatsAppPage from './pages/admin/WhatsAppPage'
 import UsersPage from './pages/admin/UsersPage'
 import LoyaltyDashboard from './pages/admin/LoyaltyDashboard'
@@ -42,7 +43,8 @@ export default function App() {
         <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><OrdersPage /></ProtectedRoute>} />
         <Route path="/products" element={<ProtectedRoute requiredRole="admin"><ProductsPage /></ProtectedRoute>} />
         <Route path="/loyalty" element={<ProtectedRoute requiredRole="admin"><LoyaltyDashboard /></ProtectedRoute>} />
-        <Route path="/finance" element={<ProtectedRoute requiredRole="admin"><FinancePage /></ProtectedRoute>} />
+        <Route path="/finance/sales" element={<ProtectedRoute requiredRole="admin"><FinanceVentasPage /></ProtectedRoute>} />
+        <Route path="/finance/purchases" element={<ProtectedRoute requiredRole="admin"><FinanceComprasPage /></ProtectedRoute>} />
         <Route path="/whatsapp" element={<ProtectedRoute requiredRole="admin"><WhatsAppPage /></ProtectedRoute>} />
 
         {/* Client Routes */}

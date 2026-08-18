@@ -272,6 +272,18 @@ class DashboardView(APIView):
         orders_today = Order.objects.filter(created_at__date=today)
         orders_month = Order.objects.filter(created_at__date__gte=month_start)
         
+        # Filtro de ventas dinámico para la vista aislada (por defecto Mes)
+        sales_period = request.query_params.get('sales_period', 'month')
+        if sales_period == 'day':
+            sales_start_date = today
+        elif sales_period == 'week':
+            sales_start_date = today - datetime.timedelta(days=7)
+        else: # month
+            sales_start_date = month_start
+            
+        sales_period_orders = Order.objects.filter(created_at__date__gte=sales_start_date, payment_status='pagado')
+        sales_period_value = float(sales_period_orders.aggregate(t=Sum('total'))['t'] or 0)
+        
         # Pedidos entregados y pagados (suma de totales)
         sales_paid = float(Order.objects.filter(status='entregado', payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
         
@@ -279,7 +291,9 @@ class DashboardView(APIView):
         sales_unpaid = float(Order.objects.filter(status='entregado').exclude(payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
         
         # Pedidos pendientes (no entregados y no pagados) (cantidad)
-        orders_pending = Order.objects.exclude(status='entregado').exclude(payment_status='pagado').count()
+        pending_qs = Order.objects.exclude(status='entregado').exclude(payment_status='pagado')
+        orders_pending = pending_qs.count()
+        orders_pending_value = float(pending_qs.aggregate(t=Sum('total'))['t'] or 0)
 
         # Listado de pedidos pendientes: no entregados, ordenados por más recientes
         pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
@@ -302,12 +316,15 @@ class DashboardView(APIView):
         )
 
         return Response({
+            'sales_period_value': sales_period_value,
+            'sales_period': sales_period,
             'sales_today': float(orders_today.aggregate(t=Sum('total'))['t'] or 0),
             'sales_month': float(orders_month.aggregate(t=Sum('total'))['t'] or 0),
             'orders_today': orders_today.count(),
             'sales_paid': sales_paid,
             'sales_unpaid': sales_unpaid,
             'orders_pending': orders_pending,
+            'orders_pending_value': orders_pending_value,
             'orders_in_transit': Order.objects.filter(status='en_camino').count(),
             'total_customers': User.objects.filter(role='cliente').count(),
             'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),

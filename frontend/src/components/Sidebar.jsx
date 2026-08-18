@@ -13,7 +13,10 @@ const adminLinks = [
   { to: '/users', label: 'Usuarios', icon: UserCheck },
   { to: '/products', label: 'Productos', icon: Package },
   { to: '/loyalty', label: 'Fidelización', icon: Tag },
-  { to: '/finance', label: 'Finanzas', icon: DollarSign },
+  { id: 'finance', label: 'Finanzas', icon: DollarSign, subLinks: [
+    { to: '/finance/sales', label: 'Ventas', icon: TrendingUp },
+    { to: '/finance/purchases', label: 'Compras', icon: TrendingDown },
+  ]},
   { to: '/whatsapp', label: 'WhatsApp Bot', icon: MessageSquare },
 ]
 
@@ -27,6 +30,11 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const location = useLocation()
   const isAdmin = user?.role === 'admin' || user?.role === 'vendedor'
   const links = isAdmin ? adminLinks : clientLinks
+  const [expandedMenus, setExpandedMenus] = useState({ finance: false })
+
+  const toggleMenu = (id) => {
+    setExpandedMenus(prev => ({ ...prev, [id]: !prev[id] }))
+  }
 
   const handleLogout = () => {
     logout()
@@ -53,23 +61,69 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
         <p className="px-3 text-xs font-semibold text-palta-400 uppercase tracking-wider mb-3">
           {isAdmin ? 'Administración' : 'Mi cuenta'}
         </p>
-        {links.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={() => setMobileOpen(false)}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
-                isActive
-                  ? 'bg-white/15 text-white shadow-sm'
-                  : 'text-palta-200 hover:bg-white/10 hover:text-white'
-              }`
-            }
-          >
-            <Icon className="w-5 h-5 flex-shrink-0" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
+        {links.map((link) => {
+          if (link.subLinks) {
+            const isExpanded = expandedMenus[link.id];
+            const isActiveChild = link.subLinks.some(sub => location.pathname === sub.to);
+            return (
+              <div key={link.id} className="space-y-1">
+                <button
+                  onClick={() => toggleMenu(link.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
+                    isActiveChild || isExpanded
+                      ? 'bg-white/10 text-white'
+                      : 'text-palta-200 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <link.icon className="w-5 h-5 flex-shrink-0" />
+                    <span>{link.label}</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+                {isExpanded && (
+                  <div className="pl-10 space-y-1 mt-1">
+                    {link.subLinks.map(subLink => (
+                      <NavLink
+                        key={subLink.to}
+                        to={subLink.to}
+                        onClick={() => setMobileOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                            isActive
+                              ? 'bg-white/15 text-white shadow-sm'
+                              : 'text-palta-200 hover:bg-white/10 hover:text-white'
+                          }`
+                        }
+                      >
+                        <subLink.icon className="w-4 h-4" />
+                        <span>{subLink.label}</span>
+                      </NavLink>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          }
+          
+          return (
+            <NavLink
+              key={link.to}
+              to={link.to}
+              onClick={() => setMobileOpen(false)}
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 group ${
+                  isActive
+                    ? 'bg-white/15 text-white shadow-sm'
+                    : 'text-palta-200 hover:bg-white/10 hover:text-white'
+                }`
+              }
+            >
+              <link.icon className="w-5 h-5 flex-shrink-0" />
+              <span>{link.label}</span>
+            </NavLink>
+          )
+        })}
       </nav>
 
       {/* User info + Logout */}
