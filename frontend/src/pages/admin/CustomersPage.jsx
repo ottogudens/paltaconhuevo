@@ -249,9 +249,7 @@ export default function CustomersPage() {
     }
   }
 
-  const handleExport = () => {
-    window.open(`${api.defaults.baseURL}/auth/customers/export/`, '_blank')
-  }
+
 
   const handleDeleteCustomer = async (e, customerId) => {
     e.stopPropagation()
