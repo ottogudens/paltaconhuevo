@@ -560,13 +560,14 @@ export default function OrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
+  const [ordering, setOrdering] = useState('-created_at')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
 
   const fetchOrders = async (pageNum = 1) => {
     if (pageNum === 1) setLoading(true)
     try {
-      const params = { page: pageNum }
+      const params = { page: pageNum, ordering, search }
       if (statusFilter) params.status = statusFilter
       const res = await api.get('/orders/', { params })
       const newOrders = res.data.results || res.data || []
@@ -594,16 +595,26 @@ export default function OrdersPage() {
     }
   }
 
-  useEffect(() => { fetchOrders(1) }, [statusFilter])
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchOrders(1)
+    }, 500)
+    return () => clearTimeout(delayDebounceFn)
+  }, [statusFilter, search, ordering])
 
-  const filtered = orders.filter(o => {
-    if (!search) return true
-    const s = search.toLowerCase()
-    return (
-      String(o.id).includes(s) ||
-      (o.customer_name || '').toLowerCase().includes(s)
-    )
-  })
+  const handleSort = (field) => {
+    if (ordering === field) {
+      setOrdering(`-${field}`)
+    } else {
+      setOrdering(field)
+    }
+  }
+
+  const SortIcon = ({ field }) => {
+    if (ordering === field) return <span className="ml-1 text-palta-600 font-bold">↑</span>
+    if (ordering === `-${field}`) return <span className="ml-1 text-palta-600 font-bold">↓</span>
+    return null
+  }
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
@@ -629,7 +640,7 @@ export default function OrdersPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Pedidos</h1>
-            <p className="text-gray-500 text-sm mt-1">{filtered.length} pedidos encontrados</p>
+            <p className="text-gray-500 text-sm mt-1">{orders.length} pedidos cargados</p>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setShowCreateModal(true)}
@@ -675,17 +686,17 @@ export default function OrdersPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">#</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Cliente</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Total</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Estado</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id')}># <SortIcon field="id" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customer__first_name')}>Cliente <SortIcon field="customer__first_name" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total')}>Total <SortIcon field="total" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Estado <SortIcon field="status" /></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Pago</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Fecha</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Fecha <SortIcon field="created_at" /></th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.length > 0 ? filtered.map(o => (
+                  {orders.length > 0 ? orders.map(o => (
                     <tr key={o.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedOrder(o)}>
                       <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
                       <td className="px-5 py-3">

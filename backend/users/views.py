@@ -10,6 +10,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.views import APIView
+from rest_framework import filters
 
 from core.permissions import IsAdmin, IsAdminOrVendedor, IsWhatsAppService
 from .models import PasswordResetToken
@@ -294,6 +295,10 @@ class PasswordResetConfirmView(APIView):
 
 class CustomerListView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrVendedor]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'phone', 'username', 'whatsapp_number', 'commune']
+    ordering_fields = ['first_name', 'last_name', 'email', 'phone', 'created_at', 'commune']
+    ordering = ['first_name']
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -301,7 +306,7 @@ class CustomerListView(generics.ListCreateAPIView):
         return UserSerializer
 
     def get_queryset(self):
-        return User.objects.filter(role='cliente').order_by('-created_at')
+        return User.objects.filter(role='cliente')
 
     def perform_create(self, serializer):
         serializer.save(role='cliente')

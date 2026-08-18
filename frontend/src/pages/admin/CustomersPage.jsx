@@ -170,13 +170,14 @@ export default function CustomersPage() {
   const [customerToEdit, setCustomerToEdit] = useState(null)
   const [importing, setImporting] = useState(false)
 
+  const [ordering, setOrdering] = useState('first_name')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
 
   const fetchCustomers = async (pageNum = 1) => {
     if (pageNum === 1) setLoading(true)
     try {
-      const res = await api.get('/auth/customers/', { params: { page: pageNum } })
+      const res = await api.get('/auth/customers/', { params: { page: pageNum, search, ordering } })
       const newCustomers = res.data.results || res.data || []
       
       if (pageNum === 1) {
@@ -190,19 +191,28 @@ export default function CustomersPage() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchCustomers(1) }, [])
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      fetchCustomers(1)
+    }, 500)
+    return () => clearTimeout(delayDebounceFn)
+  }, [search, ordering])
 
-  const filtered = customers.filter(c => {
-    if (!search) return true
-    const s = search.toLowerCase()
-    return (
-      (c.first_name || '').toLowerCase().includes(s) ||
-      (c.last_name || '').toLowerCase().includes(s) ||
-      (c.email || '').toLowerCase().includes(s) ||
-      (c.phone || '').includes(s) ||
-      (c.username || '').toLowerCase().includes(s)
-    )
-  })
+  const handleSort = (field) => {
+    if (ordering === field) {
+      setOrdering(`-${field}`)
+    } else {
+      setOrdering(field)
+    }
+  }
+
+  const SortIcon = ({ field }) => {
+    if (ordering === field) return <span className="ml-1 text-palta-600 font-bold">↑</span>
+    if (ordering === `-${field}`) return <span className="ml-1 text-palta-600 font-bold">↓</span>
+    return null
+  }
+
+
 
   const handleExport = async () => {
     try {
@@ -309,16 +319,16 @@ export default function CustomersPage() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Cliente</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Email</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Teléfono</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Comuna</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Registro</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('first_name')}>Cliente <SortIcon field="first_name" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('email')}>Email <SortIcon field="email" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('phone')}>Teléfono <SortIcon field="phone" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('commune')}>Comuna <SortIcon field="commune" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Registro <SortIcon field="created_at" /></th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
-                  {filtered.length > 0 ? filtered.map(c => (
+                  {customers.length > 0 ? customers.map(c => (
                     <tr key={c.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelected(c)}>
                       <td className="px-5 py-3">
                         <div className="flex items-center gap-3">

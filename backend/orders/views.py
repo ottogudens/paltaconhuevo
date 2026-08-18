@@ -11,7 +11,9 @@ from products.models import Product
 from finance.models import Transaction
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from core.permissions import IsAdminOrVendedor, IsOwnerOrAdmin
+from core.permissions import IsAdminOrVendedor, IsOwnerOrAdmin
 import datetime
+from rest_framework import filters
 
 
 class OrderListCreateView(generics.ListCreateAPIView):
@@ -23,16 +25,20 @@ class OrderListCreateView(generics.ListCreateAPIView):
     """
     serializer_class = OrderSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['id', 'customer__first_name', 'customer__last_name', 'customer__username', 'customer__email', 'customer__phone']
+    ordering_fields = ['id', 'created_at', 'total', 'status', 'customer__first_name']
+    ordering = ['-created_at']
 
     def get_queryset(self):
         user = self.request.user
         if user.role in ['admin', 'vendedor']:
-            qs = Order.objects.all().order_by('-created_at')
+            qs = Order.objects.all()
             status_filter = self.request.query_params.get('status')
             if status_filter:
                 qs = qs.filter(status=status_filter)
             return qs
-        return Order.objects.filter(customer=user).order_by('-created_at')
+        return Order.objects.filter(customer=user)
 
     def create(self, request, *args, **kwargs):
         data = request.data
