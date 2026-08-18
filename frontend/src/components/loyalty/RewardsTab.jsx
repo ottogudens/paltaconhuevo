@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import api from '../../../services/api'
+import api from '../../services/api'
 import { Plus, Trash, Edit, Star, Ticket, X } from 'lucide-react'
 
 export default function RewardsPage() {

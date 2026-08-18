@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import api from '../../../services/api'
+import api from '../../services/api'
 import { Tag, Plus, Send, Calendar, Image as ImageIcon, CheckCircle, Trash2, Percent } from 'lucide-react'
 
 export default function OffersPage() {
