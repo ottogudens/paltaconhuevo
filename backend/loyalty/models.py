@@ -43,3 +43,25 @@ class ContestParticipant(models.Model):
 
     class Meta:
         unique_together = ('contest_id', 'user')
+
+class Reward(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    points_cost = models.IntegerField()
+    discount_value = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.points_cost} pts)"
+
+class RewardRedemption(models.Model):
+    STATUS_CHOICES = [('generado', 'Generado'), ('canjeado', 'Canjeado')]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='redemptions')
+    reward = models.ForeignKey(Reward, on_delete=models.PROTECT)
+    coupon_code = models.CharField(max_length=50, unique=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='generado')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.reward.name} - {self.coupon_code}"

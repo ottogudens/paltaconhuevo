@@ -89,18 +89,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
             product.save()
         order.subtotal = subtotal
         order.total = subtotal + float(order.delivery_cost)
-        from django.conf import settings as conf
-        points = int(order.total / 1000) * conf.POINTS_PER_THOUSAND
-        order.points_earned = points
         order.save()
-        try:
-            acc = order.customer.loyalty
-            acc.points += points
-            acc.total_points_earned += points
-            acc.total_purchases += order.total
-            acc.update_level()
-        except Exception:
-            pass
         Transaction.objects.create(
             transaction_type='ingreso', category='venta',
             amount=order.total, description=f'Pedido #{order.id}',
@@ -126,7 +115,26 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
             for field in restricted_fields:
                 if field in serializer.validated_data:
                     serializer.validated_data.pop(field)
-        serializer.save()
+        instance = serializer.save()
+        if instance.status == 'entregado' and instance.payment_status == 'pagado' and not instance.points_awarded:
+            from loyalty.models import LoyaltyAccount, PointTransaction
+            points = int(instance.total / 1000) * 10
+            if points > 0:
+                instance.points_earned = points
+                instance.points_awarded = True
+                instance.save(update_fields=['points_earned', 'points_awarded'])
+                acc, _ = LoyaltyAccount.objects.get_or_create(user=instance.customer)
+                acc.points += points
+                acc.total_points_earned += points
+                acc.total_purchases += instance.total
+                acc.update_level()
+                PointTransaction.objects.create(
+                    account=acc,
+                    transaction_type='ganado',
+                    points=points,
+                    description=f'Pedido #{instance.id} Entregado',
+                    reference_id=str(instance.id)
+                )
 
     def perform_destroy(self, instance):
         # Devolver el stock
@@ -215,22 +223,8 @@ class MercadoPagoWebhookView(APIView):
                         order.mercadopago_payment_id = str(payment_id)
                         order.save()
 
-                        # Acreditar puntos de lealtad
-                        if order.points_earned > 0:
-                            loyalty_account, _ = LoyaltyAccount.objects.get_or_create(user=order.customer)
-                            loyalty_account.points += order.points_earned
-                            loyalty_account.total_points_earned += order.points_earned
-                            loyalty_account.total_purchases += order.total
-                            loyalty_account.update_level()
-                            PointTransaction.objects.get_or_create(
-                                account=loyalty_account,
-                                transaction_type='ganado',
-                                reference_id=str(order.id),
-                                defaults={
-                                    'points': order.points_earned,
-                                    'description': f'Compra Pedido #{order.id}'
-                                }
-                            )
+                        # Acreditar puntos de lealtad se movió a perform_update cuando el pedido se marque como entregado
+                        # Aquí solo marcamos como pagado.
                     except Order.DoesNotExist:
                         pass
         return Response({'status': 'ok'})
