@@ -315,22 +315,33 @@ export default function FinancePage() {
   const [showModal, setShowModal] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
 
-  const fetchAll = async () => {
-    setLoading(true)
+  const [page, setPage] = useState(1)
+  const [hasMore, setHasMore] = useState(false)
+
+  const fetchAll = async (pageNum = 1) => {
+    if (pageNum === 1) setLoading(true)
     try {
-      const params = {}
+      const params = { page: pageNum }
       if (filter) params.type = filter
       const [txRes, sumRes] = await Promise.all([
         api.get('/finance/', { params }),
         api.get('/finance/summary/', { params: { period } }),
       ])
-      setTransactions(txRes.data.results || txRes.data || [])
-      setSummary(sumRes.data)
+      const newTx = txRes.data.results || txRes.data || []
+      
+      if (pageNum === 1) {
+        setTransactions(newTx)
+        setSummary(sumRes.data)
+      } else {
+        setTransactions(prev => [...prev, ...newTx])
+      }
+      setHasMore(!!txRes.data.next)
+      setPage(pageNum)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchAll() }, [filter, period])
+  useEffect(() => { fetchAll(1) }, [filter, period])
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
@@ -474,6 +485,17 @@ export default function FinancePage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {hasMore && !loading && (
+            <div className="flex justify-center p-4 border-t border-gray-100">
+              <button 
+                onClick={() => fetchAll(page + 1)} 
+                className="px-6 py-2 bg-palta-50 text-palta-700 font-medium rounded-lg hover:bg-palta-100 transition-colors"
+              >
+                Cargar más transacciones
+              </button>
             </div>
           )}
         </div>

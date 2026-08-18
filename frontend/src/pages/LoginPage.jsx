@@ -24,8 +24,6 @@ export default function LoginPage() {
       const res = await api.post('/auth/login/', { username, password })
       const { token, user } = res.data
       login(user, token)
-      localStorage.setItem('token', token)
-      localStorage.setItem('user', JSON.stringify(user))
       navigate(user.role === 'admin' ? '/dashboard' : '/shop')
     } catch (err) {
       setError(err.response?.data?.detail || 'Credenciales inválidas')

@@ -10,7 +10,7 @@ export default function Navbar() {
         <Link to="/" className="text-2xl font-bold"><span className="text-palta-600">🥑</span> <span className="text-huevo-600">🥚</span></Link>
         <div className="flex gap-4 items-center">
           <span className="text-gray-700">{user?.first_name}</span>
-          <button onClick={() => { logout(); localStorage.clear() }} className="btn-outline text-sm">Cerrar sesión</button>
+          <button onClick={() => logout()} className="btn-outline text-sm">Cerrar sesión</button>
         </div>
       </div>
     </nav>

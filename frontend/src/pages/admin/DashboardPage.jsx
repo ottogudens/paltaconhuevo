@@ -159,6 +159,61 @@ export default function DashboardPage() {
 
         {/* Charts + Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Top Products Pie Chart */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col items-center">
+            <h2 className="font-semibold text-gray-900 self-start mb-2">Ventas por Producto</h2>
+            {dashboard?.top_products?.length > 0 ? (
+              <div className="w-full h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={dashboard.top_products} dataKey="total_sales" nameKey="product__name" cx="50%" cy="50%" outerRadius={80} fill="#62a344" label>
+                      {dashboard.top_products.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={['#62a344', '#f5b041', '#3498db', '#e74c3c', '#9b59b6', '#1abc9c', '#34495e'][index % 7]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => formatCLP(value)} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 mt-10">No hay datos suficientes</p>
+            )}
+          </div>
+
+          {/* Top Products List */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Top 5 Productos</h2>
+            <div className="space-y-3">
+              {dashboard?.top_products?.map((p, i) => (
+                <div key={i} className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{p.product__name}</p>
+                    <p className="text-xs text-gray-500">{p.total_quantity} unidades</p>
+                  </div>
+                  <p className="text-sm font-bold text-palta-600">{formatCLP(p.total_sales)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Top Customers List */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 className="font-semibold text-gray-900 mb-4">Top 5 Clientes</h2>
+            <div className="space-y-3">
+              {dashboard?.top_customers?.map((c, i) => (
+                <div key={i} className="flex justify-between items-center border-b border-gray-50 pb-2">
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{c.customer__first_name} {c.customer__last_name}</p>
+                    <p className="text-xs text-gray-500">@{c.customer__username} • {c.total_orders} pedidos</p>
+                  </div>
+                  <p className="text-sm font-bold text-palta-600">{formatCLP(c.total_spent)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Recent Orders */}
           <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">

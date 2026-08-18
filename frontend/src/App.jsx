@@ -27,15 +27,6 @@ function ProtectedRoute({ children, requiredRole = null }) {
 export default function App() {
   const { user, token } = useAuthStore()
 
-  // Cargar usuario del localStorage al iniciar
-  useEffect(() => {
-    const savedToken = localStorage.getItem('token')
-    const savedUser = localStorage.getItem('user')
-    if (savedToken && savedUser) {
-      useAuthStore.setState({ token: savedToken, user: JSON.parse(savedUser) })
-    }
-  }, [])
-
   return (
     <Router>
       {user && <Navbar />}
