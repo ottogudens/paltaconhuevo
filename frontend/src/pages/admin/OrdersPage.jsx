@@ -618,6 +618,11 @@ export default function OrdersPage() {
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
+  const formatProducts = (items) => {
+    if (!items || items.length === 0) return 'Sin productos'
+    return items.map(i => `${i.quantity}x ${i.product_name}`).join(', ')
+  }
+
   const handleExport = async () => {
     try {
       const res = await api.get('/orders/export/', { responseType: 'blob' })
@@ -688,6 +693,7 @@ export default function OrdersPage() {
                   <tr>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id')}># <SortIcon field="id" /></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customer__first_name')}>Cliente <SortIcon field="customer__first_name" /></th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600">Productos</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total')}>Total <SortIcon field="total" /></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Estado <SortIcon field="status" /></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Pago</th>
@@ -703,6 +709,7 @@ export default function OrdersPage() {
                         <p className="font-medium text-gray-900">{o.customer_name || 'N/A'}</p>
                         <p className="text-xs text-gray-500">{o.customer_phone || ''}</p>
                       </td>
+                      <td className="px-5 py-3 text-gray-700 text-xs leading-relaxed max-w-xs">{formatProducts(o.items)}</td>
                       <td className="px-5 py-3 font-medium">{formatCLP(o.total)}</td>
                       <td className="px-5 py-3">{statusBadge(o.status)}</td>
                       <td className="px-5 py-3">{payBadge(o.payment_status)}</td>
@@ -719,7 +726,7 @@ export default function OrdersPage() {
                       </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">
+                    <tr><td colSpan={8} className="px-5 py-12 text-center text-gray-400">
                       <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-gray-300" />
                       No hay pedidos
                     </td></tr>
