@@ -15,6 +15,28 @@ class CreateUserSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id', 'email', 'password', 'first_name', 'last_name', 'role', 'phone', 'address', 'commune', 'whatsapp_number']
 
+    def validate(self, data):
+        email = data.get('email', '').strip()
+        phone = data.get('phone', '').strip()
+        whatsapp = data.get('whatsapp_number', '').strip()
+        
+        from django.db.models import Q
+        query = Q()
+        if email:
+            query |= Q(email__iexact=email)
+        if phone:
+            query |= Q(phone__icontains=phone) | Q(whatsapp_number__icontains=phone)
+        if whatsapp:
+            query |= Q(phone__icontains=whatsapp) | Q(whatsapp_number__icontains=whatsapp)
+            
+        if query:
+            existing = User.objects.filter(query)
+            if self.instance:
+                existing = existing.exclude(pk=self.instance.pk)
+            if existing.exists():
+                raise serializers.ValidationError("Ya existe un cliente con este correo o número de teléfono.")
+        return data
+
     def create(self, validated_data):
         password = validated_data.pop('password', None) or 'paltaconhuevo2024'
         email = validated_data.get('email', '')
@@ -51,6 +73,24 @@ class RegisterSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['email','password','first_name','last_name','phone','whatsapp_number','address','commune']
+
+    def validate(self, data):
+        email = data.get('email', '').strip()
+        phone = data.get('phone', '').strip()
+        whatsapp = data.get('whatsapp_number', '').strip()
+        
+        from django.db.models import Q
+        query = Q()
+        if email:
+            query |= Q(email__iexact=email)
+        if phone:
+            query |= Q(phone__icontains=phone) | Q(whatsapp_number__icontains=phone)
+        if whatsapp:
+            query |= Q(phone__icontains=whatsapp) | Q(whatsapp_number__icontains=whatsapp)
+            
+        if query and User.objects.filter(query).exists():
+            raise serializers.ValidationError("Ya existe un cliente con este correo o número de teléfono.")
+        return data
 
     def create(self, validated_data):
         email = validated_data.get('email', '')
