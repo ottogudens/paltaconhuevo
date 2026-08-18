@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { ShoppingCart, Search, Filter, Download, Plus, Eye, Edit3, X, Check, Trash2 } from 'lucide-react'
+import ImportModal from '../../components/ImportModal'
+import { ShoppingCart, Search, Filter, Download, Upload, Plus, Eye, Edit3, X, Check, Trash2 } from 'lucide-react'
 
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos' },
@@ -639,6 +640,12 @@ export default function OrdersPage() {
     }
   }
 
+  const [showImportModal, setShowImportModal] = useState(false)
+
+  const handleDownloadTemplate = () => {
+    window.open(`${api.defaults.baseURL}/orders/import/template/`, '_blank')
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -651,6 +658,14 @@ export default function OrdersPage() {
             <button onClick={() => setShowCreateModal(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
               <Plus className="w-4 h-4" /> Nuevo Pedido
+            </button>
+            <button onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" title="Descargar Plantilla">
+              <Download className="w-4 h-4" /> Plantilla
+            </button>
+            <button onClick={() => setShowImportModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+              <Upload className="w-4 h-4" /> Importar
             </button>
             <button onClick={handleExport}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
@@ -755,6 +770,14 @@ export default function OrdersPage() {
       {showCreateModal && (
         <CreateOrderModal onClose={() => setShowCreateModal(false)} onSave={fetchOrders} />
       )}
+      
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportSuccess={fetchOrders}
+        title="Importar Pedidos"
+        endpoint="/orders/import/"
+      />
     </AdminLayout>
   )
 }

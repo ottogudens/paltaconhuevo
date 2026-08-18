@@ -364,8 +364,105 @@ class OrderItemUpdateView(APIView):
         
         if needs_order_recalc:
             order.subtotal = sum(i.subtotal for i in order.items.all())
-            order.total = order.subtotal + order.delivery_cost
-            order.save(update_fields=['subtotal', 'total'])
-            
+            order.total = order.subtotal + order.delivery_cost - order.discount
+            order.save()
+        
         from .serializers import OrderItemSerializer
         return Response(OrderItemSerializer(item).data)
+
+class DownloadOrderTemplateView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Plantilla Pedidos Históricos"
+        headers = [
+            'Email o Teléfono Cliente', 'Total', 'Costo Envío', 'Descuento', 
+            'Estado', 'Método Pago', 'Estado Pago', 'Fecha Creación (YYYY-MM-DD)'
+        ]
+        ws.append(headers)
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="plantilla_pedidos.xlsx"'
+        wb.save(response)
+        return response
+
+
+class ImportOrdersView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        import_mode = request.data.get('import_mode', 'update')
+        
+        if not file:
+            return Response({'error': 'No se recibió archivo'}, status=400)
+            
+        if import_mode == 'replace':
+            Order.objects.all().delete()
+            
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+        created = 0
+        errors = []
+        
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        from django.db.models import Q
+        
+        for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            try:
+                identifier = str(row[0] or '').strip()
+                total = float(row[1] or 0)
+                delivery_cost = float(row[2] or 0)
+                discount = float(row[3] or 0)
+                status_val = str(row[4] or 'entregado').strip().lower()
+                payment_method = str(row[5] or 'efectivo').strip().lower()
+                payment_status = str(row[6] or 'pagado').strip().lower()
+                created_at = str(row[7] or '').strip()
+                
+                if not identifier:
+                    errors.append(f"Fila {i}: Falta identificador del cliente")
+                    continue
+                    
+                # Find customer
+                digits = ''.join(filter(str.isdigit, identifier))
+                base_phone = digits[-9:] if len(digits) >= 9 else digits
+                
+                query = Q(email__iexact=identifier)
+                if base_phone:
+                    query |= Q(phone__endswith=base_phone) | Q(whatsapp_number__endswith=base_phone)
+                    
+                customer = User.objects.filter(query).first()
+                
+                if not customer:
+                    errors.append(f"Fila {i}: Cliente no encontrado ({identifier})")
+                    continue
+                    
+                order = Order.objects.create(
+                    customer=customer,
+                    total=total,
+                    subtotal=total - delivery_cost + discount,
+                    delivery_cost=delivery_cost,
+                    discount=discount,
+                    status=status_val,
+                    payment_method=payment_method,
+                    payment_status=payment_status,
+                )
+                
+                if created_at:
+                    try:
+                        import datetime
+                        dt = datetime.datetime.strptime(created_at, '%Y-%m-%d')
+                        order.created_at = dt
+                        order.save(update_fields=['created_at'])
+                    except:
+                        pass
+                        
+                created += 1
+            except Exception as e:
+                errors.append(f"Fila {i}: Error procesando - {str(e)}")
+                
+        return Response({'created': created, 'errors': errors})

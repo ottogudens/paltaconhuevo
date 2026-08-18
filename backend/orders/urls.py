@@ -10,4 +10,6 @@ urlpatterns = [
     path('dashboard/', views.DashboardView.as_view()),
     path('<int:pk>/payments/', views.OrderPaymentCreateView.as_view()),
     path('<int:pk>/items/<int:item_id>/', views.OrderItemUpdateView.as_view()),
+    path('import/', views.ImportOrdersView.as_view()),
+    path('import/template/', views.DownloadOrderTemplateView.as_view()),
 ]

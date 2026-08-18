@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import api from '../../services/api'
-import AdminLayout from '../../components/AdminLayout'
+import api from '../../../services/api'
 import { Plus, Trash, Edit, Star, Ticket, X } from 'lucide-react'
 
 export default function RewardsPage() {
@@ -73,7 +72,7 @@ export default function RewardsPage() {
   }
 
   return (
-    <AdminLayout>
+    <div>
       <div className="space-y-6 max-w-5xl mx-auto">
         <div className="flex justify-between items-center">
           <h1 className="text-2xl font-black text-gray-900 flex items-center gap-2">
@@ -168,6 +167,6 @@ export default function RewardsPage() {
           </div>
         )}
       </div>
-    </AdminLayout>
+    </div>
   )
 }

@@ -115,10 +115,7 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': ['rest_framework.authentication.TokenAuthentication'],
     'DEFAULT_PERMISSION_CLASSES': ['rest_framework.permissions.IsAuthenticated'],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 20,
-    'PAGE_SIZE_QUERY_PARAM': 'page_size',
-    'MAX_PAGE_SIZE': 10000,
+    'DEFAULT_PAGINATION_CLASS': 'core.pagination.CustomPagination',
     # C4 fix: throttling para proteger contra fuerza bruta y abuso masivo
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',

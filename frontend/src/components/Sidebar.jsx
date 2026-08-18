@@ -12,7 +12,7 @@ const adminLinks = [
   { to: '/customers', label: 'Clientes', icon: Users },
   { to: '/users', label: 'Usuarios', icon: UserCheck },
   { to: '/products', label: 'Productos', icon: Package },
-  { to: '/offers', label: 'Ofertas', icon: Tag },
+  { to: '/loyalty', label: 'Fidelización', icon: Tag },
   { to: '/finance', label: 'Finanzas', icon: DollarSign },
   { to: '/whatsapp', label: 'WhatsApp Bot', icon: MessageSquare },
 ]

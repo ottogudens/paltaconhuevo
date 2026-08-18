@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
+import ImportModal from '../../components/ImportModal'
 import { Users, Search, Download, Upload, Eye, X, Mail, Phone, MapPin, Calendar, Plus, Trash2, Pencil } from 'lucide-react'
 
 function CustomerDetail({ customer, onClose, onEdit }) {
@@ -230,6 +231,8 @@ export default function CustomersPage() {
     }
   }
 
+  const [showImportModal, setShowImportModal] = useState(false)
+
   const handleDownloadTemplate = async () => {
     try {
       const res = await api.get('/auth/customers/template/', { responseType: 'blob' })
@@ -246,20 +249,8 @@ export default function CustomersPage() {
     }
   }
 
-  const handleImport = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    setImporting(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    try {
-      const res = await api.post('/auth/customers/import/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
-      alert(`Importación completada: ${res.data.created} clientes creados${res.data.errors?.length ? `. Errores: ${res.data.errors.length}` : ''}`)
-      fetchCustomers()
-    } catch (e) { alert('Error al importar') }
-    finally { setImporting(false); e.target.value = '' }
+  const handleExport = () => {
+    window.open(`${api.defaults.baseURL}/auth/customers/export/`, '_blank')
   }
 
   const handleDeleteCustomer = async (e, customerId) => {
@@ -290,10 +281,10 @@ export default function CustomersPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" title="Descargar Plantilla">
               <Download className="w-4 h-4" /> Plantilla
             </button>
-            <label className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium cursor-pointer">
-              <Upload className="w-4 h-4" /> {importing ? 'Importando...' : 'Importar'}
-              <input type="file" accept=".xlsx,.xls" onChange={handleImport} className="hidden" />
-            </label>
+            <button onClick={() => setShowImportModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+              <Upload className="w-4 h-4" /> Importar
+            </button>
             <button onClick={handleExport}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
               <Download className="w-4 h-4" /> Exportar
@@ -384,7 +375,18 @@ export default function CustomersPage() {
       </div>
 
       {selected && <CustomerDetail customer={selected} onClose={() => setSelected(null)} onEdit={(cust) => setCustomerToEdit(cust)} />}
-      {showCreateModal && <CustomerModal onClose={() => setShowCreateModal(false)} onSave={fetchCustomers} />}
+      {showCreateModal && (
+        <CreateCustomerModal onClose={() => setShowCreateModal(false)} onSuccess={fetchCustomers} />
+      )}
+
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportSuccess={fetchCustomers}
+        title="Importar Clientes"
+        endpoint="/auth/customers/import/"
+      />
+
       {customerToEdit && <CustomerModal customer={customerToEdit} onClose={() => setCustomerToEdit(null)} onSave={fetchCustomers} />}
     </AdminLayout>
   )

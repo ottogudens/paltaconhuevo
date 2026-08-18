@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import api from '../../services/api'
-import AdminLayout from '../../components/AdminLayout'
+import api from '../../../services/api'
 import { Tag, Plus, Send, Calendar, Image as ImageIcon, CheckCircle, Trash2, Percent } from 'lucide-react'
 
 export default function OffersPage() {
@@ -114,7 +113,7 @@ export default function OffersPage() {
   }
 
   return (
-    <AdminLayout>
+    <div>
       <div className="space-y-6">
         
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -331,6 +330,6 @@ export default function OffersPage() {
         )}
 
       </div>
-    </AdminLayout>
+    </div>
   )
 }

@@ -408,8 +408,14 @@ class ImportCustomersView(APIView):
 
     def post(self, request):
         file = request.FILES.get('file')
+        import_mode = request.data.get('import_mode', 'update')
+        
         if not file:
             return Response({'error': 'No se recibió archivo'}, status=400)
+            
+        if import_mode == 'replace':
+            User.objects.filter(role='cliente').delete()
+            
         wb = openpyxl.load_workbook(file)
         ws = wb.active
         created = 0
@@ -470,3 +476,49 @@ class ImportCustomersView(APIView):
             except Exception as e:
                 errors.append(f"Fila {i}: {str(e)}")
         return Response({'created': created, 'errors': errors})
+
+class CustomerHistoryView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        user = get_object_or_404(User, pk=pk, role='cliente')
+        
+        # Obtener pedidos
+        from orders.models import Order
+        from orders.serializers import OrderSerializer
+        orders = Order.objects.filter(customer=user).order_by('-created_at')
+        
+        # Obtener datos de fidelización
+        from loyalty.models import LoyaltyAccount, PointTransaction, RewardRedemption
+        acc, _ = LoyaltyAccount.objects.get_or_create(user=user)
+        point_transactions = PointTransaction.objects.filter(account=acc).order_by('-created_at')
+        redemptions = RewardRedemption.objects.filter(user=user).order_by('-created_at')
+        
+        # Serialización de los datos (evitamos importar serializers extras de loyalty aquí y usamos datos crudos por simplicidad)
+        points_data = [{
+            'type': t.transaction_type,
+            'points': t.points,
+            'description': t.description,
+            'date': t.created_at,
+        } for t in point_transactions]
+        
+        redemptions_data = [{
+            'reward_name': r.reward.name,
+            'code': r.coupon_code,
+            'status': r.status,
+            'date': r.created_at,
+        } for r in redemptions]
+        
+        return Response({
+            'customer': UserSerializer(user).data,
+            'loyalty': {
+                'points': acc.points,
+                'level': acc.level,
+                'total_earned': acc.total_points_earned,
+                'total_purchases': float(acc.total_purchases),
+            },
+            'orders': OrderSerializer(orders, many=True).data,
+            'points_history': points_data,
+            'redemptions': redemptions_data,
+        })
