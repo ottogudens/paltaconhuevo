@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Plus, Trash, Edit, Star, Ticket } from 'lucide-react'
+import { Plus, Trash, Edit, Star, Ticket, X } from 'lucide-react'
 
 export default function RewardsPage() {
   const [rewards, setRewards] = useState([])
@@ -129,12 +129,14 @@ export default function RewardsPage() {
           </div>
         </div>
 
-        {/* Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-              <h2 className="text-xl font-bold mb-4">{editingId ? 'Editar Premio' : 'Nuevo Premio'}</h2>
-              <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90dvh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-xl font-bold">{editingId ? 'Editar Premio' : 'Nuevo Premio'}</h2>
+                <button onClick={() => setShowModal(false)} className="p-3 -mr-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+              </div>
+              <form onSubmit={handleSubmit} className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Nombre</label>
                   <input type="text" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full border-gray-300 rounded-lg" placeholder="Ej. Envío Gratis" />
@@ -143,14 +145,14 @@ export default function RewardsPage() {
                   <label className="block text-sm font-semibold text-gray-700 mb-1">Descripción</label>
                   <textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full border-gray-300 rounded-lg" rows="2" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Costo (Puntos)</label>
-                    <input type="number" required min="1" value={formData.points_cost} onChange={e => setFormData({...formData, points_cost: e.target.value})} className="w-full border-gray-300 rounded-lg" />
+                    <input type="number" inputMode="numeric" pattern="[0-9]*" required min="1" value={formData.points_cost} onChange={e => setFormData({...formData, points_cost: e.target.value})} className="w-full border-gray-300 rounded-lg" />
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-1">Descuento ($)</label>
-                    <input type="number" required min="0" value={formData.discount_value} onChange={e => setFormData({...formData, discount_value: e.target.value})} className="w-full border-gray-300 rounded-lg" />
+                    <input type="number" inputMode="numeric" pattern="[0-9]*" required min="0" value={formData.discount_value} onChange={e => setFormData({...formData, discount_value: e.target.value})} className="w-full border-gray-300 rounded-lg" />
                   </div>
                 </div>
                 <label className="flex items-center gap-2 cursor-pointer mt-2">

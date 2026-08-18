@@ -191,13 +191,13 @@ export default function OffersPage() {
         {/* Modal Crear Oferta */}
         {showModal && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90dvh] overflow-y-auto p-0">
+              <div className="flex items-center justify-between border-b p-6 pb-4">
                 <h2 className="text-lg font-bold text-gray-900">Crear Oferta Especial</h2>
-                <button onClick={() => setShowModal(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+                <button onClick={() => setShowModal(false)} className="p-3 -mr-3 text-gray-400 hover:text-gray-600 font-bold hover:bg-gray-100 rounded-lg">✕</button>
               </div>
 
-              <form onSubmit={handleCreate} className="space-y-4">
+              <form onSubmit={handleCreate} className="p-6 space-y-4 pt-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Título de la Oferta</label>
                   <input
@@ -222,11 +222,13 @@ export default function OffersPage() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">% Descuento</label>
                     <input
                       type="number"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       required
                       min={1}
                       max={100}
@@ -271,23 +273,22 @@ export default function OffersPage() {
         {/* Modal Enviar Oferta */}
         {showSendModal && (
           <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4">
-              <div className="flex items-center justify-between border-b pb-3">
-                <h2 className="text-lg font-bold text-gray-900">Enviar Oferta por WhatsApp</h2>
-                <button onClick={() => setShowSendModal(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full max-h-[90dvh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900">Opciones de Difusión</h2>
+                <button onClick={() => setShowSendModal(false)} className="p-3 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg">✕</button>
               </div>
-
-              <div className="space-y-4">
+              <div className="p-6 space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Selecciona a quién enviar:</label>
                   <div className="flex gap-4">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="radio" name="targetOption" value="all" checked={targetOption === 'all'} onChange={() => setTargetOption('all')} className="w-4 h-4 text-palta-600 focus:ring-palta-500" />
-                      <span className="text-sm text-gray-700">A todos los clientes</span>
+                      <span className="text-sm text-gray-700">A todos</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="radio" name="targetOption" value="specific" checked={targetOption === 'specific'} onChange={() => setTargetOption('specific')} className="w-4 h-4 text-palta-600 focus:ring-palta-500" />
-                      <span className="text-sm text-gray-700">Selección específica</span>
+                      <span className="text-sm text-gray-700">Específicos</span>
                     </label>
                   </div>
                 </div>
@@ -317,10 +318,12 @@ export default function OffersPage() {
                 )}
               </div>
 
-              <div className="flex justify-end gap-2 pt-4 border-t">
-                <button onClick={() => setShowSendModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                <button onClick={handleSendSubmit} className="px-4 py-2 text-sm bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 flex items-center gap-2">
+              <div className="flex flex-col gap-2 p-6 pt-0">
+                <button onClick={handleSendSubmit} className="w-full px-4 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 flex items-center justify-center gap-2">
                   <Send className="w-4 h-4" /> Enviar Ahora
+                </button>
+                <button onClick={() => setShowSendModal(false)} className="w-full py-2 text-sm text-gray-500 hover:text-gray-700">
+                  Cancelar
                 </button>
               </div>
             </div>

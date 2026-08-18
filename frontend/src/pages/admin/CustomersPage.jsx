@@ -105,10 +105,10 @@ function CustomerModal({ customer, onClose, onSave }) {
       <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="p-3 -mr-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nombre <span className="text-red-500">*</span></label>
               <input type="text" value={form.first_name} onChange={e => setForm({...form, first_name: e.target.value})} required
@@ -122,7 +122,7 @@ function CustomerModal({ customer, onClose, onSave }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono <span className="text-red-500">*</span></label>
-            <input type="text" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} required
+            <input type="tel" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} required
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
           </div>
           <div>
@@ -130,7 +130,7 @@ function CustomerModal({ customer, onClose, onSave }) {
             <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="correo@ejemplo.com" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Dirección <span className="text-gray-400 font-normal">(opcional)</span></label>
               <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
@@ -144,7 +144,7 @@ function CustomerModal({ customer, onClose, onSave }) {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp <span className="text-gray-400 font-normal">(opcional)</span></label>
-            <input type="text" value={form.whatsapp_number} onChange={e => setForm({...form, whatsapp_number: e.target.value})}
+            <input type="tel" value={form.whatsapp_number} onChange={e => setForm({...form, whatsapp_number: e.target.value})}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
           </div>
           <div className="flex justify-end gap-3 pt-3">

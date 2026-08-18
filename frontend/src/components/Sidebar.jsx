@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import {
   LayoutDashboard, Users, ShoppingCart, Package, DollarSign,
-  LogOut, Menu, X, ChevronDown, Store, ClipboardList, TrendingUp, MessageSquare, UserCheck, Tag
+  LogOut, X, ChevronDown, Store, ClipboardList, TrendingUp, MessageSquare, UserCheck, Tag
 } from 'lucide-react'
 
 const adminLinks = [
@@ -22,9 +22,8 @@ const clientLinks = [
   { to: '/my-orders', label: 'Mis Pedidos', icon: ClipboardList },
 ]
 
-export default function Sidebar() {
+export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const { user, logout } = useAuthStore()
-  const [mobileOpen, setMobileOpen] = useState(false)
   const location = useLocation()
   const isAdmin = user?.role === 'admin' || user?.role === 'vendedor'
   const links = isAdmin ? adminLinks : clientLinks
@@ -97,14 +96,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* Mobile toggle */}
-      <button
-        onClick={() => setMobileOpen(!mobileOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-palta-700 text-white rounded-lg shadow-lg"
-      >
-        {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-      </button>
-
       {/* Mobile overlay */}
       {mobileOpen && (
         <div
