@@ -296,8 +296,6 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
     }
   ];
 
-  let currentMsg = [...session.history];
-  let finalResponse = "";
 
   // Bucle para permitir que Claude llame múltiples herramientas si es necesario
   for (let i = 0; i < 5; i++) {
