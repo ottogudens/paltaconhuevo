@@ -73,8 +73,14 @@ async function saveSession(phone, sessionData) {
 // Responder al usuario
 async function sendMessage(phone, message) {
   if (!waSocket) return;
-  const session = await getSession(phone);
-  let jid = session?.remoteJid || phone;
+
+  let cleanPhone = phone.replace(/\D/g, '');
+  if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
+    cleanPhone = '56' + cleanPhone;
+  }
+
+  const session = await getSession(cleanPhone);
+  let jid = session?.remoteJid || cleanPhone;
   if (!jid.includes('@')) {
     jid = `${jid}@s.whatsapp.net`;
   }
@@ -566,7 +572,8 @@ app.post('/api/wa/chats/:phone/toggle-human', async (req, res) => {
 app.post('/send', (req, res) => {
   const { to, message } = req.body;
   const token = req.headers.authorization?.replace('Bearer ', '');
-  if (token !== process.env.INTERNAL_TOKEN) return res.status(401).json({ error: 'Unauthorized' });
+  const expectedToken = process.env.INTERNAL_TOKEN || '';
+  if (token !== expectedToken) return res.status(401).json({ error: 'Unauthorized' });
   sendMessage(to, message);
   res.json({ sent: true });
 });
