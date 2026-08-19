@@ -227,6 +227,18 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
   session.history.push({ role: 'user', content: userMessage });
   if (session.history.length > 20) session.history = session.history.slice(-20);
 
+  // Normalizar historial para evitar errores de Anthropic (roles consecutivos)
+  let currentMsg = [];
+  for (const msg of session.history) {
+    if (currentMsg.length > 0 && currentMsg[currentMsg.length - 1].role === msg.role) {
+      currentMsg[currentMsg.length - 1].content += `\n${msg.content}`;
+    } else {
+      currentMsg.push({ role: msg.role, content: msg.content });
+    }
+  }
+
+  let finalResponse = null;
+
   const tools = [
     {
       name: "request_human",
@@ -406,12 +418,25 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
   }
 
   // Guardar historial limpio
-  const cleanedHistory = currentMsg.map(m => {
+  const cleanedHistory = [];
+  for (const m of currentMsg) {
+    let textContent = '';
     if (Array.isArray(m.content)) {
-       return { role: m.role, content: m.content.find(c => c.type === 'text')?.text || '' };
+      textContent = m.content.find(c => c.type === 'text')?.text || '';
+      if (!textContent && m.role === 'assistant') textContent = '[Acción interna realizada]';
+      if (!textContent && m.role === 'user') textContent = '[Resultado de acción interna]';
+    } else {
+      textContent = m.content || '';
     }
-    return m;
-  }).filter(m => m.content && m.content.trim() !== '');
+    
+    if (textContent.trim() !== '') {
+      if (cleanedHistory.length > 0 && cleanedHistory[cleanedHistory.length - 1].role === m.role) {
+        cleanedHistory[cleanedHistory.length - 1].content += `\n${textContent}`;
+      } else {
+        cleanedHistory.push({ role: m.role, content: textContent });
+      }
+    }
+  }
 
   session.history = cleanedHistory;
   return finalResponse;
