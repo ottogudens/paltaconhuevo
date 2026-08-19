@@ -3,6 +3,7 @@ import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
 import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2, Settings, UserCheck, Send, Bot, AlertCircle, Phone, Info, Save, Copy, Check, QrCode, Hash } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
+import { io } from 'socket.io-client'
 
 const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agente-production-a1fc.up.railway.app/api/wa')
 
@@ -11,6 +12,7 @@ export default function WhatsAppPage() {
   const [status, setStatus] = useState({ connected: false, has_qr: false })
   const [qr, setQr] = useState(null)
   const [loading, setLoading] = useState(true)
+  const socketRef = useRef(null)
 
   // Config del Agente
   const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', system_prompt: '', additional_info: '', human_notification_phone: '', ai_provider: 'claude', api_key: '', whatsapp_connected_phone: '' })
@@ -93,18 +95,44 @@ export default function WhatsAppPage() {
     fetchAgentConfig()
     fetchChats()
 
-    const interval = setInterval(() => {
+    // Setup WebSocket
+    const socketUrl = WA_API_URL.replace('/api/wa', '')
+    socketRef.current = io(socketUrl)
+
+    socketRef.current.on('connect', () => {
+      console.log('✅ Conectado al WebSocket del agente WA')
+    })
+
+    socketRef.current.on('status_updated', () => {
       fetchStatus()
+    })
+
+    socketRef.current.on('chats_updated', () => {
       fetchChats()
-    }, 3000)
-    return () => clearInterval(interval)
+    })
+
+    return () => {
+      if (socketRef.current) socketRef.current.disconnect()
+    }
   }, [])
 
   useEffect(() => {
     if (selectedChatPhone) {
       fetchChatMessages(selectedChatPhone)
-      const interval = setInterval(() => fetchChatMessages(selectedChatPhone), 2500)
-      return () => clearInterval(interval)
+      
+      const handleChatMessage = (data) => {
+        if (data.phone === selectedChatPhone) {
+          fetchChatMessages(selectedChatPhone)
+        }
+      }
+
+      socketRef.current?.on('chat_message', handleChatMessage)
+      socketRef.current?.on('chat_updated', handleChatMessage)
+
+      return () => {
+        socketRef.current?.off('chat_message', handleChatMessage)
+        socketRef.current?.off('chat_updated', handleChatMessage)
+      }
     }
   }, [selectedChatPhone])
 
@@ -366,15 +394,13 @@ export default function WhatsAppPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor de Inteligencia Artificial (LLM)</label>
                 <select
-                  value={agentConfig.ai_provider || 'claude'}
-                  onChange={e => setAgentConfig({ ...agentConfig, ai_provider: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white font-medium text-gray-800"
+                  value="claude"
+                  disabled
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-gray-100 font-medium text-gray-800 cursor-not-allowed"
                 >
                   <option value="claude">Claude 3.5 Sonnet (Anthropic) - Recomendado</option>
-                  <option value="chatgpt">ChatGPT / GPT-4o (OpenAI)</option>
-                  <option value="gemini">Gemini 1.5 Flash (Google AI)</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Selecciona el cerebro con el que responderá Paltín a tus clientes.</p>
+                <p className="text-xs text-gray-500 mt-1">Actualmente el agente opera exclusivamente con Claude 3.5 Sonnet.</p>
               </div>
 
               <div>

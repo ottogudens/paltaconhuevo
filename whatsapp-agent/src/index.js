@@ -8,12 +8,20 @@ const Anthropic = require('@anthropic-ai/sdk');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const pino = require('pino');
+const http = require('http');
+const { Server } = require('socket.io');
 
 const logger = pino({
   level: process.env.LOG_LEVEL || 'info',
   base: { service: 'whatsapp-agent' }
 });
 const app = express();
+
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*' }
+});
+
 app.use(cors());
 app.use(express.json());
 
@@ -55,6 +63,8 @@ async function getSession(phone) {
 async function saveSession(phone, sessionData) {
   try {
     await api.post(`/marketing/sessions/${phone}/`, { session_data: sessionData });
+    io.emit('chats_updated');
+    io.emit('chat_updated', { phone });
   } catch (e) {
     logger.error({ error: e.response?.data || e.message, phone }, 'Error guardando sesión');
   }
@@ -173,6 +183,11 @@ async function processWithAI(session, userMessage, customerPhone) {
     getAgentConfig()
   ]);
 
+  // Dynamic API Key
+  const activeAnthropic = config.api_key && config.api_key.trim() !== '' 
+    ? new Anthropic({ apiKey: config.api_key.trim() }) 
+    : anthropic;
+
   const productList = products.map(p => `- ID ${p.id}: ${p.name} (${p.product_type}): ${formatCLP(p.sale_price)} por ${p.unit} (Stock disponible: ${p.stock})`).join('\n');
   const cartSummary = session.cart.length > 0
     ? session.cart.map(i => `${i.quantity}x ${i.product.name} = ${formatCLP(i.quantity * i.product.sale_price)}`).join(', ')
@@ -269,7 +284,7 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
   // Bucle para permitir que Claude llame múltiples herramientas si es necesario
   for (let i = 0; i < 5; i++) {
     const callStart = Date.now();
-    const msg = await anthropic.messages.create({
+    const msg = await activeAnthropic.messages.create({
       model: 'claude-3-5-sonnet-latest',
       max_tokens: 400,
       system: systemPrompt,
@@ -411,6 +426,7 @@ async function handleMessageLogic(phone, message, session) {
   session.lastMessageAt = new Date().toISOString();
   if (!session.messages) session.messages = [];
   session.messages.push({ sender: 'customer', text: message, timestamp: session.lastMessageAt });
+  io.emit('chat_message', { phone, sender: 'customer', text: message });
 
   if (session.isHumanMode) {
     return null;
@@ -468,6 +484,7 @@ async function handleMessageLogic(phone, message, session) {
 
     if (botReply) {
       session.messages.push({ sender: 'bot', text: botReply, timestamp: new Date().toISOString() });
+      io.emit('chat_message', { phone, sender: 'bot', text: botReply });
     }
     return botReply;
 
@@ -531,6 +548,7 @@ app.post('/api/wa/chats/:phone/reply', async (req, res) => {
 
   await saveSession(phone, session);
   await sendMessage(phone, message);
+  io.emit('chat_message', { phone, sender: 'operator', text: message });
   res.json({ success: true });
 });
 
@@ -541,6 +559,7 @@ app.post('/api/wa/chats/:phone/toggle-human', async (req, res) => {
   session.isHumanMode = !!isHumanMode;
   if (!isHumanMode) session.pendingHuman = false;
   await saveSession(phone, session);
+  io.emit('chats_updated');
   res.json({ phone, isHumanMode: session.isHumanMode });
 });
 
@@ -743,5 +762,5 @@ async function startWhatsApp() {
 }
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`🚀 WhatsApp Agent corriendo en puerto ${PORT}`));
+server.listen(PORT, () => console.log(`🚀 WhatsApp Agent corriendo en puerto ${PORT}`));
 startWhatsApp();
