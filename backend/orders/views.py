@@ -56,8 +56,14 @@ class OrderListCreateView(generics.ListCreateAPIView):
             try:
                 product = Product.objects.get(id=item['product_id'])
                 qty = Decimal(str(item['quantity']))
-                if product.stock < qty:
-                    return Response({'error': f'Stock insuficiente para {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
+                if product.is_bundle:
+                    for comp in product.components.all():
+                        required = qty * comp.quantity
+                        if comp.product.stock < required:
+                            return Response({'error': f'Stock insuficiente de {comp.product.name} para el combo {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    if product.stock < qty:
+                        return Response({'error': f'Stock insuficiente para {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
             except Product.DoesNotExist:
                 return Response({'error': 'Producto no encontrado'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -78,15 +84,28 @@ class OrderListCreateView(generics.ListCreateAPIView):
             # Security: Always use product.sale_price instead of user input
             unit_price = float(product.sale_price)
             # A5 fix: usar order_by explícito para obtener el costo más reciente
-            last_purchase = product.purchases.order_by('-purchase_date').first()
-            unit_cost = float(last_purchase.unit_cost) if last_purchase else 0
+            if product.is_bundle:
+                bundle_cost = 0
+                for comp in product.components.all():
+                    last_comp_purchase = comp.product.purchases.order_by('-purchase_date').first()
+                    comp_cost = float(last_comp_purchase.unit_cost) if last_comp_purchase else 0
+                    bundle_cost += comp_cost * float(comp.quantity)
+                    
+                    comp.product.stock -= Decimal(str(qty * comp.quantity))
+                    comp.product.save()
+                unit_cost = bundle_cost
+            else:
+                last_purchase = product.purchases.order_by('-purchase_date').first()
+                unit_cost = float(last_purchase.unit_cost) if last_purchase else 0
+                
+                product.stock -= Decimal(str(qty))
+                product.save()
+                
             oi = OrderItem.objects.create(
                 order=order, product=product, quantity=qty,
                 unit_price=unit_price, unit_cost=unit_cost,
             )
             subtotal += float(oi.subtotal)
-            product.stock -= Decimal(str(qty))
-            product.save()
         order.subtotal = subtotal
         order.total = subtotal + float(order.delivery_cost)
         order.save()
@@ -141,8 +160,13 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
         from decimal import Decimal
         for item in instance.items.all():
             product = item.product
-            product.stock += Decimal(str(item.quantity))
-            product.save()
+            if product.is_bundle:
+                for comp in product.components.all():
+                    comp.product.stock += Decimal(str(item.quantity * comp.quantity))
+                    comp.product.save()
+            else:
+                product.stock += Decimal(str(item.quantity))
+                product.save()
             
         # Eliminar transacciones financieras asociadas
         try:

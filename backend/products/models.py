@@ -13,6 +13,7 @@ class Product(models.Model):
     min_stock = models.DecimalField(max_digits=10, decimal_places=2, default=5)
     image = models.ImageField(upload_to='products/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
+    is_bundle = models.BooleanField(default=False, help_text="Si es true, este producto es un combo de otros productos")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -37,3 +38,11 @@ class Purchase(models.Model):
 
     def __str__(self):
         return f"Compra {self.product.name} x{self.quantity} - ${self.total_cost}"
+
+class ProductComponent(models.Model):
+    bundle = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='components')
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='part_of_bundles')
+    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+
+    def __str__(self):
+        return f"{self.quantity} x {self.product.name} en {self.bundle.name}"

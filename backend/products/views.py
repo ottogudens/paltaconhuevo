@@ -22,12 +22,34 @@ class ProductListCreateView(generics.ListCreateAPIView):
             return [IsAdminOrVendedor()]
         return [IsAuthenticated()]
 
+    def create(self, request, *args, **kwargs):
+        if 'components' in request.data and isinstance(request.data['components'], str):
+            import json
+            try:
+                request.data._mutable = True
+                request.data['components'] = json.loads(request.data['components'])
+                request.data._mutable = False
+            except Exception:
+                pass
+        return super().create(request, *args, **kwargs)
+
 
 class ProductDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Modificar/eliminar productos: solo staff."""
     serializer_class = ProductSerializer
     queryset = Product.objects.all()
     permission_classes = [IsAdminOrVendedor]
+
+    def update(self, request, *args, **kwargs):
+        if 'components' in request.data and isinstance(request.data['components'], str):
+            import json
+            try:
+                request.data._mutable = True
+                request.data['components'] = json.loads(request.data['components'])
+                request.data._mutable = False
+            except Exception:
+                pass
+        return super().update(request, *args, **kwargs)
 
 
 class PurchaseListCreateView(generics.ListCreateAPIView):

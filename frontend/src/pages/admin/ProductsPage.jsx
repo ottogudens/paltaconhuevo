@@ -3,10 +3,10 @@ import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
 import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle } from 'lucide-react'
 
-const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '' }
+const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, components: [] }
 
-function ProductModal({ product, onClose, onSave }) {
-  const [form, setForm] = useState(product || EMPTY_PRODUCT)
+function ProductModal({ product, allProducts, onClose, onSave }) {
+  const [form, setForm] = useState(product ? { ...EMPTY_PRODUCT, ...product } : EMPTY_PRODUCT)
   const [imageFile, setImageFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(product?.image || null)
   const [saving, setSaving] = useState(false)
@@ -30,9 +30,13 @@ function ProductModal({ product, onClose, onSave }) {
       formData.append('unit', form.unit)
       formData.append('purchase_price', form.purchase_price || 0)
       formData.append('sale_price', form.sale_price || 0)
-      formData.append('stock', form.stock || 0)
-      formData.append('min_stock', form.min_stock || 0)
+      formData.append('stock', form.is_bundle ? 0 : form.stock || 0)
+      formData.append('min_stock', form.is_bundle ? 0 : form.min_stock || 0)
       formData.append('description', form.description || '')
+      formData.append('is_bundle', form.is_bundle || false)
+      if (form.is_bundle) {
+        formData.append('components', JSON.stringify(form.components || []))
+      }
       if (imageFile) {
         formData.append('image', imageFile)
       }
@@ -101,30 +105,73 @@ function ProductModal({ product, onClose, onSave }) {
               </select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra ($)</label>
-              <input type="number" value={form.purchase_price} onChange={e => setForm({...form, purchase_price: e.target.value})} min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Costo de compra" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
-              <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
+            <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
-              <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} min="0" step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
-              <input type="number" value={form.min_stock} onChange={e => setForm({...form, min_stock: e.target.value})} min="0" step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
-            </div>
+          <div className="flex items-center gap-2 mb-4">
+            <input type="checkbox" id="is_bundle" checked={form.is_bundle} onChange={e => setForm({...form, is_bundle: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
+            <label htmlFor="is_bundle" className="text-sm font-medium text-gray-700">Este producto es un Combo / Mix compuesto</label>
           </div>
+          
+          {!form.is_bundle && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra ($)</label>
+                <input type="number" value={form.purchase_price} onChange={e => setForm({...form, purchase_price: e.target.value})} min="0"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Costo de compra" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} min="0" step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
+                <input type="number" value={form.min_stock} onChange={e => setForm({...form, min_stock: e.target.value})} min="0" step="0.01"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+              </div>
+            </div>
+          )}
+
+          {form.is_bundle && (
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+               <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2"><Package className="w-4 h-4" /> Componentes del Combo</h3>
+               <div className="space-y-3">
+                 {(form.components || []).map((comp, idx) => (
+                   <div key={idx} className="flex gap-2 items-center">
+                     <select required value={comp.product} onChange={e => {
+                        const newC = [...form.components];
+                        newC[idx].product = e.target.value;
+                        setForm({...form, components: newC});
+                     }} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                       <option value="">Seleccione producto...</option>
+                       {allProducts.filter(p => !p.is_bundle).map(p => (
+                          <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                       ))}
+                     </select>
+                     <input type="number" required min="0.01" step="0.01" value={comp.quantity} onChange={e => {
+                        const newC = [...form.components];
+                        newC[idx].quantity = e.target.value;
+                        setForm({...form, components: newC});
+                     }} className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Cant." />
+                     <button type="button" onClick={() => {
+                        const newC = form.components.filter((_, i) => i !== idx);
+                        setForm({...form, components: newC});
+                     }} className="p-2 text-red-500 hover:bg-red-100 rounded-lg">
+                       <X className="w-4 h-4" />
+                     </button>
+                   </div>
+                 ))}
+                 <button type="button" onClick={() => {
+                    setForm({...form, components: [...(form.components || []), {product: '', quantity: 1}]})
+                 }} className="text-sm font-medium text-palta-600 hover:text-palta-800 flex items-center gap-1">
+                   <Plus className="w-4 h-4" /> Añadir componente
+                 </button>
+               </div>
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
             <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2}
@@ -214,7 +261,7 @@ export default function ProductsPage() {
         ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(p => {
-              const isLow = parseFloat(p.stock) <= parseFloat(p.min_stock)
+              const isLow = !p.is_bundle && parseFloat(p.stock) <= parseFloat(p.min_stock)
               return (
                 <div key={p.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow ${isLow ? 'border-red-200' : 'border-gray-100'}`}>
                   <div className="p-5">
@@ -274,19 +321,23 @@ export default function ProductsPage() {
                       <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'} flex flex-col items-end`}>
                         <div className="flex items-center gap-1">
                           {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
-                          <input 
-                            type="number" 
-                            step="0.01"
-                            defaultValue={p.stock}
-                            onBlur={e => {
-                              if (e.target.value != p.stock && e.target.value !== '') {
-                                handleQuickUpdate(p.id, 'stock', e.target.value)
-                              } else {
-                                e.target.value = p.stock
-                              }
-                            }}
-                            className={`w-16 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none focus:ring-0 text-sm font-bold text-right p-0 ${isLow ? 'text-red-600' : 'text-gray-700'}`}
-                          />
+                          {p.is_bundle ? (
+                             <span className="font-bold text-sm text-palta-600 px-2 py-1 rounded bg-palta-50 border border-palta-200" title="Calculado por subproductos">COMBO</span>
+                          ) : (
+                            <input 
+                              type="number" 
+                              step="0.01"
+                              defaultValue={p.stock}
+                              onBlur={e => {
+                                if (e.target.value != p.stock && e.target.value !== '') {
+                                  handleQuickUpdate(p.id, 'stock', e.target.value)
+                                } else {
+                                  e.target.value = p.stock
+                                }
+                              }}
+                              className={`w-16 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none focus:ring-0 text-sm font-bold text-right p-0 ${isLow ? 'text-red-600' : 'text-gray-700'}`}
+                            />
+                          )}
                         </div>
                         <p className="text-xs text-gray-500 mt-0.5">stock</p>
                       </div>
@@ -305,7 +356,7 @@ export default function ProductsPage() {
       </div>
 
       {showModal && (
-        <ProductModal product={editProduct} onClose={() => setShowModal(false)} onSave={fetchProducts} />
+        <ProductModal product={editProduct} allProducts={products} onClose={() => setShowModal(false)} onSave={fetchProducts} />
       )}
     </AdminLayout>
   )
