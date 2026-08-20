@@ -27,7 +27,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['id', 'customer__first_name', 'customer__last_name', 'customer__username', 'customer__email', 'customer__phone']
-    ordering_fields = ['id', 'created_at', 'total', 'status', 'customer__first_name']
+    ordering_fields = ['id', 'created_at', 'total', 'status', 'payment_status', 'customer__first_name']
     ordering = ['-created_at']
 
     def get_queryset(self):
