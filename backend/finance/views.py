@@ -73,7 +73,10 @@ class FinanceSalesView(APIView):
         if payment_filter == 'pagado':
             qs = qs.filter(order__payment_status='pagado')
         
-        # Opcional: filtros basicos si mandan parametros
+        product_filter = request.query_params.get('product_id')
+        if product_filter:
+            qs = qs.filter(product_id=product_filter)
+
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         if start_date:
@@ -89,6 +92,7 @@ class FinanceSalesView(APIView):
                 'product_name': item.product.name,
                 'quantity': float(item.quantity),
                 'subtotal': float(item.subtotal),
+                'margin': float(item.margin),
                 'customer_name': item.order.customer.get_full_name() or item.order.customer.username,
                 'payment_method': item.order.payment_method,
                 'date': str(item.order.created_at.date())
