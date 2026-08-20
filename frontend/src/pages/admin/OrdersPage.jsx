@@ -374,8 +374,16 @@ function CreateOrderModal({ onClose, onSave }) {
           setSaving(false)
           return
         }
-        const createdC = await api.post('/auth/customers/', newCustomer)
-        finalCustomerId = createdC.data.id
+        try {
+          const createdC = await api.post('/auth/customers/', newCustomer)
+          finalCustomerId = createdC.data.id
+        } catch (e) {
+          console.error('Error creating customer:', e)
+          const errorMsg = e.response?.data?.non_field_errors?.[0] || e.response?.data?.error || 'Error al registrar el nuevo cliente (revisa los datos o si ya existe)'
+          alert(errorMsg)
+          setSaving(false)
+          return
+        }
       }
 
       if (!finalCustomerId) {
@@ -431,6 +439,10 @@ function CreateOrderModal({ onClose, onSave }) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3 bg-gray-50 rounded-lg">
                 <div>
                   <input type="text" placeholder="Nombre *" value={newCustomer.first_name} onChange={e => setNewCustomer({...newCustomer, first_name: e.target.value})} required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                </div>
+                <div>
+                  <input type="text" placeholder="Apellido (opcional)" value={newCustomer.last_name} onChange={e => setNewCustomer({...newCustomer, last_name: e.target.value})}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
                 </div>
                 <div>

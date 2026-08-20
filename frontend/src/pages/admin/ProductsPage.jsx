@@ -227,6 +227,15 @@ export default function ProductsPage() {
     }
   }
 
+  const getProductCost = (p) => {
+    if (!p.is_bundle) return parseFloat(p.purchase_price || 0);
+    return (p.components || []).reduce((acc, comp) => {
+      const child = products.find(prod => prod.id === comp.product)
+      if (!child) return acc;
+      return acc + (parseFloat(child.purchase_price || 0) * parseFloat(comp.quantity || 1))
+    }, 0);
+  }
+
   const filtered = products.filter(p => {
     if (!search) return true
     return p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -325,8 +334,8 @@ export default function ProductsPage() {
                           />
                         </div>
                         <div className="flex gap-2 mt-1">
-                          <p className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">Costo: {formatCLP(p.purchase_price)}</p>
-                          <p className="text-[10px] text-palta-600 bg-palta-50 px-1.5 py-0.5 rounded font-bold">Margen: {formatCLP(p.sale_price - (p.purchase_price || 0))}</p>
+                          <p className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">Costo: {formatCLP(getProductCost(p))}</p>
+                          <p className="text-[10px] text-palta-600 bg-palta-50 px-1.5 py-0.5 rounded font-bold">Margen: {formatCLP(p.sale_price - getProductCost(p))}</p>
                         </div>
                       </div>
                       <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'} flex flex-col items-end`}>
