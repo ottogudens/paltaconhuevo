@@ -87,16 +87,14 @@ class OrderListCreateView(generics.ListCreateAPIView):
             if product.is_bundle:
                 bundle_cost = 0
                 for comp in product.components.all():
-                    last_comp_purchase = comp.product.purchases.order_by('-purchase_date').first()
-                    comp_cost = float(last_comp_purchase.unit_cost) if last_comp_purchase else 0
+                    comp_cost = float(comp.product.purchase_price) if comp.product.purchase_price else 0
                     bundle_cost += comp_cost * float(comp.quantity)
                     
                     comp.product.stock -= Decimal(str(qty * comp.quantity))
                     comp.product.save()
                 unit_cost = bundle_cost
             else:
-                last_purchase = product.purchases.order_by('-purchase_date').first()
-                unit_cost = float(last_purchase.unit_cost) if last_purchase else 0
+                unit_cost = float(product.purchase_price) if product.purchase_price else 0
                 
                 product.stock -= Decimal(str(qty))
                 product.save()

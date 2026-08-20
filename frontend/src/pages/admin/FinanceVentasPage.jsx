@@ -77,6 +77,23 @@ export default function FinanceVentasPage() {
           </div>
         </div>
 
+        {!loading && sales.length > 0 && (
+          <div className="bg-palta-50 border border-palta-200 rounded-xl p-4 flex justify-between items-center shadow-sm">
+             <div>
+                <p className="text-sm text-palta-800 font-medium">Total de Ingresos Listados</p>
+                <p className="text-2xl font-bold text-palta-900">
+                  {formatCLP(sales.reduce((acc, curr) => acc + (parseFloat(curr.subtotal) || 0), 0))}
+                </p>
+             </div>
+             <div className="text-right">
+                <p className="text-sm text-palta-800 font-medium">Volumen de Productos</p>
+                <p className="text-xl font-bold text-palta-900">
+                  {sales.reduce((acc, curr) => acc + (parseInt(curr.quantity) || 0), 0)} unid.
+                </p>
+             </div>
+          </div>
+        )}
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-16">

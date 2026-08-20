@@ -324,7 +324,10 @@ export default function ProductsPage() {
                             className="w-24 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none focus:ring-0 text-xl font-bold text-palta-700 p-0 ml-1"
                           />
                         </div>
-                        <p className="text-xs text-gray-500 mt-1">Costo: {formatCLP(p.purchase_price)} / {p.unit}</p>
+                        <div className="flex gap-2 mt-1">
+                          <p className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">Costo: {formatCLP(p.purchase_price)}</p>
+                          <p className="text-[10px] text-palta-600 bg-palta-50 px-1.5 py-0.5 rounded font-bold">Margen: {formatCLP(p.sale_price - (p.purchase_price || 0))}</p>
+                        </div>
                       </div>
                       <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'} flex flex-col items-end`}>
                         <div className="flex items-center gap-1">
