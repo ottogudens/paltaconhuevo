@@ -7,8 +7,6 @@ import { ShoppingCart, Search, Filter, Download, Upload, Plus, Eye, Edit3, X, Ch
 const STATUS_OPTIONS = [
   { value: '', label: 'Todos' },
   { value: 'pendiente', label: 'Pendiente' },
-  { value: 'preparando', label: 'Preparando' },
-  { value: 'en_camino', label: 'En camino' },
   { value: 'parcialmente_entregado', label: 'Parcialmente Entregado' },
   { value: 'entregado', label: 'Entregado' },
   { value: 'cancelado', label: 'Cancelado' },
@@ -17,14 +15,12 @@ const STATUS_OPTIONS = [
 const statusBadge = (status) => {
   const map = {
     pendiente: 'bg-yellow-100 text-yellow-800',
-    preparando: 'bg-blue-100 text-blue-800',
-    en_camino: 'bg-purple-100 text-purple-800',
     entregado: 'bg-green-100 text-green-800',
     cancelado: 'bg-red-100 text-red-800',
     parcialmente_entregado: 'bg-teal-100 text-teal-800',
   }
   const labelMap = {
-    pendiente: 'Pendiente', preparando: 'Preparando', en_camino: 'En camino',
+    pendiente: 'Pendiente', 
     entregado: 'Entregado', cancelado: 'Cancelado', parcialmente_entregado: 'Parcial. Entregado'
   }
   return (
@@ -309,6 +305,7 @@ function CreateOrderModal({ onClose, onSave }) {
   const [isNewCustomer, setIsNewCustomer] = useState(false)
   const [customerId, setCustomerId] = useState('')
   const [customerSearch, setCustomerSearch] = useState('')
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false)
   const [newCustomer, setNewCustomer] = useState({ first_name: '', last_name: '', phone: '', address: '', commune: '', email: '' })
   
   const [deliveryType, setDeliveryType] = useState('retiro')
@@ -447,23 +444,45 @@ function CreateOrderModal({ onClose, onSave }) {
                 </div>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="relative space-y-2">
                 <input 
                   type="text" 
                   placeholder="Buscar cliente (nombre, teléfono, correo)..." 
                   value={customerSearch} 
-                  onChange={e => setCustomerSearch(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+                  onChange={e => {
+                    setCustomerSearch(e.target.value)
+                    setCustomerId('')
+                    setShowCustomerDropdown(true)
+                  }}
+                  onFocus={() => setShowCustomerDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowCustomerDropdown(false), 200)}
+                  className={`w-full px-3 py-2 border ${!customerId && customerSearch ? 'border-red-300' : 'border-gray-300'} rounded-lg text-sm focus:ring-2 focus:ring-palta-500`} 
                 />
-                <select value={customerId} onChange={e => setCustomerId(e.target.value)} required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
-                  <option value="">Seleccionar cliente...</option>
-                  {customers.filter(c => `${c.first_name} ${c.last_name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
-                    <option key={c.id} value={c.id}>
-                      {c.first_name} {c.last_name} ({c.phone || c.email || 'Sin contacto'})
-                    </option>
-                  ))}
-                </select>
+                {!customerId && customerSearch && (
+                  <p className="text-xs text-red-500">Seleccione un cliente de la lista</p>
+                )}
+                {showCustomerDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {customers.filter(c => `${c.first_name} ${c.last_name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(customerSearch.toLowerCase())).length > 0 ? (
+                      customers.filter(c => `${c.first_name} ${c.last_name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                        <div 
+                          key={c.id} 
+                          onClick={() => {
+                            setCustomerId(c.id)
+                            setCustomerSearch(`${c.first_name} ${c.last_name} (${c.phone || c.email || 'Sin contacto'})`)
+                            setShowCustomerDropdown(false)
+                          }}
+                          className="px-3 py-2 hover:bg-palta-50 cursor-pointer border-b border-gray-50 last:border-0"
+                        >
+                          <p className="font-medium text-sm text-gray-900">{c.first_name} {c.last_name}</p>
+                          <p className="text-xs text-gray-500">{c.phone || c.email || 'Sin contacto'}</p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-gray-500 text-center">No se encontraron clientes</div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
           </div>

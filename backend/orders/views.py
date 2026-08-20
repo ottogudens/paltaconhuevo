@@ -366,7 +366,6 @@ class DashboardView(APIView):
             'sales_unpaid': sales_unpaid,
             'orders_pending': orders_pending,
             'orders_pending_value': orders_pending_value,
-            'orders_in_transit': Order.objects.filter(status='en_camino').count(),
             'total_customers': User.objects.filter(role='cliente').count(),
             'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,

@@ -86,8 +86,6 @@ export default function DashboardPage() {
 
   const STATUS_OPTIONS = [
     { value: 'pendiente', label: 'Pendiente' },
-    { value: 'preparando', label: 'Preparando' },
-    { value: 'en_camino', label: 'En camino' },
     { value: 'parcialmente_entregado', label: 'Parcial. Entregado' },
     { value: 'entregado', label: 'Entregado' },
     { value: 'cancelado', label: 'Cancelado' },
@@ -105,7 +103,6 @@ export default function DashboardPage() {
 
   const statusData = [
     { name: 'Pendientes', value: dashboard?.orders_pending || 0 },
-    { name: 'En camino', value: dashboard?.orders_in_transit || 0 },
     { name: 'Hoy', value: dashboard?.orders_today || 0 },
   ].filter(d => d.value > 0)
 
@@ -119,15 +116,11 @@ export default function DashboardPage() {
   const statusBadge = (status) => {
     const map = {
       pendiente: 'bg-yellow-100 text-yellow-800',
-      preparando: 'bg-blue-100 text-blue-800',
-      en_camino: 'bg-purple-100 text-purple-800',
       entregado: 'bg-green-100 text-green-800',
       cancelado: 'bg-red-100 text-red-800',
     }
     const labelMap = {
       pendiente: 'Pendiente',
-      preparando: 'Preparando',
-      en_camino: 'En camino',
       entregado: 'Entregado',
       cancelado: 'Cancelado',
     }

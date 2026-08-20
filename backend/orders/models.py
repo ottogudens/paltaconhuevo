@@ -3,7 +3,7 @@ from django.conf import settings
 from products.models import Product
 
 class Order(models.Model):
-    STATUS_CHOICES = [('pendiente','Pendiente'),('preparando','Preparando'),('en_camino','En camino'),('parcialmente_entregado','Parcialmente Entregado'),('entregado','Entregado'),('cancelado','Cancelado')]
+    STATUS_CHOICES = [('pendiente','Pendiente'),('parcialmente_entregado','Parcialmente Entregado'),('entregado','Entregado'),('cancelado','Cancelado')]
     DELIVERY_CHOICES = [('despacho','Despacho a domicilio'),('retiro','Retiro en local')]
     PAYMENT_METHOD_CHOICES = [('transferencia','Transferencia'),('efectivo','Efectivo'),('mercadopago','MercadoPago')]
     PAYMENT_CONDITION_CHOICES = [('inmediato','Inmediato'),('plazo','A Plazo')]
