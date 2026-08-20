@@ -116,7 +116,7 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
             <label htmlFor="is_bundle" className="text-sm font-medium text-gray-700">Este producto es un Combo / Mix compuesto</label>
           </div>
           
-          {!form.is_bundle && (
+          {!form.is_bundle ? (
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra ($)</label>
@@ -128,17 +128,24 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
                 <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} min="0" step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
               </div>
-              <div>
+              <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
                 <input type="number" value={form.min_stock} onChange={e => setForm({...form, min_stock: e.target.value})} min="0" step="0.01"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
               </div>
             </div>
+          ) : (
+            <div className="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 mb-2">
+              <strong>Info:</strong> El Stock y Precio de Compra de los combos se calculan automáticamente en base a los componentes seleccionados a continuación.
+            </div>
           )}
 
           {form.is_bundle && (
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-               <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2"><Package className="w-4 h-4" /> Componentes del Combo</h3>
+               <div className="mb-3 flex items-center justify-between">
+                 <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2"><Package className="w-4 h-4" /> Componentes del Combo</h3>
+                 <span className="text-sm font-bold text-palta-600 bg-palta-50 px-2 py-1 rounded">Costo Calculado: {formatCLP((form.components || []).reduce((acc, comp) => { const child = allProducts.find(p => p.id === parseInt(comp.product)); return acc + (parseFloat(child?.purchase_price || 0) * parseFloat(comp.quantity || 1)); }, 0))}</span>
+               </div>
                <div className="space-y-3">
                  {(form.components || []).map((comp, idx) => (
                    <div key={idx} className="flex gap-2 items-center">
@@ -225,15 +232,6 @@ export default function ProductsPage() {
     } catch (e) {
       alert('Error al actualizar')
     }
-  }
-
-  const getProductCost = (p) => {
-    if (!p.is_bundle) return parseFloat(p.purchase_price || 0);
-    return (p.components || []).reduce((acc, comp) => {
-      const child = products.find(prod => prod.id === comp.product)
-      if (!child) return acc;
-      return acc + (parseFloat(child.purchase_price || 0) * parseFloat(comp.quantity || 1))
-    }, 0);
   }
 
   const filtered = products.filter(p => {
@@ -334,8 +332,8 @@ export default function ProductsPage() {
                           />
                         </div>
                         <div className="flex gap-2 mt-1">
-                          <p className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">Costo: {formatCLP(getProductCost(p))}</p>
-                          <p className="text-[10px] text-palta-600 bg-palta-50 px-1.5 py-0.5 rounded font-bold">Margen: {formatCLP(p.sale_price - getProductCost(p))}</p>
+                          <p className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded font-medium">Costo: {formatCLP(p.purchase_price)}</p>
+                          <p className="text-[10px] text-palta-600 bg-palta-50 px-1.5 py-0.5 rounded font-bold">Margen: {formatCLP(p.sale_price - (p.purchase_price || 0))}</p>
                         </div>
                       </div>
                       <div className={`text-right px-3 py-1.5 rounded-lg ${isLow ? 'bg-red-50' : 'bg-gray-50'} flex flex-col items-end`}>
