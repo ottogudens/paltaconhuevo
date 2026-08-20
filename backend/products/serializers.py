@@ -17,6 +17,28 @@ class ProductSerializer(serializers.ModelSerializer):
         model = Product
         fields = '__all__'
 
+    def to_internal_value(self, data):
+        import json
+        # Si la petición viene como multipart/form-data con un string JSON para components
+        mutable_data = data.copy() if hasattr(data, 'copy') else data
+        
+        if hasattr(mutable_data, '_mutable'):
+            mutable_data._mutable = True
+            
+        components = mutable_data.get('components')
+        if isinstance(components, str):
+            try:
+                # QueryDict.setlist is required for many=True fields in Django QueryDicts
+                parsed = json.loads(components)
+                if isinstance(parsed, list) and hasattr(mutable_data, 'setlist'):
+                    mutable_data.setlist('components', parsed)
+                else:
+                    mutable_data['components'] = parsed
+            except Exception:
+                pass
+                
+        return super().to_internal_value(mutable_data)
+
     def to_representation(self, instance):
         repr_data = super().to_representation(instance)
         if instance.is_bundle:
