@@ -15,6 +15,7 @@ import MyLoyaltyPage from './pages/MyLoyaltyPage'
 import NotFoundPage from './pages/NotFoundPage'
 import FinanceVentasPage from './pages/admin/FinanceVentasPage'
 import FinanceComprasPage from './pages/admin/FinanceComprasPage'
+import FinanceStatsPage from './pages/admin/FinanceStatsPage'
 import WhatsAppPage from './pages/admin/WhatsAppPage'
 import UsersPage from './pages/admin/UsersPage'
 import LoyaltyDashboard from './pages/admin/LoyaltyDashboard'
@@ -45,6 +46,7 @@ export default function App() {
         <Route path="/loyalty" element={<ProtectedRoute requiredRole="admin"><LoyaltyDashboard /></ProtectedRoute>} />
         <Route path="/finance/sales" element={<ProtectedRoute requiredRole="admin"><FinanceVentasPage /></ProtectedRoute>} />
         <Route path="/finance/purchases" element={<ProtectedRoute requiredRole="admin"><FinanceComprasPage /></ProtectedRoute>} />
+        <Route path="/finance/stats" element={<ProtectedRoute requiredRole="admin"><FinanceStatsPage /></ProtectedRoute>} />
         <Route path="/whatsapp" element={<ProtectedRoute requiredRole="admin"><WhatsAppPage /></ProtectedRoute>} />
 
         {/* Client Routes */}

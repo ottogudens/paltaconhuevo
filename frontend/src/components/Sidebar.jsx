@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
 import {
   LayoutDashboard, Users, ShoppingCart, Package, DollarSign,
-  LogOut, X, ChevronDown, Store, ClipboardList, TrendingUp, TrendingDown, MessageSquare, UserCheck, Tag
+  LogOut, X, ChevronDown, Store, ClipboardList, TrendingUp, TrendingDown, MessageSquare, UserCheck, Tag, PieChart
 } from 'lucide-react'
 
 const adminLinks = [
@@ -16,6 +16,7 @@ const adminLinks = [
   { id: 'finance', label: 'Finanzas', icon: DollarSign, subLinks: [
     { to: '/finance/sales', label: 'Ventas', icon: TrendingUp },
     { to: '/finance/purchases', label: 'Compras', icon: TrendingDown },
+    { to: '/finance/stats', label: 'Estadísticas', icon: PieChart },
   ]},
   { to: '/whatsapp', label: 'WhatsApp Bot', icon: MessageSquare },
 ]

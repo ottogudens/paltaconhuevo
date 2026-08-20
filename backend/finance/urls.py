@@ -7,4 +7,5 @@ urlpatterns = [
     path('summary/', views.FinanceSummaryView.as_view()),
     path('export/', views.ExportTransactionsView.as_view()),
     path('sales/', views.FinanceSalesView.as_view()),
+    path('stats/', views.FinanceStatsView.as_view()),
 ]

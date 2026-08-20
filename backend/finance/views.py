@@ -107,3 +107,51 @@ class ExportTransactionsView(APIView):
         response['Content-Disposition'] = 'attachment; filename="finanzas.xlsx"'
         wb.save(response)
         return response
+
+
+class FinanceStatsView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        from orders.models import OrderItem
+        period = request.query_params.get('period', 'month')
+        
+        qs = OrderItem.objects.filter(order__payment_status='pagado')
+        
+        if period != 'all':
+            today = datetime.date.today()
+            if period == 'day':
+                start = today
+            elif period == 'week':
+                start = today - datetime.timedelta(days=7)
+            elif period == 'year':
+                start = today.replace(month=1, day=1)
+            else: # month
+                start = today.replace(day=1)
+            qs = qs.filter(order__created_at__date__gte=start)
+            
+        stats = list(
+            qs.values('product__name')
+            .annotate(
+                total_quantity=Sum('quantity'),
+                total_revenue=Sum('subtotal'),
+                total_profit=Sum('margin')
+            )
+            .order_by('-total_profit')
+        )
+        
+        # Calculate summary metrics
+        total_revenue = sum(float(item['total_revenue'] or 0) for item in stats)
+        total_profit = sum(float(item['total_profit'] or 0) for item in stats)
+        total_quantity = sum(float(item['total_quantity'] or 0) for item in stats)
+        
+        return Response({
+            'period': period,
+            'summary': {
+                'total_revenue': total_revenue,
+                'total_profit': total_profit,
+                'total_quantity': total_quantity,
+                'avg_margin_pct': (total_profit / total_revenue * 100) if total_revenue > 0 else 0
+            },
+            'product_stats': stats
+        })
