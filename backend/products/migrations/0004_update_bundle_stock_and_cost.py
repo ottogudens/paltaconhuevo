@@ -44,7 +44,7 @@ def revert_bundles(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('products', '0002_product_purchase_price'),
+        ('products', '0003_product_is_bundle_productcomponent'),
     ]
 
     operations = [
