@@ -6,6 +6,8 @@ import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculat
 
 const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, components: [] }
 
+const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
+
 function ProductModal({ product, allProducts, onClose, onSave }) {
   const [form, setForm] = useState(product ? { ...EMPTY_PRODUCT, ...product } : EMPTY_PRODUCT)
   const [imageFile, setImageFile] = useState(null)
@@ -239,8 +241,6 @@ export default function ProductsPage() {
     return p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.product_type.toLowerCase().includes(search.toLowerCase())
   })
-
-  const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
   const typeEmoji = { palta: '🥑', huevo: '🥚', otro: '📦' }
 
   return (
