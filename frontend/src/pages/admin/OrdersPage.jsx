@@ -299,6 +299,7 @@ function CreateOrderModal({ onClose, onSave }) {
   const [products, setProducts] = useState([])
   const [isNewCustomer, setIsNewCustomer] = useState(false)
   const [customerId, setCustomerId] = useState('')
+  const [customerSearch, setCustomerSearch] = useState('')
   const [newCustomer, setNewCustomer] = useState({ first_name: '', last_name: '', phone: '', address: '', commune: '', email: '' })
   
   const [deliveryType, setDeliveryType] = useState('retiro')
@@ -317,7 +318,7 @@ function CreateOrderModal({ onClose, onSave }) {
     const loadData = async () => {
       try {
         const [cRes, pRes] = await Promise.all([
-          api.get('/auth/customers/'),
+          api.get('/auth/customers/', { params: { limit: 5000, page_size: 5000 } }),
           api.get('/products/')
         ])
         setCustomers(cRes.data.results || cRes.data || [])
@@ -437,15 +438,24 @@ function CreateOrderModal({ onClose, onSave }) {
                 </div>
               </div>
             ) : (
-              <select value={customerId} onChange={e => setCustomerId(e.target.value)} required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
-                <option value="">Seleccionar cliente...</option>
-                {customers.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.first_name} {c.last_name} ({c.phone || c.email || 'Sin contacto'})
-                  </option>
-                ))}
-              </select>
+              <div className="space-y-2">
+                <input 
+                  type="text" 
+                  placeholder="Buscar cliente (nombre, teléfono, correo)..." 
+                  value={customerSearch} 
+                  onChange={e => setCustomerSearch(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" 
+                />
+                <select value={customerId} onChange={e => setCustomerId(e.target.value)} required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                  <option value="">Seleccionar cliente...</option>
+                  {customers.filter(c => `${c.first_name} ${c.last_name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.first_name} {c.last_name} ({c.phone || c.email || 'Sin contacto'})
+                    </option>
+                  ))}
+                </select>
+              </div>
             )}
           </div>
 
@@ -711,7 +721,7 @@ export default function OrdersPage() {
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Productos</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total')}>Total <SortIcon field="total" /></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Estado <SortIcon field="status" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Pago</th>
+                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('payment_status')}>Pago <SortIcon field="payment_status" /></th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Fecha <SortIcon field="created_at" /></th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
                   </tr>

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle } from 'lucide-react'
+import PriceCalculatorModal from '../../components/PriceCalculatorModal'
+import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator } from 'lucide-react'
 
 const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, components: [] }
 
@@ -195,6 +196,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showCalculator, setShowCalculator] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
 
   const fetchProducts = async () => {
@@ -242,10 +244,16 @@ export default function ProductsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Productos</h1>
             <p className="text-gray-500 text-sm mt-1">{filtered.length} productos activos</p>
           </div>
-          <button onClick={() => { setEditProduct(null); setShowModal(true) }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
-            <Plus className="w-4 h-4" /> Nuevo Producto
-          </button>
+          <div className="flex gap-2">
+            <button onClick={() => setShowCalculator(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-palta-50 text-palta-700 border border-palta-200 rounded-lg hover:bg-palta-100 text-sm font-medium">
+              <Calculator className="w-4 h-4" /> Calculadora
+            </button>
+            <button onClick={() => { setEditProduct(null); setShowModal(true) }}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
+              <Plus className="w-4 h-4" /> Nuevo Producto
+            </button>
+          </div>
         </div>
 
         <div className="relative">
@@ -357,6 +365,9 @@ export default function ProductsPage() {
 
       {showModal && (
         <ProductModal product={editProduct} allProducts={products} onClose={() => setShowModal(false)} onSave={fetchProducts} />
+      )}
+      {showCalculator && (
+        <PriceCalculatorModal onClose={() => setShowCalculator(false)} />
       )}
     </AdminLayout>
   )

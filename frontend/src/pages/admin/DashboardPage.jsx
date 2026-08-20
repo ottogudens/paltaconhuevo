@@ -7,6 +7,8 @@ import {
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts'
+import PriceCalculatorModal from '../../components/PriceCalculatorModal'
+import { Calculator } from 'lucide-react'
 
 const COLORS = ['#3cb853', '#ffc127', '#ef4444', '#6366f1']
 
@@ -43,6 +45,7 @@ export default function DashboardPage() {
   const [lowStock, setLowStock] = useState([])
   const [loading, setLoading] = useState(true)
   const [salesPeriod, setSalesPeriod] = useState('month')
+  const [showCalculator, setShowCalculator] = useState(false)
 
   const fetchDashboard = async () => {
     try {
@@ -141,6 +144,10 @@ export default function DashboardPage() {
         </div>
         
         <div className="flex justify-end gap-2 mb-4">
+             <button onClick={() => setShowCalculator(true)}
+               className="inline-flex items-center gap-2 px-4 py-2 bg-palta-50 border border-palta-200 text-palta-800 rounded-lg hover:bg-palta-100 text-sm font-medium transition-colors shadow-2xs mr-auto">
+               <Calculator className="w-4 h-4 text-palta-700" /> Calculadora de Precios
+             </button>
              <span className="text-sm text-gray-500 self-center">Ver ventas por:</span>
              <select 
                value={salesPeriod} 
@@ -292,6 +299,9 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      {showCalculator && (
+        <PriceCalculatorModal onClose={() => setShowCalculator(false)} />
+      )}
     </AdminLayout>
   )
 }

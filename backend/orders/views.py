@@ -305,14 +305,14 @@ class DashboardView(APIView):
         else: # month
             sales_start_date = month_start
             
-        sales_period_orders = Order.objects.filter(created_at__date__gte=sales_start_date, payment_status='pagado')
+        sales_period_orders = Order.objects.filter(created_at__date__gte=sales_start_date)
         sales_period_value = float(sales_period_orders.aggregate(t=Sum('total'))['t'] or 0)
         
-        # Pedidos entregados y pagados (suma de totales)
-        sales_paid = float(Order.objects.filter(status='entregado', payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
+        # Pedidos pagados en el período (suma de totales)
+        sales_paid = float(Order.objects.filter(created_at__date__gte=sales_start_date, payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
         
-        # Pedidos entregados pero no pagados (suma de total a cobrar, o sea suma de totales de esos pedidos)
-        sales_unpaid = float(Order.objects.filter(status='entregado').exclude(payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
+        # Pedidos entregados pero no pagados en el período
+        sales_unpaid = float(Order.objects.filter(created_at__date__gte=sales_start_date, status='entregado').exclude(payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
         
         # Pedidos pendientes (no entregados y no pagados) (cantidad)
         pending_qs = Order.objects.exclude(status='entregado').exclude(payment_status='pagado')
