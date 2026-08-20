@@ -46,6 +46,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   const [salesPeriod, setSalesPeriod] = useState('month')
   const [showCalculator, setShowCalculator] = useState(false)
+  const [productSortOption, setProductSortOption] = useState('total_sales_desc')
 
   const fetchDashboard = async () => {
     try {
@@ -134,6 +135,16 @@ export default function DashboardPage() {
     )
   }
 
+  const sortedProducts = [...(dashboard?.products_sold || [])].sort((a, b) => {
+    if (productSortOption === 'total_sales_desc') return b.total_sales - a.total_sales
+    if (productSortOption === 'total_sales_asc') return a.total_sales - b.total_sales
+    if (productSortOption === 'quantity_desc') return b.total_quantity - a.total_quantity
+    if (productSortOption === 'quantity_asc') return a.total_quantity - b.total_quantity
+    if (productSortOption === 'name_asc') return a.product__name.localeCompare(b.product__name)
+    if (productSortOption === 'name_desc') return b.product__name.localeCompare(a.product__name)
+    return 0
+  })
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -179,13 +190,13 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Top Products Pie Chart */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col items-center">
-            <h2 className="font-semibold text-gray-900 self-start mb-2">Ventas por Producto</h2>
-            {dashboard?.top_products?.length > 0 ? (
+            <h2 className="font-semibold text-gray-900 self-start mb-2">Ventas por Producto (Top 5)</h2>
+            {dashboard?.products_sold?.length > 0 ? (
               <div className="w-full h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={dashboard.top_products} dataKey="total_sales" nameKey="product__name" cx="50%" cy="50%" outerRadius={80} fill="#62a344" label>
-                      {dashboard.top_products.map((entry, index) => (
+                    <Pie data={(dashboard?.products_sold || []).slice(0, 5)} dataKey="total_sales" nameKey="product__name" cx="50%" cy="50%" outerRadius={80} fill="#62a344" label>
+                      {(dashboard?.products_sold || []).slice(0, 5).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={['#62a344', '#f5b041', '#3498db', '#e74c3c', '#9b59b6', '#1abc9c', '#34495e'][index % 7]} />
                       ))}
                     </Pie>
@@ -202,7 +213,7 @@ export default function DashboardPage() {
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Top 5 Productos</h2>
             <div className="space-y-3">
-              {dashboard?.top_products?.map((p, i) => (
+              {(dashboard?.products_sold || []).slice(0, 5).map((p, i) => (
                 <div key={i} className="flex justify-between items-center border-b border-gray-50 pb-2">
                   <div>
                     <p className="text-sm font-medium text-gray-800">{p.product__name}</p>
@@ -298,6 +309,51 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        {/* Productos Vendidos Table */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <h2 className="font-semibold text-gray-900">Reporte de Productos Vendidos</h2>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-gray-500">Ordenar por:</span>
+              <select 
+                value={productSortOption} 
+                onChange={(e) => setProductSortOption(e.target.value)}
+                className="bg-white border border-gray-200 text-gray-700 rounded-lg focus:ring-palta-500 focus:border-palta-500 block p-2"
+              >
+                <option value="total_sales_desc">Total Vendido (Mayor a menor)</option>
+                <option value="total_sales_asc">Total Vendido (Menor a mayor)</option>
+                <option value="quantity_desc">Cantidad (Mayor a menor)</option>
+                <option value="quantity_asc">Cantidad (Menor a mayor)</option>
+                <option value="name_asc">Nombre (A-Z)</option>
+                <option value="name_desc">Nombre (Z-A)</option>
+              </select>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 text-gray-600">
+                <tr>
+                  <th className="text-left px-5 py-3 font-medium">Producto</th>
+                  <th className="text-right px-5 py-3 font-medium">Cantidad Vendida</th>
+                  <th className="text-right px-5 py-3 font-medium">Total Ventas</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {sortedProducts.length > 0 ? sortedProducts.map((p, i) => (
+                  <tr key={i} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-5 py-3 font-medium text-gray-900">{p.product__name}</td>
+                    <td className="px-5 py-3 text-right text-gray-700">{p.total_quantity}</td>
+                    <td className="px-5 py-3 text-right font-bold text-palta-600">{formatCLP(p.total_sales)}</td>
+                  </tr>
+                )) : (
+                  <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-400">No hay productos vendidos en este período</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
       {showCalculator && (
         <PriceCalculatorModal onClose={() => setShowCalculator(false)} />

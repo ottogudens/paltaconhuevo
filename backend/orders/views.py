@@ -322,14 +322,14 @@ class DashboardView(APIView):
         # Listado de pedidos pendientes: no entregados, ordenados por más recientes
         pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
 
-        top_products = list(
-            OrderItem.objects
+        products_sold = list(
+            OrderItem.objects.filter(order__created_at__date__gte=sales_start_date)
             .values('product__name')
             .annotate(
                 total_quantity=Sum('quantity'),
                 total_sales=Sum('subtotal')
             )
-            .order_by('-total_sales')[:5]
+            .order_by('-total_sales')
         )
 
         top_customers = list(
@@ -353,7 +353,7 @@ class DashboardView(APIView):
             'total_customers': User.objects.filter(role='cliente').count(),
             'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,
-            'top_products': top_products,
+            'products_sold': products_sold,
             'top_customers': top_customers,
         })
 
