@@ -45,12 +45,14 @@ export default function DashboardPage() {
   const [lowStock, setLowStock] = useState([])
   const [loading, setLoading] = useState(true)
   const [salesPeriod, setSalesPeriod] = useState('month')
+  const [paymentStatus, setPaymentStatus] = useState('pagado')
+  const [pieChartMetric, setPieChartMetric] = useState('total_sales')
   const [showCalculator, setShowCalculator] = useState(false)
   const [productSortOption, setProductSortOption] = useState('total_sales_desc')
 
   const fetchDashboard = async () => {
     try {
-      const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}`)
+      const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}&payment_status=${paymentStatus}`)
       setDashboard(dashRes.data)
     } catch (e) {
       console.error('Dashboard fetch error:', e)
@@ -60,8 +62,9 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}`)
+        const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}&payment_status=${paymentStatus}`)
         setDashboard(dashRes.data)
+        const stockRes = await api.get('/inventory/products/?low_stock=true')
         setLowStock(stockRes.data || [])
       } catch (e) {
         console.error('Dashboard fetch error:', e)
@@ -70,7 +73,7 @@ export default function DashboardPage() {
       }
     }
     fetchAll()
-  }, [salesPeriod])
+  }, [salesPeriod, paymentStatus])
 
   const handleOrderStatusChange = async (orderId, newStatus) => {
     try {
@@ -159,7 +162,16 @@ export default function DashboardPage() {
                className="inline-flex items-center gap-2 px-4 py-2 bg-palta-50 border border-palta-200 text-palta-800 rounded-lg hover:bg-palta-100 text-sm font-medium transition-colors shadow-2xs mr-auto">
                <Calculator className="w-4 h-4 text-palta-700" /> Calculadora de Precios
              </button>
-             <span className="text-sm text-gray-500 self-center">Ver ventas por:</span>
+             <span className="text-sm text-gray-500 self-center hidden sm:inline">Estado de Pago:</span>
+             <select 
+               value={paymentStatus}
+               onChange={e => setPaymentStatus(e.target.value)}
+               className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-palta-500 focus:border-palta-500 block p-2"
+             >
+               <option value="pagado">Solo Pagados</option>
+               <option value="all">Todos (Pagados y Pendientes/Entregados)</option>
+             </select>
+             <span className="text-sm text-gray-500 self-center hidden sm:inline">Período:</span>
              <select 
                value={salesPeriod} 
                onChange={e => setSalesPeriod(e.target.value)}
@@ -189,18 +201,33 @@ export default function DashboardPage() {
         {/* Charts + Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Top Products Pie Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col items-center">
-            <h2 className="font-semibold text-gray-900 self-start mb-2">Ventas por Producto (Top 5)</h2>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col items-center relative">
+            <div className="w-full flex justify-between items-start mb-2">
+              <h2 className="font-semibold text-gray-900">Ventas por Producto (Top 5)</h2>
+              <select 
+                value={pieChartMetric} 
+                onChange={e => setPieChartMetric(e.target.value)}
+                className="text-xs border-gray-200 rounded p-1 text-gray-600 bg-gray-50"
+              >
+                <option value="total_sales">Por Ingresos ($)</option>
+                <option value="total_quantity">Por Cantidad</option>
+              </select>
+            </div>
             {dashboard?.products_sold?.length > 0 ? (
               <div className="w-full h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
-                    <Pie data={(dashboard?.products_sold || []).slice(0, 5)} dataKey="total_sales" nameKey="product__name" cx="50%" cy="50%" outerRadius={80} fill="#62a344" label>
+                    <Pie 
+                      data={(dashboard?.products_sold || []).sort((a,b) => b[pieChartMetric] - a[pieChartMetric]).slice(0, 5)} 
+                      dataKey={pieChartMetric} 
+                      nameKey="product__name" 
+                      cx="50%" cy="50%" outerRadius={80} fill="#62a344" label
+                    >
                       {(dashboard?.products_sold || []).slice(0, 5).map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={['#62a344', '#f5b041', '#3498db', '#e74c3c', '#9b59b6', '#1abc9c', '#34495e'][index % 7]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value) => formatCLP(value)} />
+                    <Tooltip formatter={(value) => pieChartMetric === 'total_sales' ? formatCLP(value) : `${value} unid.`} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

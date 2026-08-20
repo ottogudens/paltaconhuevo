@@ -8,12 +8,14 @@ export default function FinanceStatsPage() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState('month')
+  const [paymentStatus, setPaymentStatus] = useState('pagado')
+  const [pieChartMetric, setPieChartMetric] = useState('total_quantity')
   const [sortConfig, setSortConfig] = useState({ key: 'total_profit', direction: 'desc' })
 
   const fetchStats = async () => {
     setLoading(true)
     try {
-      const res = await api.get(`/finance/stats/?period=${period}`)
+      const res = await api.get(`/finance/stats/?period=${period}&payment_status=${paymentStatus}`)
       setStats(res.data)
     } catch (error) {
       console.error('Error fetching finance stats', error)
@@ -24,7 +26,7 @@ export default function FinanceStatsPage() {
 
   useEffect(() => {
     fetchStats()
-  }, [period])
+  }, [period, paymentStatus])
 
   const formatCLP = (n) => `$${Math.round(n || 0).toLocaleString('es-CL')}`
   const formatPct = (n) => `${(n || 0).toFixed(1)}%`
@@ -59,7 +61,16 @@ export default function FinanceStatsPage() {
             <p className="text-gray-500 text-sm mt-1">Análisis de rentabilidad y volumen de ventas</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Período:</span>
+            <span className="text-sm text-gray-500">Estado:</span>
+            <select
+              value={paymentStatus}
+              onChange={(e) => setPaymentStatus(e.target.value)}
+              className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-palta-500 focus:border-palta-500 block p-2"
+            >
+               <option value="pagado">Solo Pagados</option>
+               <option value="all">Todos</option>
+            </select>
+            <span className="text-sm text-gray-500 ml-2">Período:</span>
             <select
               value={period}
               onChange={(e) => setPeriod(e.target.value)}
@@ -136,16 +147,27 @@ export default function FinanceStatsPage() {
                 )}
               </div>
 
-              {/* Pie Chart - Quantity Sold */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-                <h2 className="font-semibold text-gray-900 mb-4">Volumen de ventas (Top 7 Productos)</h2>
+              {/* Pie Chart - Volume/Sales */}
+              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 relative">
+                <div className="flex justify-between items-start mb-4">
+                  <h2 className="font-semibold text-gray-900">Volumen de ventas (Top 7)</h2>
+                  <select 
+                    value={pieChartMetric} 
+                    onChange={e => setPieChartMetric(e.target.value)}
+                    className="text-xs border-gray-200 rounded p-1 text-gray-600 bg-gray-50"
+                  >
+                    <option value="total_quantity">Por Cantidad</option>
+                    <option value="total_revenue">Por Ingresos ($)</option>
+                    <option value="total_profit">Por Utilidad ($)</option>
+                  </select>
+                </div>
                 {stats?.product_stats?.length > 0 ? (
                   <div className="w-full h-80">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
                         <Pie 
-                          data={stats.product_stats.sort((a,b) => b.total_quantity - a.total_quantity).slice(0, 7)} 
-                          dataKey="total_quantity" 
+                          data={stats.product_stats.sort((a,b) => b[pieChartMetric] - a[pieChartMetric]).slice(0, 7)} 
+                          dataKey={pieChartMetric} 
                           nameKey="product__name" 
                           cx="50%" cy="50%" 
                           outerRadius={110} 
@@ -155,7 +177,7 @@ export default function FinanceStatsPage() {
                             <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
                           ))}
                         </Pie>
-                        <Tooltip />
+                        <Tooltip formatter={(val) => pieChartMetric === 'total_quantity' ? `${val} unid.` : formatCLP(val)} />
                         <Legend />
                       </PieChart>
                     </ResponsiveContainer>

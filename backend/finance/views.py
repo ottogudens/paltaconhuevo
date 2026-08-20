@@ -47,8 +47,10 @@ class FinanceSummaryView(APIView):
         ingresos_manuales = float(qs_transactions.filter(transaction_type='ingreso').exclude(category='venta').aggregate(t=Sum('amount'))['t'] or 0)
         egresos = float(qs_transactions.filter(transaction_type='egreso').aggregate(t=Sum('amount'))['t'] or 0)
 
-        from orders.models import Order
-        qs_orders = Order.objects.filter(created_at__date__gte=start, payment_status='pagado')
+        payment_filter = request.query_params.get('payment_status', 'pagado')
+        qs_orders = Order.objects.filter(created_at__date__gte=start)
+        if payment_filter == 'pagado':
+            qs_orders = qs_orders.filter(payment_status='pagado')
         ingresos_ventas = float(qs_orders.aggregate(t=Sum('total'))['t'] or 0)
         
         ingresos = ingresos_manuales + ingresos_ventas
@@ -65,7 +67,11 @@ class FinanceSalesView(APIView):
 
     def get(self, request):
         from orders.models import OrderItem
-        qs = OrderItem.objects.filter(order__payment_status='pagado').select_related('order', 'order__customer', 'product').order_by('-order__created_at')
+        payment_filter = request.query_params.get('payment_status', 'pagado')
+        
+        qs = OrderItem.objects.select_related('order', 'order__customer', 'product').order_by('-order__created_at')
+        if payment_filter == 'pagado':
+            qs = qs.filter(order__payment_status='pagado')
         
         # Opcional: filtros basicos si mandan parametros
         start_date = request.query_params.get('start_date')
@@ -115,8 +121,11 @@ class FinanceStatsView(APIView):
     def get(self, request):
         from orders.models import OrderItem
         period = request.query_params.get('period', 'month')
+        payment_filter = request.query_params.get('payment_status', 'pagado')
         
-        qs = OrderItem.objects.filter(order__payment_status='pagado')
+        qs = OrderItem.objects.all()
+        if payment_filter == 'pagado':
+            qs = qs.filter(order__payment_status='pagado')
         
         if period != 'all':
             today = datetime.date.today()

@@ -256,8 +256,17 @@ function OrderDetail({ order, onClose, onUpdate }) {
                 <h3 className="text-sm font-bold text-gray-900 mb-3">Registrar Nuevo Pago o Abono</h3>
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">Monto a abonar</label>
-                    <input type="number" required min="1" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs text-gray-500">Monto a abonar</label>
+                      <button 
+                        type="button" 
+                        onClick={() => setPaymentAmount(currentOrder.total - (currentOrder.payments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0))}
+                        className="text-[10px] bg-palta-100 text-palta-700 px-2 py-0.5 rounded font-bold hover:bg-palta-200 uppercase tracking-wider"
+                      >
+                        Pago Completo
+                      </button>
+                    </div>
+                    <input type="number" required min="1" max={currentOrder.total - (currentOrder.payments || []).reduce((sum, p) => sum + parseFloat(p.amount), 0)} value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
                   </div>
                   <div>

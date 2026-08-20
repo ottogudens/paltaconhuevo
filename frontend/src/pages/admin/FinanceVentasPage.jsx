@@ -7,11 +7,12 @@ export default function FinanceVentasPage() {
   const [sales, setSales] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterDate, setFilterDate] = useState('')
+  const [paymentStatus, setPaymentStatus] = useState('pagado')
 
   const fetchSales = async () => {
     setLoading(true)
     try {
-      const params = {}
+      const params = { payment_status: paymentStatus }
       if (filterDate) params.start_date = filterDate
       const res = await api.get('/finance/sales/', { params })
       setSales(res.data)
@@ -24,7 +25,7 @@ export default function FinanceVentasPage() {
 
   useEffect(() => {
     fetchSales()
-  }, [filterDate])
+  }, [filterDate, paymentStatus])
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
@@ -50,7 +51,15 @@ export default function FinanceVentasPage() {
             <h1 className="text-2xl font-bold text-gray-900">Ventas Detalladas</h1>
             <p className="text-gray-500 text-sm mt-1">Análisis por ítem de cada pedido completado y pagado</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+             <select
+               value={paymentStatus}
+               onChange={(e) => setPaymentStatus(e.target.value)}
+               className="bg-white border border-gray-200 text-gray-700 text-sm rounded-lg focus:ring-palta-500 focus:border-palta-500 block p-2"
+             >
+               <option value="pagado">Solo Pagados</option>
+               <option value="all">Todos los Pedidos</option>
+             </select>
              <div className="flex bg-white items-center gap-2 border border-gray-200 rounded-lg px-3 py-2 text-sm">
                  <Calendar className="w-4 h-4 text-gray-500" />
                  <input 

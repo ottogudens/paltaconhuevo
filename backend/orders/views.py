@@ -293,6 +293,9 @@ class DashboardView(APIView):
 
         today = datetime.date.today()
         month_start = today.replace(day=1)
+        
+        payment_filter = request.query_params.get('payment_status', 'pagado')
+        
         orders_today = Order.objects.filter(created_at__date=today)
         orders_month = Order.objects.filter(created_at__date__gte=month_start)
         
@@ -306,6 +309,12 @@ class DashboardView(APIView):
             sales_start_date = month_start
             
         sales_period_orders = Order.objects.filter(created_at__date__gte=sales_start_date)
+        
+        if payment_filter == 'pagado':
+            orders_today = orders_today.filter(payment_status='pagado')
+            orders_month = orders_month.filter(payment_status='pagado')
+            sales_period_orders = sales_period_orders.filter(payment_status='pagado')
+            
         sales_period_value = float(sales_period_orders.aggregate(t=Sum('total'))['t'] or 0)
         
         # Pedidos pagados en el período (suma de totales)
@@ -322,8 +331,12 @@ class DashboardView(APIView):
         # Listado de pedidos pendientes: no entregados, ordenados por más recientes
         pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
 
+        products_sold_qs = OrderItem.objects.filter(order__created_at__date__gte=sales_start_date)
+        if payment_filter == 'pagado':
+            products_sold_qs = products_sold_qs.filter(order__payment_status='pagado')
+
         products_sold = list(
-            OrderItem.objects.filter(order__created_at__date__gte=sales_start_date)
+            products_sold_qs
             .values('product__name')
             .annotate(
                 total_quantity=Sum('quantity'),
@@ -332,8 +345,12 @@ class DashboardView(APIView):
             .order_by('-total_sales')
         )
 
+        top_customers_qs = Order.objects.all()
+        if payment_filter == 'pagado':
+            top_customers_qs = top_customers_qs.filter(payment_status='pagado')
+
         top_customers = list(
-            Order.objects
+            top_customers_qs
             .values('customer__first_name', 'customer__last_name', 'customer__username')
             .annotate(total_spent=Sum('total'), total_orders=Count('id'))
             .order_by('-total_spent')[:5]
