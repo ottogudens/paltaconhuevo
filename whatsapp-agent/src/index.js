@@ -44,10 +44,19 @@ const api = {
   post: (path, data, token) => axios.post(`${API_URL}${path}`, data, { headers: { Authorization: `Token ${token || API_TOKEN}` } }),
 };
 
+function formatPhone(p) {
+  let digits = p.replace(/\D/g, '');
+  if (digits.startsWith('56') && digits.length === 11) return '+' + digits;
+  if (digits.startsWith('56') && digits.length === 10) return '+569' + digits.slice(2);
+  if (digits.startsWith('9') && digits.length === 9) return '+56' + digits;
+  if (digits.length === 8) return '+569' + digits;
+  return '+' + digits;
+}
+
 // Obtener o crear sesión de usuario vía API Django
 async function getSession(phone) {
   try {
-    const res = await api.get(`/marketing/sessions/${phone}/`);
+    const res = await api.get(`/marketing/sessions/${encodeURIComponent(phone)}/`);
     const data = res.data.session_data;
     if (!data || Object.keys(data).length === 0) {
       return { history: [], step: 'menu', cart: [], userToken: null, userData: null };
@@ -62,7 +71,7 @@ async function getSession(phone) {
 // Guardar sesión de usuario vía API Django
 async function saveSession(phone, sessionData) {
   try {
-    await api.post(`/marketing/sessions/${phone}/`, { session_data: sessionData });
+    await api.post(`/marketing/sessions/${encodeURIComponent(phone)}/`, { session_data: sessionData });
     io.emit('chats_updated');
     io.emit('chat_updated', { phone });
   } catch (e) {
@@ -74,17 +83,25 @@ async function saveSession(phone, sessionData) {
 async function sendMessage(phone, message) {
   if (!waSocket) return;
 
-  let cleanPhone = phone.replace(/\D/g, '');
-  if (cleanPhone.length === 9 && cleanPhone.startsWith('9')) {
-    cleanPhone = '56' + cleanPhone;
+  const session = await getSession(phone);
+  let jid = session?.remoteJid;
+  
+  if (!jid) {
+    // Si no tenemos el JID exacto guardado, lo construimos asumiendo el formato
+    let clean = phone.replace(/\D/g, '');
+    if (clean.length === 9 && clean.startsWith('9')) clean = '56' + clean;
+    jid = `${clean}@s.whatsapp.net`;
   }
-
-  const session = await getSession(cleanPhone);
-  let jid = session?.remoteJid || cleanPhone;
-  if (!jid.includes('@')) {
-    jid = `${jid}@s.whatsapp.net`;
+  
+  try {
+    if (typeof message === 'object' && Object.keys(message).length > 0) {
+      await waSocket.sendMessage(jid, message);
+    } else {
+      await waSocket.sendMessage(jid, { text: message });
+    }
+  } catch(e) {
+    console.error('Error enviando mssg a', jid, e.message);
   }
-  await waSocket.sendMessage(jid, { text: message });
 }
 
 // Autenticar / Registrar cliente de WhatsApp
@@ -217,10 +234,8 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
 - Utiliza las herramientas (tools) disponibles para:
   - Añadir productos al carrito (add_to_cart)
   - Consultar puntos (get_loyalty_points)
-  - Derivar a un humano si lo piden explícitamente o si no puedes ayudar (request_human)
-  - Confirmar el pedido cuando el carrito esté listo (confirm_order)
-  - Pedir dirección si elige despacho (set_delivery)
-  - Generar link de pago cuando todo esté confirmado (generate_payment)
+  - Derivar a humano (request_human)
+  - Enviar botoneras (send_buttons) o listas visuales (send_list) cuando necesites preguntarle opciones y flujos guiados en lugar de solo texto.
 - Sé conciso, amable y profesional (máximo 3-4 líneas por respuesta).
 - Si usas una herramienta, genera una respuesta natural al usuario después de recibir el resultado de la herramienta.`;
 
@@ -293,6 +308,31 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
       name: "generate_payment",
       description: "Genera el link de pago y finaliza el pedido.",
       input_schema: { type: "object", properties: {} }
+    },
+    {
+      name: "send_buttons",
+      description: "Envía un mensaje con botones clickeables al cliente. Utiliza esto para preguntar sobre opciones cortas en un menú guiado.",
+      input_schema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "El texto descriptivo principal (Ej: 'Selecciona una opcion:')" },
+          buttons: { type: "array", items: { type: "string" }, description: "MÁXIMO 3 opciones de botones cortos" }
+        },
+        required: ["text", "buttons"]
+      }
+    },
+    {
+      name: "send_list",
+      description: "Envía un mensaje con una lista desplegable (dropdown) nativa. Útil para enumerar categorías, varios productos o sucursales.",
+      input_schema: {
+        type: "object",
+        properties: {
+          text: { type: "string", description: "Mensaje principal" },
+          button_text: { type: "string", description: "La etiqueta del botón que abre el menú (Ej: 'Ver catálogo')" },
+          items: { type: "array", items: { type: "string" }, description: "Opciones de la lista desplegable" }
+        },
+        required: ["text", "button_text", "items"]
+      }
     }
   ];
 
@@ -400,6 +440,29 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
             session.step = 'menu';
             toolResultText = `Pedido creado. Link de MercadoPago generado: ${link}. Puntos ganados: ${order.points_earned}. Entrega esta información al usuario y despídete.`;
           }
+          else if (name === 'send_buttons') {
+            const btns = input.buttons.slice(0, 3).map((b, idx) => ({ buttonId: 'btn_'+idx, buttonText: { displayText: b }, type: 1 }));
+            await sendMessage(customerPhone, {
+                text: input.text,
+                buttons: btns,
+                headerType: 1
+            });
+            toolResultText = "El usuario vio los botones y se le enviaron con éxito. Espera a que responda alguna opción.";
+          }
+          else if (name === 'send_list') {
+            const sections = [
+              {
+                title: "Lista de Opciones",
+                rows: input.items.map((it, idx) => ({ title: it, rowId: 'row_'+idx }))
+              }
+            ];
+            await sendMessage(customerPhone, {
+                text: input.text,
+                buttonText: input.button_text,
+                sections: sections
+            });
+            toolResultText = "El usuario recibió la lista desplegable. Espera a que seleccione una opción.";
+          }
         } catch (e) {
           toolResultText = `Error al ejecutar herramienta: ${e.message}`;
         }
@@ -479,7 +542,7 @@ async function handleMessageLogic(phone, message, session) {
             session.userToken = regAuth.token;
             session.userData = regAuth.user;
             session.awaitingName = false;
-            const regSuccess = `¡Listo ${regAuth.user.first_name}! ✅ Te registré con éxito.\n\n${getMenu()}`;
+            const regSuccess = `¡Listo ${regAuth.user.first_name}! ✅ Te registré con éxito.\n\n${getMenu(session)}`;
             session.messages.push({ sender: 'bot', text: regSuccess, timestamp: new Date().toISOString() });
             return regSuccess;
           }
@@ -503,8 +566,8 @@ async function handleMessageLogic(phone, message, session) {
     }
 
     if (['hola','inicio','menu','menú','0'].includes(lower)) {
-      logger.info({ event: 'heuristic_short_circuit', intent: 'menu', phone }, 'Respondiendo menú por heurística (0 tokens consumidos)');
-      const menuText = getMenu();
+      logger.info({ event: 'heuristic_short_circuit', intent: 'menu', phone }, 'Respondiendo menú por heurística');
+      const menuText = getMenu(session);
       session.messages.push({ sender: 'bot', text: menuText, timestamp: new Date().toISOString() });
       return menuText;
     }
@@ -523,8 +586,10 @@ async function handleMessageLogic(phone, message, session) {
   }
 }
 
-function getMenu() {
-  return `🥑🥚 *Palta con Huevo*\n\n¡Hola! Soy Paltín, tu asistente. ¿En qué te ayudo?\n\n📦 Para pedir, dime qué quieres (ej: "quiero 2 paltas y una docena de huevos")\n⭐ "mis puntos" - Ver tus puntos\n🍳 "recetas" - Ideas de cocina\n🎁 "ofertas" - Ver ofertas del día\n👨‍💼 "humano" - Hablar con un ejecutivo\n\n¡Escríbeme lo que necesitas!`;
+function getMenu(session) {
+  const name = session?.userData?.first_name || '';
+  const greeting = name ? `¡Hola ${name}! 👋 Bienvenid@ nuevamente a *Palta con Huevo* 🥑🥚` : `¡Hola! 👋 Bienvenid@ a *Palta con Huevo* 🥑🥚`;
+  return `${greeting}\n\nSoy Paltín, tu asistente.\n\n📦 *Quiero pedir*\n⭐ *Mis puntos*\n🍳 *Recetas*\n🎁 *Ofertas*\n👨‍💼 *Hablar con humano*\n\n¡Dime tu opción para comenzar!`;
 }
 
 // Endpoints API para administración de WhatsApp
@@ -766,12 +831,22 @@ async function startWhatsApp() {
           }
         }
 
-        const phone = realJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace('@g.us', '');
-        const text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+        const rawPhone = realJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace('@g.us', '');
+        const phone = formatPhone(rawPhone);
+        
+        let text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
+        
+        // Interpretar respuesta a Botones o Listas si existen:
+        if (msg.message.buttonsResponseMessage) {
+           text = msg.message.buttonsResponseMessage.selectedDisplayText;
+        } else if (msg.message.listResponseMessage) {
+           text = msg.message.listResponseMessage.title;
+        }
+        
         if (!text) continue;
 
         const session = await getSession(phone);
-        session.remoteJid = remoteJid;
+        session.remoteJid = realJid;
         if (msg.pushName) session.pushName = msg.pushName;
         await saveSession(phone, session);
 
