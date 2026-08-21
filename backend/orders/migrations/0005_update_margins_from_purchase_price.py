@@ -30,7 +30,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('orders', '0004_order_discount_order_points_awarded'),
-        ('products', '0002_product_purchase_price'),
+        ('products', '0004_update_bundle_stock_and_cost'),
     ]
 
     operations = [
