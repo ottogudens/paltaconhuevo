@@ -89,10 +89,10 @@ function ImportSalesModal({ onClose, onSave }) {
               {file ? (
                 <p className="text-sm font-medium text-palta-700">{file.name}</p>
               ) : (
-                <p className="text-sm text-gray-500">Haz clic para seleccionar un archivo <strong>.xlsx</strong></p>
+                <p className="text-sm text-gray-500">Haz clic para seleccionar un archivo <strong>.xlsx o .csv</strong></p>
               )}
             </div>
-            <input ref={fileRef} type="file" accept=".xlsx,.xls" className="hidden"
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
               onChange={e => setFile(e.target.files[0])} />
           </div>
 

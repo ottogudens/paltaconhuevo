@@ -388,16 +388,35 @@ class ImportSalesView(APIView):
             Order.objects.all().delete()
             # Note: OrderItem deletes on cascade with Order
 
-        wb = openpyxl.load_workbook(file)
-        ws = wb.active
+        import os
+        file_ext = os.path.splitext(file.name)[1].lower()
+        rows = []
+        
+        try:
+            if file_ext == '.csv':
+                import csv
+                decoded_file = file.read().decode('utf-8-sig').splitlines()
+                reader = csv.reader(decoded_file)
+                rows = list(reader)[1:]  # Saltar cabecera
+            else:
+                wb = openpyxl.load_workbook(file)
+                ws = wb.active
+                rows = list(ws.iter_rows(min_row=2, values_only=True))
+        except Exception as e:
+            return Response({'error': f'Error al leer el archivo: {str(e)}'}, status=400)
+
         created_items = 0
         errors = []
 
         # Cache para agrupar pedidos de la misma fila (si comparten ID)
         orders_cache = {}
 
-        for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+        for i, row in enumerate(rows, start=2):
             try:
+                # Si la fila no tiene suficientes columnas o está vacía, continuar
+                if not row or len(row) < 8:
+                    continue
+
                 # El orden ahora es:
                 # 0: ID Pedido, 1: Producto, 2: Cantidad, 3: Subtotal, 4: Margen, 5: Cliente, 6: Medio Pago, 7: Fecha
                 group_id       = str(row[0] or '').strip()
