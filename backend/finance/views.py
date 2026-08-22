@@ -337,22 +337,24 @@ class DownloadSalesTemplateView(APIView):
         ws = wb.active
         ws.title = "Plantilla Ventas Detalladas"
         
+        # Debe coincidir exactamente con el export CSV de FinanceVentasPage:
+        # ID Pedido,Producto,Cantidad,Subtotal,Margen,Cliente,Medio Pago,Fecha
         headers = [
-            'ID Grupo Pedido (Opcional)',  # col 0
-            'Fecha (YYYY-MM-DD)',          # col 1
-            'Cliente (Email o Teléfono)',  # col 2
-            'Producto (Nombre)',           # col 3
-            'Cantidad',                    # col 4
-            'Subtotal (Opcional)',         # col 5
-            'Medio Pago',                  # col 6 (efectivo, transferencia, transbank)
-            'Estado Pago'                  # col 7 (pagado, abonado, pendiente)
+            'ID Pedido',    # col 0
+            'Producto',     # col 1
+            'Cantidad',     # col 2
+            'Subtotal',     # col 3
+            'Margen',       # col 4 (ignorado en la carga, se calcula automático)
+            'Cliente',      # col 5
+            'Medio Pago',   # col 6
+            'Fecha'         # col 7 (YYYY-MM-DD)
         ]
         ws.append(headers)
 
         today = datetime.date.today().isoformat()
-        ws.append(['PED-001', today, 'cliente@gmail.com', 'Palta Hass', 2, 10000, 'efectivo', 'pagado'])
-        ws.append(['PED-001', today, 'cliente@gmail.com', 'Malla Limón', 1, 3000, 'efectivo', 'pagado'])
-        ws.append(['', today, '+56912345678', 'Huevo Extra', 1, 5000, 'transferencia', 'pagado'])
+        ws.append(['PED-001', 'Palta Hass', 2, 10000, 4000, 'cliente@gmail.com', 'efectivo', today])
+        ws.append(['PED-001', 'Malla Limón', 1, 3000, 1500, 'cliente@gmail.com', 'efectivo', today])
+        ws.append(['', 'Huevo Extra', 1, 5000, 2000, '+56912345678', 'transferencia', today])
 
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -396,14 +398,17 @@ class ImportSalesView(APIView):
 
         for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             try:
+                # El orden ahora es:
+                # 0: ID Pedido, 1: Producto, 2: Cantidad, 3: Subtotal, 4: Margen, 5: Cliente, 6: Medio Pago, 7: Fecha
                 group_id       = str(row[0] or '').strip()
-                date_str       = str(row[1] or '').strip()
-                customer_id    = str(row[2] or '').strip()
-                product_name   = str(row[3] or '').strip()
-                quantity       = float(row[4] or 0)
-                subtotal_raw   = row[5]
+                product_name   = str(row[1] or '').strip()
+                quantity       = float(row[2] or 0)
+                subtotal_raw   = row[3]
+                # row[4] es margen, lo calcularemos desde los costos
+                customer_id    = str(row[5] or '').strip()
                 payment_method = str(row[6] or 'efectivo').strip().lower()
-                payment_status = str(row[7] or 'pagado').strip().lower()
+                date_str       = str(row[7] or '').strip()
+                payment_status = 'pagado' # El export no lleva el estado, asumimos pagado
 
                 if not customer_id and not product_name and not quantity:
                     continue  # fila vacía
