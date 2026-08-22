@@ -23,8 +23,8 @@ DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # ALLOWED_HOSTS: include Railway domains and custom domain
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 if '*' not in ALLOWED_HOSTS:
-    # Always include Railway domains
-    for extra in ['paltaconhuevo-production.up.railway.app', 'paltaconhuevo.railway.internal', 'localhost', '127.0.0.1']:
+    # Always include Railway domains wildcard to prevent 400 Bad Request on new deployments
+    for extra in ['.up.railway.app', 'paltaconhuevo-production.up.railway.app', 'paltaconhuevo.railway.internal', 'localhost', '127.0.0.1']:
         if extra not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(extra)
 
