@@ -37,7 +37,9 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
       formData.append('stock', form.is_bundle ? 0 : form.stock || 0)
       formData.append('min_stock', form.is_bundle ? 0 : form.min_stock || 0)
       formData.append('description', form.description || '')
-      formData.append('is_bundle', form.is_bundle || false)
+      // FormData no soporta booleanos; DRF acepta 'true'/'false' como strings
+      formData.append('is_bundle', form.is_bundle ? 'true' : 'false')
+      formData.append('is_active', 'true')
       if (form.is_bundle) {
         formData.append('components', JSON.stringify(form.components || []))
       }
@@ -57,10 +59,12 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
       onSave()
       onClose()
     } catch (e) {
-      console.error(e)
-      alert('Error al guardar producto')
+      console.error('Error al guardar producto:', e)
+      const msg = e.userMessage || (e.response?.data ? JSON.stringify(e.response.data) : e.message) || 'Error desconocido'
+      alert(`Error al guardar producto:\n${msg}`)
     } finally { setSaving(false) }
   }
+
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>

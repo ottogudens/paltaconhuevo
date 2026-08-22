@@ -12,6 +12,8 @@ export default function WhatsAppPage() {
   const [loading, setLoading] = useState(true)
   const socketRef = useRef(null)
 
+  // Tabs
+  const [activeTab, setActiveTab] = useState('chats')
 
   // Live Chats
   const [chats, setChats] = useState([])
@@ -19,6 +21,19 @@ export default function WhatsAppPage() {
   const [currentChatData, setCurrentChatData] = useState(null)
   const [replyText, setReplyText] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
+
+  // Configuración del agente
+  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', api_key: '', whatsapp_connected_phone: '' })
+  const [savingConfig, setSavingConfig] = useState(false)
+
+  // QR / Vinculación
+  const [qr, setQr] = useState(null)
+  const [pairingMethod, setPairingMethod] = useState('qr')
+  const [pairingCode, setPairingCode] = useState(null)
+  const [phoneToPair, setPhoneToPair] = useState('')
+  const [requestingCode, setRequestingCode] = useState(false)
+  const [codeError, setCodeError] = useState(null)
+  const [codeCopied, setCodeCopied] = useState(false)
 
 
   // Cargar estado de WA
@@ -28,8 +43,21 @@ export default function WhatsAppPage() {
       const data = await res.json()
       setStatus(data)
 
+      // Obtener QR si está disponible
       if (data.has_qr && !data.connected) {
-        // Ignorado porque ahora vive en Settings
+        try {
+          const baseUrl = WA_API_URL.replace('/api/wa', '')
+          const qrRes = await fetch(`${baseUrl}/api/wa/qr`)
+          const qrData = await qrRes.json()
+          if (qrData.qr) setQr(qrData.qr)
+        } catch (e) {
+          console.error('Error fetching QR:', e)
+        }
+      }
+
+      if (data.connected) {
+        setQr(null)
+        setPairingCode(null)
       }
     } catch (e) {
       console.error('Error fetching WA status:', e)
@@ -61,11 +89,87 @@ export default function WhatsAppPage() {
     }
   }
 
+  // Cargar configuración del agente
+  const fetchAgentConfig = async () => {
+    try {
+      const res = await api.get('/marketing/agent-config/')
+      setAgentConfig(prev => ({ ...prev, ...res.data }))
+    } catch (e) {
+      console.error('Error fetching agent config:', e)
+    }
+  }
+
+  // Guardar configuración del agente
+  const handleSaveConfig = async (e) => {
+    e.preventDefault()
+    setSavingConfig(true)
+    try {
+      await api.patch('/marketing/agent-config/', agentConfig)
+      alert('✅ Configuración guardada correctamente.')
+    } catch (e) {
+      alert('Error al guardar configuración: ' + (e.userMessage || e.message))
+    } finally {
+      setSavingConfig(false)
+    }
+  }
+
+  // Desconectar WhatsApp
+  const handleLogout = async () => {
+    if (!confirm('¿Estás seguro de que deseas desvincular la cuenta de WhatsApp?')) return
+    try {
+      const baseUrl = WA_API_URL.replace('/api/wa', '')
+      await fetch(`${baseUrl}/api/wa/logout`, { method: 'POST' })
+      setStatus({ connected: false, has_qr: false })
+      setQr(null)
+      setPairingCode(null)
+      fetchStatus()
+    } catch (e) {
+      alert('Error al desvincular: ' + e.message)
+    }
+  }
+
+  // Solicitar código de vinculación por número
+  const handleRequestPairingCode = async (e) => {
+    e.preventDefault()
+    setRequestingCode(true)
+    setCodeError(null)
+    try {
+      const baseUrl = WA_API_URL.replace('/api/wa', '')
+      const res = await fetch(`${baseUrl}/api/wa/pairing-code`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: phoneToPair })
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setCodeError(data.error || 'Error al solicitar el código.')
+      } else {
+        setPairingCode(data.code)
+      }
+    } catch (e) {
+      setCodeError('No se pudo conectar con el agente de WhatsApp.')
+    } finally {
+      setRequestingCode(false)
+    }
+  }
+
+  // Copiar código al portapapeles
+  const handleCopyCode = async () => {
+    if (!pairingCode) return
+    try {
+      await navigator.clipboard.writeText(pairingCode)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    } catch (e) {
+      console.error('Error copiando código:', e)
+    }
+  }
 
 
   useEffect(() => {
     fetchStatus()
     fetchChats()
+    fetchAgentConfig()
 
     // Setup WebSocket
     const socketUrl = WA_API_URL.replace('/api/wa', '')
