@@ -266,11 +266,31 @@ class ExportOrdersView(APIView):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Pedidos"
-        ws.append(['ID', 'Cliente', 'Total', 'Estado', 'Tipo entrega', 'Dirección', 'Método pago', 'Estado pago', 'Fecha'])
+        # IMPORTANTE: el orden de estas columnas coincide exactamente con
+        # lo que lee ImportOrdersView (min_row=2, por índice de columna).
+        ws.append([
+            'Email o Teléfono Cliente',  # col 0 — identificador del cliente
+            'Total',                     # col 1
+            'Costo Envío',               # col 2
+            'Descuento',                 # col 3
+            'Estado',                    # col 4 — pendiente|entregado|cancelado
+            'Método Pago',               # col 5 — efectivo|transferencia|mercadopago
+            'Estado Pago',               # col 6 — pendiente|abonado|pagado|vencido
+            'Fecha Creación (YYYY-MM-DD)',  # col 7
+        ])
         for o in Order.objects.all().order_by('-created_at'):
-            ws.append([o.id, o.customer.get_full_name(), float(o.total), o.status,
-                       o.delivery_type, o.delivery_address, o.payment_method,
-                       o.payment_status, str(o.created_at.date())])
+            # Usar email como identificador principal; caer a teléfono si no tiene email
+            identifier = o.customer.email or o.customer.phone or o.customer.username
+            ws.append([
+                identifier,
+                float(o.total),
+                float(o.delivery_cost),
+                float(o.discount),
+                o.status,
+                o.payment_method,
+                o.payment_status,
+                str(o.created_at.date()),
+            ])
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = 'attachment; filename="pedidos.xlsx"'
         wb.save(response)
@@ -431,18 +451,34 @@ class DownloadOrderTemplateView(APIView):
     def get(self, request):
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = "Plantilla Pedidos Históricos"
+        ws.title = "Plantilla Pedidos"
+        # IMPORTANTE: el orden de estas columnas debe coincidir exactamente
+        # con lo que lee ImportOrdersView (min_row=2, por índice de columna).
         headers = [
-            'Email o Teléfono Cliente', 'Total', 'Costo Envío', 'Descuento', 
-            'Estado', 'Método Pago', 'Estado Pago', 'Fecha Creación (YYYY-MM-DD)'
+            'Email o Teléfono Cliente',      # col 0 — obligatorio
+            'Total',                          # col 1
+            'Costo Envío',                    # col 2
+            'Descuento',                      # col 3
+            'Estado',                         # col 4 — pendiente|entregado|cancelado
+            'Método Pago',                    # col 5 — efectivo|transferencia|mercadopago
+            'Estado Pago',                    # col 6 — pendiente|abonado|pagado|vencido
+            'Fecha Creación (YYYY-MM-DD)',     # col 7
         ]
         ws.append(headers)
+
+        # Fila de ejemplo para guiar al usuario
+        ws.append([
+            'cliente@ejemplo.com', 15000, 0, 0,
+            'entregado', 'efectivo', 'pagado', '2025-01-15'
+        ])
+
         response = HttpResponse(
             content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
         )
         response['Content-Disposition'] = 'attachment; filename="plantilla_pedidos.xlsx"'
         wb.save(response)
         return response
+
 
 
 class ImportOrdersView(APIView):
