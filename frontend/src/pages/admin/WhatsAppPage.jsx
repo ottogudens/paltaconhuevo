@@ -8,15 +8,10 @@ import { io } from 'socket.io-client'
 const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agente-production-a1fc.up.railway.app/api/wa')
 
 export default function WhatsAppPage() {
-  const [activeTab, setActiveTab] = useState('chats') // 'chats', 'config', 'qr'
   const [status, setStatus] = useState({ connected: false, has_qr: false })
-  const [qr, setQr] = useState(null)
   const [loading, setLoading] = useState(true)
   const socketRef = useRef(null)
 
-  // Config del Agente
-  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', system_prompt: '', additional_info: '', human_notification_phone: '', ai_provider: 'claude', api_key: '', whatsapp_connected_phone: '' })
-  const [savingConfig, setSavingConfig] = useState(false)
 
   // Live Chats
   const [chats, setChats] = useState([])
@@ -25,13 +20,6 @@ export default function WhatsAppPage() {
   const [replyText, setReplyText] = useState('')
   const [sendingReply, setSendingReply] = useState(false)
 
-  // Vinculación por número de teléfono
-  const [pairingMethod, setPairingMethod] = useState('qr') // 'qr' | 'phone'
-  const [phoneToPair, setPhoneToPair] = useState('')
-  const [pairingCode, setPairingCode] = useState(null)
-  const [requestingCode, setRequestingCode] = useState(false)
-  const [codeError, setCodeError] = useState(null)
-  const [codeCopied, setCodeCopied] = useState(false)
 
   // Cargar estado de WA
   const fetchStatus = async () => {
@@ -41,11 +29,7 @@ export default function WhatsAppPage() {
       setStatus(data)
 
       if (data.has_qr && !data.connected) {
-        const qrRes = await fetch(`${WA_API_URL}/qr`)
-        const qrData = await qrRes.json()
-        setQr(qrData.qr)
-      } else {
-        setQr(null)
+        // Ignorado porque ahora vive en Settings
       }
     } catch (e) {
       console.error('Error fetching WA status:', e)
@@ -77,22 +61,10 @@ export default function WhatsAppPage() {
     }
   }
 
-  // Cargar Configuración del Agente desde Django
-  const fetchAgentConfig = async () => {
-    try {
-      const res = await api.get('/marketing/agent-config/')
-      setAgentConfig(res.data)
-      if (res.data?.whatsapp_connected_phone && !phoneToPair) {
-        setPhoneToPair(res.data.whatsapp_connected_phone)
-      }
-    } catch (e) {
-      console.error('Error fetching agent config:', e)
-    }
-  }
+
 
   useEffect(() => {
     fetchStatus()
-    fetchAgentConfig()
     fetchChats()
 
     // Setup WebSocket
@@ -136,16 +108,6 @@ export default function WhatsAppPage() {
     }
   }, [selectedChatPhone])
 
-  const handleSaveConfig = async (e) => {
-    e.preventDefault()
-    setSavingConfig(true)
-    try {
-      await api.post('/marketing/agent-config/', agentConfig)
-      alert('Configuración del agente guardada correctamente')
-    } catch (e) {
-      alert('Error al guardar configuración')
-    } finally { setSavingConfig(false) }
-  }
 
   const handleSendReply = async (e) => {
     e.preventDefault()
@@ -177,51 +139,8 @@ export default function WhatsAppPage() {
     } catch (e) { console.error(e) }
   }
 
-  const handleLogout = async () => {
-    if (!confirm('¿Seguro que deseas desvincular la cuenta actual de WhatsApp?')) return
-    setLoading(true)
-    try {
-      await fetch(`${WA_API_URL}/logout`, { method: 'POST' })
-      setPairingCode(null)
-      await fetchStatus()
-    } catch (e) {
-      alert('Error al desvincular WhatsApp')
-    }
-    setLoading(false)
-  }
 
-  const handleRequestPairingCode = async (e) => {
-    if (e) e.preventDefault()
-    if (!phoneToPair.trim()) {
-      setCodeError('Por favor ingresa un número de teléfono.')
-      return
-    }
-    setRequestingCode(true)
-    setCodeError(null)
-    try {
-      const res = await fetch(`${WA_API_URL}/pairing-code`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: phoneToPair })
-      })
-      const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.error || 'Error al generar el código')
-      }
-      setPairingCode(data.code)
-    } catch (err) {
-      setCodeError(err.message)
-    } finally {
-      setRequestingCode(false)
-    }
-  }
 
-  const handleCopyCode = () => {
-    if (!pairingCode) return
-    navigator.clipboard.writeText(pairingCode.replace(/\s+/g, ''))
-    setCodeCopied(true)
-    setTimeout(() => setCodeCopied(false), 2000)
-  }
 
   return (
     <AdminLayout>

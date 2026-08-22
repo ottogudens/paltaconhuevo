@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
 import PriceCalculatorModal from '../../components/PriceCalculatorModal'
-import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator } from 'lucide-react'
+import ImportModal from '../../components/ImportModal'
+import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator, Download, Upload } from 'lucide-react'
 
 const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, components: [] }
 
@@ -206,6 +207,7 @@ export default function ProductsPage() {
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
 
   const fetchProducts = async () => {
@@ -236,6 +238,22 @@ export default function ProductsPage() {
     }
   }
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await api.get('/products/import/template/', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'plantilla_productos.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Error al descargar plantilla')
+    }
+  }
+
   const filtered = products.filter(p => {
     if (!search) return true
     return p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -252,6 +270,14 @@ export default function ProductsPage() {
             <p className="text-gray-500 text-sm mt-1">{filtered.length} productos activos</p>
           </div>
           <div className="flex gap-2">
+            <button onClick={handleDownloadTemplate}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium" title="Descargar Plantilla">
+              <Download className="w-4 h-4" /> Plantilla
+            </button>
+            <button onClick={() => setShowImportModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+              <Upload className="w-4 h-4" /> Importar
+            </button>
             <button onClick={() => setShowCalculator(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-palta-50 text-palta-700 border border-palta-200 rounded-lg hover:bg-palta-100 text-sm font-medium">
               <Calculator className="w-4 h-4" /> Calculadora
@@ -379,6 +405,13 @@ export default function ProductsPage() {
       {showCalculator && (
         <PriceCalculatorModal onClose={() => setShowCalculator(false)} />
       )}
+      <ImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImportSuccess={fetchProducts}
+        title="Importar Productos"
+        endpoint="/products/import/"
+      />
     </AdminLayout>
   )
 }

@@ -4,9 +4,12 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 from django.db.models import Sum
 import openpyxl, datetime
-from .models import Transaction
-from .serializers import TransactionSerializer
+import openpyxl, datetime, os, tempfile
+from django.core.management import call_command
+from .models import Transaction, CompanySettings
+from .serializers import TransactionSerializer, CompanySettingsSerializer
 from core.permissions import IsAdminOrVendedor
+from orders.models import Order
 
 
 class TransactionListCreateView(generics.ListCreateAPIView):
@@ -168,3 +171,48 @@ class FinanceStatsView(APIView):
             },
             'product_stats': stats
         })
+
+class CompanySettingsView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        settings_obj = CompanySettings.load()
+        serializer = CompanySettingsSerializer(settings_obj)
+        return Response(serializer.data)
+
+    def put(self, request):
+        settings_obj = CompanySettings.load()
+        serializer = CompanySettingsSerializer(settings_obj, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=400)
+
+
+class DatabaseBackupView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        import io
+        out = io.StringIO()
+        call_command('dumpdata', exclude=['contenttypes', 'auth.Permission', 'sessions'], format='json', indent=2, stdout=out)
+        response = HttpResponse(out.getvalue(), content_type='application/json')
+        response['Content-Disposition'] = 'attachment; filename="backup.json"'
+        return response
+
+    def post(self, request):
+        if 'file' not in request.FILES:
+            return Response({'error': 'No file provided'}, status=400)
+            
+        file = request.FILES['file']
+        fd, path = tempfile.mkstemp(suffix='.json')
+        try:
+            with os.fdopen(fd, 'wb') as tmp:
+                for chunk in file.chunks():
+                    tmp.write(chunk)
+            call_command('loaddata', path)
+            return Response({'status': 'Database restored successfully'})
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
+        finally:
+            os.remove(path)

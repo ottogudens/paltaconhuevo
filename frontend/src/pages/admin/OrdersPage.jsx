@@ -695,8 +695,20 @@ export default function OrdersPage() {
 
   const [showImportModal, setShowImportModal] = useState(false)
 
-  const handleDownloadTemplate = () => {
-    window.open(`${api.defaults.baseURL}/orders/import/template/`, '_blank')
+  const handleDownloadTemplate = async () => {
+    try {
+      const res = await api.get('/orders/import/template/', { responseType: 'blob' })
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', 'plantilla_pedidos.xlsx')
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Error al descargar plantilla')
+    }
   }
 
   return (

@@ -24,3 +24,31 @@ class Transaction(models.Model):
 
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.category} - ${self.amount}"
+
+class CompanySettings(models.Model):
+    company_name = models.CharField(max_length=200, default='Empresa Demo')
+    rut = models.CharField(max_length=20, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    phone = models.CharField(max_length=30, blank=True)
+    email = models.EmailField(blank=True)
+    
+    # Bank details for transfers
+    bank_name = models.CharField(max_length=100, blank=True)
+    account_type = models.CharField(max_length=50, blank=True)
+    account_number = models.CharField(max_length=100, blank=True)
+    account_rut = models.CharField(max_length=20, blank=True)
+    account_email = models.EmailField(blank=True)
+    account_name = models.CharField(max_length=200, blank=True)
+
+    def save(self, *args, **kwargs):
+        # Only allow one instance (singleton)
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Configuración de la Empresa"

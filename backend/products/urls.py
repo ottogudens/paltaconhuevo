@@ -8,4 +8,6 @@ urlpatterns = [
     path('purchases/<int:pk>/', views.PurchaseDetailView.as_view()),
     path('purchases/export/', views.ExportPurchasesView.as_view()),
     path('low-stock/', views.LowStockView.as_view()),
+    path('import/template/', views.DownloadProductTemplateView.as_view()),
+    path('import/', views.ImportProductsView.as_view()),
 ]
