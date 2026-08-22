@@ -175,7 +175,7 @@ export default function FinanceVentasPage() {
   const handleExport = () => {
     const csvContent = "data:text/csv;charset=utf-8," 
       + "ID Pedido,Producto,Cantidad,Subtotal,Margen,Cliente,Medio Pago,Fecha\n"
-      + sales.map(s => `${s.order_id},"${s.product_name}",${s.quantity},${s.subtotal},${s.margin},"${s.customer_name}",${s.payment_method},${s.date}`).join("\n");
+      + sales.map(s => `${s.order_id},"${s.product_name}",${s.quantity},${s.subtotal},${s.margin},"${s.customer_identifier || s.customer_name}",${s.payment_method},${s.date}`).join("\n");
       
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
