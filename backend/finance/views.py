@@ -216,3 +216,115 @@ class DatabaseBackupView(APIView):
             return Response({'error': str(e)}, status=500)
         finally:
             os.remove(path)
+
+
+class DownloadFinanceTemplateView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Plantilla Finanzas"
+        # IMPORTANTE: el orden de estas columnas debe coincidir exactamente
+        # con lo que lee ImportFinanceView (min_row=2, por índice de columna).
+        headers = [
+            'Tipo',           # col 0 — ingreso | egreso
+            'Categoría',      # col 1 — venta | compra | gasto_operacional | combustible | cajas | despacho | marketing | otro
+            'Monto',          # col 2 — número positivo
+            'Descripción',    # col 3 — texto libre
+            'Referencia',     # col 4 — opcional (ID de pedido, factura, etc.)
+            'Fecha (YYYY-MM-DD)',  # col 5
+        ]
+        ws.append(headers)
+
+        # Filas de ejemplo para guiar al usuario
+        today = datetime.date.today().isoformat()
+        ws.append(['ingreso', 'venta',              15000, 'Venta de paltas Hass',          'PED-001', today])
+        ws.append(['egreso',  'gasto_operacional',   3500, 'Pago de luz del mes',            '',        today])
+        ws.append(['egreso',  'combustible',         8000, 'Gasolina camioneta delivery',    '',        today])
+        ws.append(['egreso',  'cajas',               2000, 'Compra de cajas para embalaje',  '',        today])
+        ws.append(['egreso',  'despacho',            5000, 'Servicio de courier externo',    '',        today])
+        ws.append(['egreso',  'marketing',           4000, 'Publicidad en redes sociales',   '',        today])
+        ws.append(['ingreso', 'otro',                1000, 'Ingreso misceláneo',             '',        today])
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="plantilla_finanzas.xlsx"'
+        wb.save(response)
+        return response
+
+
+class ImportFinanceView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    VALID_TYPES = {'ingreso', 'egreso'}
+    VALID_CATEGORIES = {
+        'venta', 'compra', 'gasto_operacional', 'combustible',
+        'cajas', 'despacho', 'marketing', 'otro'
+    }
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        import_mode = request.data.get('import_mode', 'update')
+
+        if not file:
+            return Response({'error': 'No se recibió archivo'}, status=400)
+
+        if import_mode == 'replace':
+            # Solo eliminar transacciones manuales; las de ventas se preservan
+            Transaction.objects.exclude(category='venta').delete()
+
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+        created = 0
+        errors = []
+
+        for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            try:
+                # Columnas según la plantilla (mismo orden):
+                # 0: Tipo, 1: Categoría, 2: Monto, 3: Descripción, 4: Referencia, 5: Fecha
+                transaction_type = str(row[0] or '').strip().lower()
+                category         = str(row[1] or '').strip().lower()
+                amount           = float(row[2] or 0)
+                description      = str(row[3] or '').strip()
+                reference_id     = str(row[4] or '').strip()
+                date_str         = str(row[5] or '').strip()
+
+                if not transaction_type and not description and not amount:
+                    continue  # Fila vacía (e.g. fila de ejemplo)
+
+                # Validaciones
+                if not description:
+                    errors.append(f"Fila {i}: Falta descripción")
+                    continue
+                if amount <= 0:
+                    errors.append(f"Fila {i}: El monto debe ser mayor a 0")
+                    continue
+                if transaction_type not in self.VALID_TYPES:
+                    errors.append(f"Fila {i}: Tipo '{transaction_type}' inválido (debe ser 'ingreso' o 'egreso')")
+                    continue
+                if category not in self.VALID_CATEGORIES:
+                    category = 'otro'  # Normalizar silenciosamente
+
+                # Parsear fecha
+                try:
+                    tx_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+                except (ValueError, TypeError):
+                    tx_date = datetime.date.today()
+
+                Transaction.objects.create(
+                    transaction_type=transaction_type,
+                    category=category,
+                    amount=amount,
+                    description=description,
+                    reference_id=reference_id,
+                    date=tx_date,
+                    created_by=request.user,
+                )
+                created += 1
+            except Exception as e:
+                errors.append(f"Fila {i}: Error procesando - {str(e)}")
+
+        return Response({'created': created, 'errors': errors})
+

@@ -19,25 +19,27 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         import json
-        # Si la petición viene como multipart/form-data con un string JSON para components
-        mutable_data = data.copy() if hasattr(data, 'copy') else data
-        
-        if hasattr(mutable_data, '_mutable'):
-            mutable_data._mutable = True
-            
-        components = mutable_data.get('components')
-        if isinstance(components, str):
-            try:
-                # QueryDict.setlist is required for many=True fields in Django QueryDicts
-                parsed = json.loads(components)
-                if isinstance(parsed, list) and hasattr(mutable_data, 'setlist'):
-                    mutable_data.setlist('components', parsed)
-                else:
-                    mutable_data['components'] = parsed
-            except Exception:
-                pass
-                
-        return super().to_internal_value(mutable_data)
+
+        # Si la petición viene como multipart/form-data, `data` es un QueryDict.
+        # QueryDict.setlist() almacena los valores como strings, lo que hace que
+        # los dicts del nested serializer 'components' se pierdan.
+        # Solución: convertir a dict plano de Python antes de llamar al parent.
+        if hasattr(data, '_mutable'):  # Es un QueryDict
+            components_raw = data.get('components')
+            # Construir dict plano preservando todos los campos excepto 'components'
+            plain_data = {key: data[key] for key in data}
+
+            # Parsear 'components' de JSON string → lista de dicts
+            if components_raw is not None:
+                try:
+                    parsed = json.loads(components_raw) if isinstance(components_raw, str) else components_raw
+                    plain_data['components'] = parsed if isinstance(parsed, list) else []
+                except (ValueError, TypeError):
+                    plain_data['components'] = []
+
+            data = plain_data
+
+        return super().to_internal_value(data)
 
     def to_representation(self, instance):
         repr_data = super().to_representation(instance)

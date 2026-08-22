@@ -487,51 +487,65 @@ class ImportOrdersView(APIView):
     def post(self, request):
         file = request.FILES.get('file')
         import_mode = request.data.get('import_mode', 'update')
-        
+
         if not file:
             return Response({'error': 'No se recibió archivo'}, status=400)
-            
+
         if import_mode == 'replace':
+            # Al reemplazar, limpiar también las transacciones de ventas asociadas a pedidos
+            from finance.models import Transaction
+            Transaction.objects.filter(category='venta').delete()
             Order.objects.all().delete()
-            
+
         wb = openpyxl.load_workbook(file)
         ws = wb.active
         created = 0
         errors = []
-        
+
         from django.contrib.auth import get_user_model
-        User = get_user_model()
         from django.db.models import Q
-        
+        from finance.models import Transaction
+        import datetime as dt_module
+
+        User = get_user_model()
+
         for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
             try:
-                identifier = str(row[0] or '').strip()
-                total = float(row[1] or 0)
+                identifier    = str(row[0] or '').strip()
+                total         = float(row[1] or 0)
                 delivery_cost = float(row[2] or 0)
-                discount = float(row[3] or 0)
-                status_val = str(row[4] or 'entregado').strip().lower()
+                discount      = float(row[3] or 0)
+                status_val    = str(row[4] or 'entregado').strip().lower()
                 payment_method = str(row[5] or 'efectivo').strip().lower()
                 payment_status = str(row[6] or 'pagado').strip().lower()
-                created_at = str(row[7] or '').strip()
-                
+                created_at_str = str(row[7] or '').strip()
+
                 if not identifier:
                     errors.append(f"Fila {i}: Falta identificador del cliente")
                     continue
-                    
-                # Find customer
+
+                # Buscar cliente por email o teléfono
                 digits = ''.join(filter(str.isdigit, identifier))
                 base_phone = digits[-9:] if len(digits) >= 9 else digits
-                
+
                 query = Q(email__iexact=identifier)
                 if base_phone:
                     query |= Q(phone__endswith=base_phone) | Q(whatsapp_number__endswith=base_phone)
-                    
+
                 customer = User.objects.filter(query).first()
-                
+
                 if not customer:
                     errors.append(f"Fila {i}: Cliente no encontrado ({identifier})")
                     continue
-                    
+
+                # Determinar la fecha del pedido
+                order_date = dt_module.date.today()
+                if created_at_str:
+                    try:
+                        order_date = dt_module.datetime.strptime(created_at_str, '%Y-%m-%d').date()
+                    except Exception:
+                        pass
+
                 order = Order.objects.create(
                     customer=customer,
                     total=total,
@@ -542,18 +556,36 @@ class ImportOrdersView(APIView):
                     payment_method=payment_method,
                     payment_status=payment_status,
                 )
-                
-                if created_at:
+
+                # Ajustar la fecha de creación al valor del archivo
+                if created_at_str:
                     try:
-                        import datetime
-                        dt = datetime.datetime.strptime(created_at, '%Y-%m-%d')
-                        order.created_at = dt
+                        order_dt = dt_module.datetime.strptime(created_at_str, '%Y-%m-%d')
+                        order.created_at = order_dt
                         order.save(update_fields=['created_at'])
-                    except:
+                    except Exception:
                         pass
-                        
+
+                # ── SINCRONIZACIÓN CON FINANZAS ──────────────────────────────
+                # Crear Transaction de venta para que el dashboard, finanzas y
+                # estadísticas incluyan este pedido histórico.
+                # Solo se registra si hubo algún pago (pagado o abonado).
+                if payment_status in ('pagado', 'abonado') and total > 0:
+                    # Evitar duplicados: no crear si ya existe para este pedido
+                    if not Transaction.objects.filter(reference_id=str(order.id), category='venta').exists():
+                        Transaction.objects.create(
+                            transaction_type='ingreso',
+                            category='venta',
+                            amount=total,
+                            description=f'Pedido #{order.id} (importado)',
+                            reference_id=str(order.id),
+                            date=order_date,
+                            created_by=request.user,
+                        )
+
                 created += 1
             except Exception as e:
                 errors.append(f"Fila {i}: Error procesando - {str(e)}")
-                
+
         return Response({'created': created, 'errors': errors})
+
