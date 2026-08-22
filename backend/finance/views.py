@@ -328,3 +328,189 @@ class ImportFinanceView(APIView):
 
         return Response({'created': created, 'errors': errors})
 
+
+class DownloadSalesTemplateView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def get(self, request):
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Plantilla Ventas Detalladas"
+        
+        headers = [
+            'ID Grupo Pedido (Opcional)',  # col 0
+            'Fecha (YYYY-MM-DD)',          # col 1
+            'Cliente (Email o Teléfono)',  # col 2
+            'Producto (Nombre)',           # col 3
+            'Cantidad',                    # col 4
+            'Subtotal (Opcional)',         # col 5
+            'Medio Pago',                  # col 6 (efectivo, transferencia, transbank)
+            'Estado Pago'                  # col 7 (pagado, abonado, pendiente)
+        ]
+        ws.append(headers)
+
+        today = datetime.date.today().isoformat()
+        ws.append(['PED-001', today, 'cliente@gmail.com', 'Palta Hass', 2, 10000, 'efectivo', 'pagado'])
+        ws.append(['PED-001', today, 'cliente@gmail.com', 'Malla Limón', 1, 3000, 'efectivo', 'pagado'])
+        ws.append(['', today, '+56912345678', 'Huevo Extra', 1, 5000, 'transferencia', 'pagado'])
+
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename="plantilla_ventas.xlsx"'
+        wb.save(response)
+        return response
+
+
+class ImportSalesView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def post(self, request):
+        file = request.FILES.get('file')
+        import_mode = request.data.get('import_mode', 'update')
+
+        if not file:
+            return Response({'error': 'No se recibió archivo'}, status=400)
+
+        from orders.models import Order, OrderItem
+        from products.models import Product
+        from django.contrib.auth import get_user_model
+        from django.db.models import Q
+        import decimal
+
+        User = get_user_model()
+
+        if import_mode == 'replace':
+            # Limpiar pedidos, order items, y transacciones de venta
+            Transaction.objects.filter(category='venta').delete()
+            Order.objects.all().delete()
+            # Note: OrderItem deletes on cascade with Order
+
+        wb = openpyxl.load_workbook(file)
+        ws = wb.active
+        created_items = 0
+        errors = []
+
+        # Cache para agrupar pedidos de la misma fila (si comparten ID)
+        orders_cache = {}
+
+        for i, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            try:
+                group_id       = str(row[0] or '').strip()
+                date_str       = str(row[1] or '').strip()
+                customer_id    = str(row[2] or '').strip()
+                product_name   = str(row[3] or '').strip()
+                quantity       = float(row[4] or 0)
+                subtotal_raw   = row[5]
+                payment_method = str(row[6] or 'efectivo').strip().lower()
+                payment_status = str(row[7] or 'pagado').strip().lower()
+
+                if not customer_id and not product_name and not quantity:
+                    continue  # fila vacía
+
+                if not customer_id:
+                    errors.append(f"Fila {i}: Falta cliente")
+                    continue
+                if not product_name:
+                    errors.append(f"Fila {i}: Falta producto")
+                    continue
+                if quantity <= 0:
+                    errors.append(f"Fila {i}: Cantidad debe ser > 0")
+                    continue
+
+                # Buscar Cliente
+                digits = ''.join(filter(str.isdigit, customer_id))
+                base_phone = digits[-9:] if len(digits) >= 9 else digits
+                query = Q(email__iexact=customer_id)
+                if base_phone:
+                    query |= Q(phone__endswith=base_phone) | Q(whatsapp_number__endswith=base_phone)
+                
+                customer = User.objects.filter(query).first()
+                if not customer:
+                    errors.append(f"Fila {i}: Cliente no encontrado ({customer_id})")
+                    continue
+
+                # Buscar Producto
+                product = Product.objects.filter(name__iexact=product_name).first()
+                if not product:
+                    errors.append(f"Fila {i}: Producto no encontrado ({product_name})")
+                    continue
+
+                # Calcular fechas y montos
+                try:
+                    order_date = datetime.datetime.strptime(date_str, '%Y-%m-%d').date()
+                    order_dt = datetime.datetime.strptime(date_str, '%Y-%m-%d')
+                except (ValueError, TypeError):
+                    order_date = datetime.date.today()
+                    order_dt = datetime.datetime.now()
+
+                subtotal = float(subtotal_raw) if subtotal_raw else float(product.sale_price) * quantity
+
+                # Calcular costo unitario (igual que al crear orden)
+                if product.is_bundle:
+                    bundle_cost = sum([float(c.product.purchase_price or 0) * float(c.quantity) for c in product.components.all()])
+                    unit_cost = bundle_cost
+                else:
+                    unit_cost = float(product.purchase_price) if product.purchase_price else 0
+
+                # Agrupar en Order o crear uno nuevo
+                order_key = group_id if group_id else f"ROW_{i}"
+                if order_key not in orders_cache:
+                    order = Order.objects.create(
+                        customer=customer,
+                        total=0,
+                        subtotal=0,
+                        delivery_cost=0,
+                        status='entregado',
+                        payment_method=payment_method,
+                        payment_status=payment_status,
+                    )
+                    order.created_at = order_dt
+                    order.save(update_fields=['created_at'])
+                    orders_cache[order_key] = order
+                else:
+                    order = orders_cache[order_key]
+
+                # Crear OrderItem
+                oi = OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=quantity,
+                    unit_price=subtotal / quantity if quantity > 0 else float(product.sale_price),
+                    unit_cost=unit_cost,
+                )
+
+                # Actualizar el total del pedido
+                order.subtotal = float(order.subtotal) + subtotal
+                order.total = float(order.total) + subtotal
+                order.save(update_fields=['subtotal', 'total'])
+
+                # Descontar stock
+                if product.is_bundle:
+                    for comp in product.components.all():
+                        comp.product.stock -= decimal.Decimal(str(quantity * float(comp.quantity)))
+                        comp.product.save()
+                else:
+                    product.stock -= decimal.Decimal(str(quantity))
+                    product.save()
+
+                created_items += 1
+            except Exception as e:
+                errors.append(f"Fila {i}: Error - {str(e)}")
+
+        # Ahora que todos los items están agregados a las Orders, generamos las Transactions
+        for order in orders_cache.values():
+            if order.payment_status in ('pagado', 'abonado') and order.total > 0:
+                if not Transaction.objects.filter(reference_id=str(order.id), category='venta').exists():
+                    Transaction.objects.create(
+                        transaction_type='ingreso',
+                        category='venta',
+                        amount=order.total,
+                        description=f'Pedido #{order.id} (importado)',
+                        reference_id=str(order.id),
+                        date=order.created_at.date(),
+                        created_by=request.user,
+                    )
+
+        return Response({'created': created_items, 'errors': errors})
+
