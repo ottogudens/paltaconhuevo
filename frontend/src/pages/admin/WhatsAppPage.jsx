@@ -71,7 +71,7 @@ export default function WhatsAppPage() {
     try {
       const res = await fetch(`${WA_API_URL}/chats`)
       const data = await res.json()
-      setChats(data)
+      setChats(Array.isArray(data) ? data : [])
     } catch (e) {
       console.error('Error fetching chats:', e)
     }
