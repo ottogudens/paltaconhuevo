@@ -413,10 +413,14 @@ class ImportCustomersView(APIView):
         if not file:
             return Response({'error': 'No se recibió archivo'}, status=400)
             
+        try:
+            wb = openpyxl.load_workbook(file)
+        except Exception as e:
+            return Response({'error': 'Error al procesar el archivo. Asegúrate de que sea un archivo Excel válido (.xlsx).'}, status=400)
+            
         if import_mode == 'replace':
             User.objects.filter(role='cliente').delete()
             
-        wb = openpyxl.load_workbook(file)
         ws = wb.active
         created = 0
         errors = []
