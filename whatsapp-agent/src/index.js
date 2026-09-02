@@ -885,5 +885,5 @@ async function startWhatsApp() {
 }
 
 const PORT = process.env.PORT || 3001;
-server.listen(PORT, () => console.log(`🚀 WhatsApp Agent corriendo en puerto ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => console.log(`🚀 WhatsApp Agent corriendo en puerto ${PORT}`));
 startWhatsApp();
