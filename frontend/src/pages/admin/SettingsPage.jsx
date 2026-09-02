@@ -4,7 +4,7 @@ import AdminLayout from '../../components/AdminLayout'
 import { Settings, Building2, Landmark, Database, Save, Loader2, Info, Download, Upload, Bot, QrCode, Smartphone, Hash, CheckCircle2, AlertCircle, Copy, Check, LogOut } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
-const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agente-production-a1fc.up.railway.app/api/wa')
+const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agent-production-5d48.up.railway.app/api/wa')
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState('general') // 'general', 'whatsapp', 'database'

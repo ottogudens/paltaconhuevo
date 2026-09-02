@@ -5,7 +5,7 @@ import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2, Settings, U
 import { QRCodeSVG } from 'qrcode.react'
 import { io } from 'socket.io-client'
 
-const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agente-production-a1fc.up.railway.app/api/wa')
+const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agent-production-5d48.up.railway.app/api/wa')
 
 export default function WhatsAppPage() {
   const [status, setStatus] = useState({ connected: false, has_qr: false })
