@@ -5,7 +5,7 @@ import PriceCalculatorModal from '../../components/PriceCalculatorModal'
 import ImportModal from '../../components/ImportModal'
 import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator, Download, Upload } from 'lucide-react'
 
-const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, components: [] }
+const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, can_be_sold: true, purchase_multiplier: 1, components: [] }
 
 const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
@@ -39,6 +39,8 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
       formData.append('description', form.description || '')
       // FormData no soporta booleanos; DRF acepta 'true'/'false' como strings
       formData.append('is_bundle', form.is_bundle ? 'true' : 'false')
+      formData.append('can_be_sold', form.can_be_sold ? 'true' : 'false')
+      formData.append('purchase_multiplier', form.purchase_multiplier || 1)
       formData.append('is_active', 'true')
       if (form.is_bundle) {
         formData.append('components', JSON.stringify(form.components || []))
@@ -118,9 +120,22 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
             <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
           </div>
-          <div className="flex items-center gap-2 mb-4">
-            <input type="checkbox" id="is_bundle" checked={form.is_bundle} onChange={e => setForm({...form, is_bundle: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
-            <label htmlFor="is_bundle" className="text-sm font-medium text-gray-700">Este producto es un Combo / Mix compuesto</label>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="is_bundle" checked={form.is_bundle} onChange={e => setForm({...form, is_bundle: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
+              <label htmlFor="is_bundle" className="text-sm font-medium text-gray-700">Combo / Mix compuesto</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="can_be_sold" checked={form.can_be_sold !== false} onChange={e => setForm({...form, can_be_sold: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
+              <label htmlFor="can_be_sold" className="text-sm font-medium text-gray-700">Disponible para Venta al Cliente</label>
+            </div>
+          </div>
+          
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Multiplicador de Compra al Proveedor</label>
+            <div className="flex text-sm text-gray-500 mb-1">Si compras "1" de este producto, cuántas unidades se añadirán al stock interno (Ej. Caja = 180).</div>
+            <input type="number" value={form.purchase_multiplier} onChange={e => setForm({...form, purchase_multiplier: e.target.value})} required min="1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="1" />
           </div>
           
           {!form.is_bundle ? (

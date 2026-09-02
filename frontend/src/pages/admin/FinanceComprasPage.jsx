@@ -208,8 +208,16 @@ function ExpenseModal({ onClose, onSave }) {
   )
 }
 
-function PurchaseModal({ onClose, onSave, products }) {
-  const [form, setForm] = useState({
+function PurchaseModal({ purchase, onClose, onSave, products }) {
+  const isEdit = !!purchase?.id;
+  const [form, setForm] = useState(purchase ? {
+    supplier_name: purchase.supplier_name,
+    product: purchase.product || purchase.product_id || '',
+    quantity: purchase.quantity,
+    unit_cost: purchase.unit_cost,
+    purchase_date: purchase.purchase_date || purchase.date_str,
+    notes: purchase.notes || ''
+  } : {
     supplier_name: '', product: '', quantity: '', unit_cost: '', purchase_date: new Date().toISOString().split('T')[0], notes: ''
   })
   const [saving, setSaving] = useState(false)
@@ -218,12 +226,17 @@ function PurchaseModal({ onClose, onSave, products }) {
     e.preventDefault()
     setSaving(true)
     try {
-      await api.post('/products/purchases/', {
+      const payload = {
           ...form,
           quantity: parseFloat(form.quantity),
           unit_cost: parseFloat(form.unit_cost),
           total_cost: parseFloat(form.quantity) * parseFloat(form.unit_cost)
-      })
+      }
+      if (isEdit) {
+        await api.patch(`/products/purchases/${purchase.id}/`, payload)
+      } else {
+        await api.post('/products/purchases/', payload)
+      }
       onSave()
       onClose()
     } catch (e) { alert('Error al guardar') }
@@ -277,7 +290,7 @@ function PurchaseModal({ onClose, onSave, products }) {
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving || !form.product}
               className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
-              <Check className="w-4 h-4" /> {saving ? 'Guardando...' : 'Registrar Compra'}
+              <Check className="w-4 h-4" /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar Compra' : 'Registrar Compra')}
             </button>
           </div>
         </form>
@@ -293,6 +306,7 @@ export default function FinanceComprasPage() {
   const [showExpenseModal, setShowExpenseModal] = useState(false)
   const [showPurchaseModal, setShowPurchaseModal] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [editPurchase, setEditPurchase] = useState(null)
 
   const fetchData = async () => {
     setLoading(true)
@@ -325,6 +339,14 @@ export default function FinanceComprasPage() {
   }
 
   useEffect(() => { fetchData() }, [])
+
+  const handleDeletePurchase = async (id) => {
+    if (!confirm('¿Estás seguro de eliminar esta compra? El stock se descontará automáticamente.')) return
+    try {
+      await api.delete(`/products/purchases/${id}/`)
+      fetchData()
+    } catch (e) { alert('Error al eliminar') }
+  }
 
   const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
@@ -368,6 +390,7 @@ export default function FinanceComprasPage() {
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Categoría</th>
                     <th className="text-left px-5 py-3 font-medium text-gray-600">Descripción / Origen</th>
                     <th className="text-right px-5 py-3 font-medium text-gray-600">Monto</th>
+                    <th className="text-center px-5 py-3 font-medium text-gray-600">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -392,6 +415,18 @@ export default function FinanceComprasPage() {
                       <td className="px-5 py-3 text-right font-bold text-red-600">
                         -{formatCLP(t.amount)}
                       </td>
+                      <td className="px-5 py-3 text-center">
+                        {t.is_purchase && (
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => { setEditPurchase(t); setShowPurchaseModal(true) }} className="text-gray-400 hover:text-blue-600" title="Editar">
+                              ✏️
+                            </button>
+                            <button onClick={() => handleDeletePurchase(t.id)} className="text-gray-400 hover:text-red-600" title="Eliminar">
+                              🗑️
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   )) : (
                     <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">
@@ -407,7 +442,7 @@ export default function FinanceComprasPage() {
       </div>
 
       {showExpenseModal && <ExpenseModal onClose={() => setShowExpenseModal(false)} onSave={fetchData} />}
-      {showPurchaseModal && <PurchaseModal onClose={() => setShowPurchaseModal(false)} onSave={fetchData} products={products} />}
+      {showPurchaseModal && <PurchaseModal purchase={editPurchase} onClose={() => { setShowPurchaseModal(false); setEditPurchase(null) }} onSave={fetchData} products={products} />}
       {showImportModal && <ImportFinanceModal onClose={() => setShowImportModal(false)} onSave={fetchData} />}
     </AdminLayout>
   )
