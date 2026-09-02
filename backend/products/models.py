@@ -15,6 +15,7 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     is_bundle = models.BooleanField(default=False, help_text="Si es true, este producto es un combo de otros productos")
     can_be_sold = models.BooleanField(default=True, help_text="Si es falso, no aparecerá en el menú de ventas")
+    purchase_multiplier = models.DecimalField(max_digits=10, decimal_places=0, default=1, help_text="Multiplica unidades al comprar")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -38,25 +39,29 @@ class Purchase(models.Model):
             old_purchase = Purchase.objects.get(pk=self.pk)
             stock_diff = self.quantity - old_purchase.quantity
 
+        effective_diff = stock_diff * self.product.purchase_multiplier
+
         self.total_cost = self.quantity * self.unit_cost
         super().save(*args, **kwargs)
         
-        if stock_diff != 0:
+        if effective_diff != 0:
             if self.product.is_bundle:
                 for comp in self.product.components.all():
-                    comp.product.stock += stock_diff * comp.quantity
+                    comp.product.stock += effective_diff * comp.quantity
                     comp.product.save(update_fields=['stock'])
             else:
-                self.product.stock += stock_diff
+                self.product.stock += effective_diff
                 self.product.save(update_fields=['stock'])
 
     def delete(self, *args, **kwargs):
+        effective_quantity = self.quantity * self.product.purchase_multiplier
+
         if self.product.is_bundle:
             for comp in self.product.components.all():
-                comp.product.stock -= self.quantity * comp.quantity
+                comp.product.stock -= effective_quantity * comp.quantity
                 comp.product.save(update_fields=['stock'])
         else:
-            self.product.stock -= self.quantity
+            self.product.stock -= effective_quantity
             self.product.save(update_fields=['stock'])
         super().delete(*args, **kwargs)
 
