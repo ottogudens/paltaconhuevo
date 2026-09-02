@@ -33,8 +33,13 @@ class Purchase(models.Model):
     def save(self, *args, **kwargs):
         self.total_cost = self.quantity * self.unit_cost
         super().save(*args, **kwargs)
-        self.product.stock += self.quantity
-        self.product.save()
+        if self.product.is_bundle:
+            for comp in self.product.components.all():
+                comp.product.stock += self.quantity * comp.quantity
+                comp.product.save(update_fields=['stock'])
+        else:
+            self.product.stock += self.quantity
+            self.product.save(update_fields=['stock'])
 
     def __str__(self):
         return f"Compra {self.product.name} x{self.quantity} - ${self.total_cost}"
