@@ -850,7 +850,7 @@ async function startWhatsApp() {
         }
 
         const rawPhone = realJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace('@g.us', '');
-        const phone = formatPhone(rawPhone);
+        let phone = formatPhone(rawPhone);
         
         let text = msg.message.conversation || msg.message.extendedTextMessage?.text || '';
         
@@ -863,7 +863,57 @@ async function startWhatsApp() {
         
         if (!text) continue;
 
-        const session = await getSession(phone);
+        let session = await getSession(phone);
+
+        // ---- LID BYPASS LOGIC ----
+        // Si el número convertido pasa de 14 caracteres (ej: alias temporal 237xxxxxxxxx)
+        const isLid = phone.length >= 15;
+        if (isLid) {
+          if (session.realPhone) {
+            const originalRemoteJid = realJid;
+            const originalPushName = msg.pushName;
+            
+            // Reasignar la sesión y el teléfono principal a los reales (ej: +56984205124)
+            phone = session.realPhone;
+            session = await getSession(phone);
+            
+            // Conectar la sesión real con el alias JID temporal para que los msjs se rutéen bien
+            session.remoteJid = originalRemoteJid;
+            if (originalPushName) session.pushName = originalPushName;
+          } else {
+            // Primera vez: pedir el celular
+            if (session.step !== 'awaiting_real_phone') {
+              session.step = 'awaiting_real_phone';
+              session.remoteJid = realJid;
+              await saveSession(phone, session);
+              await sendMessage(phone, "¡Hola! 👋 Por tus ajustes de privacidad de WhatsApp, recibimos tu mensaje pero no podemos ver tu número para identificarte en el sistema.\n\nPor favor, escríbeme cuál es tu número de teléfono (ej: +56912345678) para vincularlo:");
+              continue;
+            } else {
+              const parsed = formatPhone(text);
+              if (parsed.length >= 11 && parsed.length <= 14) {
+                // Guardar mapeo permanente en el LID
+                session.realPhone = parsed;
+                session.remoteJid = realJid;
+                await saveSession(phone, session);
+                
+                // Traspasar estado a la sesión real (por si ya existía antes)
+                phone = parsed;
+                session = await getSession(phone);
+                session.remoteJid = realJid;
+                if (msg.pushName) session.pushName = msg.pushName;
+                await saveSession(phone, session);
+                
+                await sendMessage(phone, `¡Perfecto! Tu cuenta está enlazada al número ${parsed}.\n\n¿En qué te puedo ayudar hoy?`);
+                continue;
+              } else {
+                await sendMessage(phone, "Ese no parece un número válido. Intenta de nuevo escribiéndolo con el código de país (ej: +56912345678):");
+                continue;
+              }
+            }
+          }
+        }
+        // ---- END LID BYPASS LOGIC ----
+
         session.remoteJid = realJid;
         if (msg.pushName) session.pushName = msg.pushName;
         await saveSession(phone, session);
