@@ -14,6 +14,7 @@ class Product(models.Model):
     image = models.ImageField(upload_to='products/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     is_bundle = models.BooleanField(default=False, help_text="Si es true, este producto es un combo de otros productos")
+    can_be_sold = models.BooleanField(default=True, help_text="Si es falso, no aparecerá en el menú de ventas")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -31,15 +32,33 @@ class Purchase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        stock_diff = self.quantity
+        if not is_new:
+            old_purchase = Purchase.objects.get(pk=self.pk)
+            stock_diff = self.quantity - old_purchase.quantity
+
         self.total_cost = self.quantity * self.unit_cost
         super().save(*args, **kwargs)
+        
+        if stock_diff != 0:
+            if self.product.is_bundle:
+                for comp in self.product.components.all():
+                    comp.product.stock += stock_diff * comp.quantity
+                    comp.product.save(update_fields=['stock'])
+            else:
+                self.product.stock += stock_diff
+                self.product.save(update_fields=['stock'])
+
+    def delete(self, *args, **kwargs):
         if self.product.is_bundle:
             for comp in self.product.components.all():
-                comp.product.stock += self.quantity * comp.quantity
+                comp.product.stock -= self.quantity * comp.quantity
                 comp.product.save(update_fields=['stock'])
         else:
-            self.product.stock += self.quantity
+            self.product.stock -= self.quantity
             self.product.save(update_fields=['stock'])
+        super().delete(*args, **kwargs)
 
     def __str__(self):
         return f"Compra {self.product.name} x{self.quantity} - ${self.total_cost}"

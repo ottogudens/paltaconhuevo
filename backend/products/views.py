@@ -17,6 +17,13 @@ class ProductListCreateView(generics.ListCreateAPIView):
     serializer_class = ProductSerializer
     queryset = Product.objects.filter(is_active=True).order_by('name')
 
+    def get_queryset(self):
+        qs = Product.objects.filter(is_active=True).order_by('name')
+        user = self.request.user
+        if hasattr(user, 'role') and user.role in ['admin', 'vendedor']:
+            return qs
+        return qs.filter(can_be_sold=True)
+
     def get_permissions(self):
         if self.request.method == 'POST':
             return [IsAdminOrVendedor()]
@@ -42,7 +49,7 @@ class PurchaseListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrVendedor]
 
 
-class PurchaseDetailView(generics.RetrieveUpdateAPIView):
+class PurchaseDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PurchaseSerializer
     queryset = Purchase.objects.all()
     permission_classes = [IsAdminOrVendedor]
