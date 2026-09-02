@@ -722,7 +722,7 @@ app.post('/api/wa/logout', async (req, res) => {
     isConnected = false;
     currentQR = null;
     isInitializing = false;
-    sessions.clear();
+    // sessions.clear(); eliminada porque se migró a BBDD
 
     if (waSocket) {
       const sock = waSocket;
