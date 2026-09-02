@@ -25,9 +25,29 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-const API_URL = process.env.DJANGO_API_URL;
-const API_TOKEN = process.env.DJANGO_API_TOKEN;
+// Inicialización lazy: no crashear si faltan variables de entorno
+const API_URL = process.env.DJANGO_API_URL || '';
+const API_TOKEN = process.env.DJANGO_API_TOKEN || '';
+
+if (!process.env.ANTHROPIC_API_KEY) {
+  console.warn('⚠️  ANTHROPIC_API_KEY no definida. La IA no funcionará hasta configurarla.');
+}
+if (!API_URL) {
+  console.warn('⚠️  DJANGO_API_URL no definida. La conexión al backend no funcionará.');
+}
+if (!API_TOKEN) {
+  console.warn('⚠️  DJANGO_API_TOKEN no definida. Las llamadas al backend fallarán.');
+}
+
+// Instancia de Anthropic creada de forma lazy para no crashear al arrancar
+let _anthropic = null;
+function getAnthropic(apiKey) {
+  const key = (apiKey && apiKey.trim()) ? apiKey.trim() : process.env.ANTHROPIC_API_KEY;
+  if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
+  return new Anthropic({ apiKey: key });
+}
+// Alias por compatibilidad con código que usa `anthropic` directamente
+const anthropic = { messages: { create: (...args) => getAnthropic().messages.create(...args) } };
 
 // Cache en memoria con TTL (60s)
 let productsCache = { data: null, expiresAt: 0 };
@@ -206,10 +226,8 @@ async function processWithAI(session, userMessage, customerPhone) {
     getAgentConfig()
   ]);
 
-  // Dynamic API Key
-  const activeAnthropic = config.api_key && config.api_key.trim() !== '' 
-    ? new Anthropic({ apiKey: config.api_key.trim() }) 
-    : anthropic;
+  // Dynamic API Key — usa getAnthropic() para inicialización lazy
+  const activeAnthropic = getAnthropic(config.api_key);
 
   const productList = products.map(p => `- ID ${p.id}: ${p.name} (${p.product_type}): ${formatCLP(p.sale_price)} por ${p.unit} (Stock disponible: ${p.stock})`).join('\n');
   const cartSummary = session.cart.length > 0
