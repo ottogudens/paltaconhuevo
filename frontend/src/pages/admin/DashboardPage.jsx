@@ -64,7 +64,7 @@ export default function DashboardPage() {
       try {
         const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}&payment_status=${paymentStatus}`)
         setDashboard(dashRes.data)
-        const stockRes = await api.get('/inventory/products/?low_stock=true')
+        const stockRes = await api.get('/products/low-stock/')
         setLowStock(stockRes.data || [])
       } catch (e) {
         console.error('Dashboard fetch error:', e)
