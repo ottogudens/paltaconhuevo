@@ -54,6 +54,59 @@ function OrderDetail({ order, onClose, onUpdate }) {
   const [paymentMethod, setPaymentMethod] = useState('transferencia')
   const [paymentNotes, setPaymentNotes] = useState('')
 
+  // Advanced Editing State
+  const [isEditing, setIsEditing] = useState(false)
+  const [products, setProducts] = useState([])
+  const [editedItems, setEditedItems] = useState([])
+
+  useEffect(() => {
+    if (isEditing && products.length === 0) {
+      api.get('/products/').then(res => setProducts(res.data.results || res.data || []))
+      setEditedItems(currentOrder.items.map(i => ({
+        product_id: i.product,
+        name: i.product_name,
+        quantity: parseFloat(i.quantity),
+        unit_price: parseFloat(i.unit_price)
+      })))
+    }
+  }, [isEditing])
+
+  const handleEditSave = async () => {
+    setSaving(true)
+    try {
+        await api.put(`/orders/${currentOrder.id}/edit-items/`, { items: editedItems })
+        await fetchOrder()
+        setIsEditing(false)
+        onUpdate()
+    } catch (e) {
+        alert(e.response?.data?.error || 'Error al modificar pedido')
+    } finally {
+        setSaving(false)
+    }
+  }
+
+  const handleAddEditItem = (productId) => {
+    if (!productId) return
+    const prod = products.find(p => p.id === parseInt(productId))
+    if (!prod) return
+    setEditedItems([...editedItems, {
+      product_id: prod.id,
+      name: prod.name,
+      quantity: 1,
+      unit_price: prod.sale_price || 0
+    }])
+  }
+
+  const handleUpdateEditItem = (index, field, value) => {
+    const newItems = [...editedItems]
+    newItems[index][field] = value
+    setEditedItems(newItems)
+  }
+
+  const handleRemoveEditItem = (index) => {
+    setEditedItems(editedItems.filter((_, i) => i !== index))
+  }
+
   const fetchOrder = async () => {
     try {
       const res = await api.get(`/orders/${currentOrder.id}/`)
@@ -149,43 +202,105 @@ function OrderDetail({ order, onClose, onUpdate }) {
 
             {/* Items */}
             <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Productos</p>
-              <div className="bg-gray-50 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b border-gray-200">
-                    <th className="text-left px-4 py-2 font-medium text-gray-600">Producto</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-600">Cant.</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-600">Precio</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-600">Subtotal</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-600">Estado</th>
-                  </tr></thead>
-                  <tbody>
-                    {(currentOrder.items || []).map((item, i) => (
-                      <tr key={item.id || i} className="border-b border-gray-100 last:border-0">
-                        <td className="px-4 py-2">{item.product_name || `Producto #${item.product}`}</td>
-                        <td className="px-4 py-2 text-right">
-                          <input type="number" value={item.quantity} onChange={e => handleItemChangeLocal(item.id, 'quantity', e.target.value)} onBlur={e => handleItemUpdate(item.id, 'quantity', e.target.value)} min="0.01" step="0.01"
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-xs" />
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          <input type="number" value={item.unit_price} onChange={e => handleItemChangeLocal(item.id, 'unit_price', e.target.value)} onBlur={e => handleItemUpdate(item.id, 'unit_price', e.target.value)} min="0"
-                            className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-xs" />
-                        </td>
-                        <td className="px-4 py-2 text-right font-medium">{formatCLP(item.subtotal)}</td>
-                        <td className="px-4 py-2 text-right">
-                          <select value={item.status} onChange={e => handleItemStatusChange(item.id, e.target.value)}
-                            className="px-2 py-1 border border-gray-300 rounded text-xs">
-                            {STATUS_OPTIONS.filter(s => s.value).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                          </select>
-                        </td>
-                      </tr>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs text-gray-500 uppercase tracking-wider">Productos</p>
+                {currentOrder.status === 'pendiente' && currentOrder.payment_status !== 'pagado' && !isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="text-xs text-palta-600 font-medium hover:underline flex items-center">
+                    <Edit3 className="w-3 h-3 mr-1" /> Editar Pedido Completo
+                  </button>
+                )}
+              </div>
+              
+              {isEditing ? (
+                <div className="border border-palta-200 rounded-lg p-3 bg-palta-50 mb-4">
+                  <select onChange={e => { handleAddEditItem(e.target.value); e.target.value = '' }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm mb-3">
+                    <option value="">+ Añadir producto...</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.id}>{p.name} - {formatCLP(p.sale_price)}</option>
                     ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="mt-2 text-right">
-                <span className="text-lg font-bold text-gray-900">Total: {formatCLP(currentOrder.total)}</span>
-              </div>
+                  </select>
+                  
+                  <div className="bg-white rounded-lg overflow-hidden border border-gray-200">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b border-gray-200 text-xs text-gray-500">
+                        <th className="text-left px-3 py-2">Producto</th>
+                        <th className="text-right px-3 py-2 w-20">Cant.</th>
+                        <th className="text-right px-3 py-2 w-24">Precio</th>
+                        <th className="text-right px-3 py-2">Subtotal</th>
+                        <th className="w-10"></th>
+                      </tr></thead>
+                      <tbody>
+                        {editedItems.map((item, index) => (
+                          <tr key={index} className="border-b border-gray-100 last:border-0">
+                            <td className="px-3 py-2 font-medium">{item.name}</td>
+                            <td className="px-3 py-2 text-right">
+                              <input type="number" value={item.quantity} onChange={e => handleUpdateEditItem(index, 'quantity', e.target.value)} min="0.01" step="0.01"
+                                className="w-16 px-2 py-1 border border-gray-300 rounded text-right bg-gray-50" />
+                            </td>
+                            <td className="px-3 py-2 text-right">
+                              <input type="number" value={item.unit_price} onChange={e => handleUpdateEditItem(index, 'unit_price', e.target.value)} min="0" step="1"
+                                className="w-20 px-2 py-1 border border-gray-300 rounded text-right bg-gray-50" />
+                            </td>
+                            <td className="px-3 py-2 text-right font-medium">{formatCLP(item.quantity * item.unit_price)}</td>
+                            <td className="px-3 py-2 text-center">
+                              <button type="button" onClick={() => handleRemoveEditItem(index)} className="text-red-500 hover:text-red-700 p-1">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="mt-3 flex justify-end items-center gap-3">
+                    <span className="text-sm text-gray-600 font-medium mr-auto">Nuevo Total: {formatCLP(editedItems.reduce((acc, i) => acc + (i.quantity * i.unit_price), 0) + (currentOrder.delivery_cost || 0) - (currentOrder.discount || 0))}</span>
+                    <button onClick={() => setIsEditing(false)} className="px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200 rounded transition-colors" disabled={saving}>Cancelar</button>
+                    <button onClick={handleEditSave} className="px-3 py-1.5 text-xs font-medium text-white bg-palta-600 hover:bg-palta-700 rounded transition-colors flex items-center" disabled={saving}>
+                      <Check className="w-3 h-3 mr-1" /> {saving ? 'Guardando...' : 'Confirmar Edición'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gray-50 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead><tr className="border-b border-gray-200">
+                      <th className="text-left px-4 py-2 font-medium text-gray-600">Producto</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600">Cant.</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600">Precio</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600">Subtotal</th>
+                      <th className="text-right px-4 py-2 font-medium text-gray-600">Estado</th>
+                    </tr></thead>
+                    <tbody>
+                      {(currentOrder.items || []).map((item, i) => (
+                        <tr key={item.id || i} className="border-b border-gray-100 last:border-0">
+                          <td className="px-4 py-2">{item.product_name || `Producto #${item.product}`}</td>
+                          <td className="px-4 py-2 text-right">
+                            <input type="number" value={item.quantity} onChange={e => handleItemChangeLocal(item.id, 'quantity', e.target.value)} onBlur={e => handleItemUpdate(item.id, 'quantity', e.target.value)} min="0.01" step="0.01"
+                              className="w-20 px-2 py-1 border border-gray-300 rounded text-right text-xs bg-transparent focus:bg-white" disabled={currentOrder.status !== 'pendiente'} />
+                          </td>
+                          <td className="px-4 py-2 text-right">
+                            <input type="number" value={item.unit_price} onChange={e => handleItemChangeLocal(item.id, 'unit_price', e.target.value)} onBlur={e => handleItemUpdate(item.id, 'unit_price', e.target.value)} min="0"
+                              className="w-24 px-2 py-1 border border-gray-300 rounded text-right text-xs bg-transparent focus:bg-white" disabled={currentOrder.status !== 'pendiente'} />
+                          </td>
+                          <td className="px-4 py-2 text-right font-medium">{formatCLP(item.subtotal)}</td>
+                          <td className="px-4 py-2 text-right">
+                            <select value={item.status} onChange={e => handleItemStatusChange(item.id, e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded text-xs bg-transparent focus:bg-white">
+                              {STATUS_OPTIONS.filter(s => s.value).map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+              {!isEditing && (
+                <div className="mt-2 text-right">
+                  <span className="text-lg font-bold text-gray-900">Total: {formatCLP(currentOrder.total)}</span>
+                </div>
+              )}
             </div>
 
             {/* Status controls */}

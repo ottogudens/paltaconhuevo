@@ -252,8 +252,23 @@ class AgentConfigView(APIView):
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-from .models import WhatsAppSession
-from .serializers import WhatsAppSessionSerializer
+
+from .models import WhatsAppSession, WhatsAppFlow
+from .serializers import WhatsAppSessionSerializer, WhatsAppFlowSerializer
+
+class WhatsAppFlowListCreateView(generics.ListCreateAPIView):
+    serializer_class = WhatsAppFlowSerializer
+    queryset = WhatsAppFlow.objects.all().order_by('-created_at')
+    
+    def get_permissions(self):
+        if self.request.method == 'GET':
+            return [IsWhatsAppServiceOrAdminOrVendedor()]
+        return [IsAdminOrVendedor()]
+
+class WhatsAppFlowDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = WhatsAppFlowSerializer
+    queryset = WhatsAppFlow.objects.all()
+    permission_classes = [IsAdminOrVendedor]
 
 
 class WhatsAppSessionDetailView(APIView):

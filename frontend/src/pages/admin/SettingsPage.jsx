@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { Settings, Building2, Landmark, Database, Save, Loader2, Info, Download, Upload, Bot, QrCode, Smartphone, Hash, CheckCircle2, AlertCircle, Copy, Check, LogOut } from 'lucide-react'
+import { Settings, Building2, Landmark, Database, Save, Loader2, Info, Download, Upload, Bot, QrCode, Smartphone, Hash, CheckCircle2, AlertCircle, Copy, Check, LogOut, Plus, Edit3, Trash2, X, MessageSquare } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 
 const WA_API_URL = import.meta.env.VITE_WA_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:3001/api/wa' : 'https://whatsapp-agent-production-5d48.up.railway.app/api/wa')
@@ -33,6 +33,12 @@ export default function SettingsPage() {
   // DB Backup
   const [backupFile, setBackupFile] = useState(null)
 
+  // WA Flows 
+  const [flows, setFlows] = useState([])
+  const [showFlowModal, setShowFlowModal] = useState(false)
+  const [editingFlow, setEditingFlow] = useState(null)
+  const [flowFormData, setFlowFormData] = useState({ trigger_keyword: '', response_text: '', is_active: true })
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -40,10 +46,11 @@ export default function SettingsPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [compRes, agentRes, waRes] = await Promise.all([
+      const [compRes, agentRes, waRes, flowRes] = await Promise.all([
         api.get('/finance/company/').catch(() => ({ data: {} })),
         api.get('/marketing/agent-config/').catch(() => ({ data: {} })),
-        fetch(`${WA_API_URL}/status`).then(r => r.json()).catch(() => ({ connected: false, has_qr: false }))
+        fetch(`${WA_API_URL}/status`).then(r => r.json()).catch(() => ({ connected: false, has_qr: false })),
+        api.get('/marketing/flows/').catch(() => ({ data: [] }))
       ])
       
       if (compRes.data) setCompany(prev => ({ ...prev, ...compRes.data }))
@@ -54,6 +61,7 @@ export default function SettingsPage() {
         }
       }
       setWaStatus(waRes)
+      if (flowRes.data) setFlows(flowRes.data.results || flowRes.data || [])
       
       if (waRes.has_qr && !waRes.connected) {
         const qrRes = await fetch(`${WA_API_URL}/qr`)
@@ -120,6 +128,43 @@ export default function SettingsPage() {
     navigator.clipboard.writeText(pairingCode.replace(/\s+/g, ''))
     setCodeCopied(true)
     setTimeout(() => setCodeCopied(false), 2000)
+  }
+
+  const handleSaveFlow = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      if (editingFlow) {
+        await api.put(`/marketing/flows/${editingFlow.id}/`, flowFormData)
+      } else {
+        await api.post('/marketing/flows/', flowFormData)
+      }
+      setShowFlowModal(false)
+      fetchData()
+    } catch (e) {
+      alert('Error al guardar flujo')
+    } finally { setSaving(false) }
+  }
+
+  const handleDeleteFlow = async (id) => {
+    if (!confirm('¿Eliminar este flujo de respuesta?')) return
+    try {
+      await api.delete(`/marketing/flows/${id}/`)
+      fetchData()
+    } catch (e) {
+      alert('Error al eliminar flujo')
+    }
+  }
+
+  const openFlowModal = (flow = null) => {
+    if (flow) {
+      setEditingFlow(flow)
+      setFlowFormData({ trigger_keyword: flow.trigger_keyword, response_text: flow.response_text, is_active: flow.is_active })
+    } else {
+      setEditingFlow(null)
+      setFlowFormData({ trigger_keyword: '', response_text: '', is_active: true })
+    }
+    setShowFlowModal(true)
   }
 
   const handleLogout = async () => {
@@ -429,6 +474,55 @@ export default function SettingsPage() {
                 </button>
               </div>
             </form>
+            
+            {/* Flujos de Respuesta Whatsapp */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden text-sm">
+              <div className="p-6 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+                <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-palta-600" /> Flujos de Respuestas Automáticas
+                </h2>
+                <button onClick={() => openFlowModal()} className="px-3 py-1.5 bg-palta-600 text-white rounded-lg font-medium text-xs flex items-center gap-1 hover:bg-palta-700 transition-colors">
+                  <Plus className="w-4 h-4" /> Nuevo Flujo
+                </button>
+              </div>
+              
+              <div className="p-0">
+                {flows.length === 0 ? (
+                  <div className="p-8 text-center text-gray-500">
+                    No hay flujos de respuesta configurados. Añade palabras clave automáticas.
+                  </div>
+                ) : (
+                  <table className="w-full text-left text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-100">
+                        <th className="px-6 py-3 font-medium text-gray-600 uppercase tracking-wider text-xs">Palabra o Frase Clave</th>
+                        <th className="px-6 py-3 font-medium text-gray-600 uppercase tracking-wider text-xs">Mensaje de Respuesta</th>
+                        <th className="px-6 py-3 font-medium text-gray-600 uppercase tracking-wider text-xs">Estado</th>
+                        <th className="px-6 py-3 text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {flows.map(flow => (
+                        <tr key={flow.id} className="hover:bg-gray-50/50">
+                          <td className="px-6 py-4 font-medium text-gray-900">{flow.trigger_keyword}</td>
+                          <td className="px-6 py-4 text-gray-600 max-w-md truncate" title={flow.response_text}>{flow.response_text}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-1 text-xs rounded-full font-medium ${flow.is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                              {flow.is_active ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <button onClick={() => openFlowModal(flow)} className="p-1 text-gray-400 hover:text-palta-600"><Edit3 className="w-4 h-4" /></button>
+                            <button onClick={() => handleDeleteFlow(flow.id)} className="p-1 text-gray-400 hover:text-red-600 ml-2"><Trash2 className="w-4 h-4" /></button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+            
           </div>
         )}
 
@@ -472,6 +566,40 @@ export default function SettingsPage() {
         )}
 
       </div>
+      
+      {/* Flow Modal */}
+      {showFlowModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full">
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900">{editingFlow ? 'Editar Flujo' : 'Nuevo Flujo de Respuesta'}</h2>
+              <button type="button" onClick={() => setShowFlowModal(false)} className="p-2 -mr-2 text-gray-400 hover:bg-gray-100 rounded-xl"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleSaveFlow} className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Palabra o Frase Clave</label>
+                <input type="text" value={flowFormData.trigger_keyword} onChange={e => setFlowFormData({ ...flowFormData, trigger_keyword: e.target.value })} required placeholder="Ej: horario, donde quedan, hola" className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-palta-500 text-sm" />
+                <p className="text-xs text-gray-500 mt-1">El bot responderá si el mensaje contiene esta frase.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mensaje de Respuesta</label>
+                <textarea rows={4} value={flowFormData.response_text} onChange={e => setFlowFormData({ ...flowFormData, response_text: e.target.value })} required className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-palta-500 text-sm" />
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="flow_active" checked={flowFormData.is_active} onChange={e => setFlowFormData({ ...flowFormData, is_active: e.target.checked })} className="rounded text-palta-600 focus:ring-palta-500" />
+                <label htmlFor="flow_active" className="text-sm font-medium text-gray-700">Flujo activo</label>
+              </div>
+              <div className="pt-4 flex justify-end gap-3 border-t border-gray-100">
+                <button type="button" onClick={() => setShowFlowModal(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium">Cancelar</button>
+                <button type="submit" disabled={saving} className="px-4 py-2 text-sm text-white bg-palta-600 hover:bg-palta-700 rounded-lg font-medium flex items-center transition-colors">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null} Guardar Flujo
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      
     </AdminLayout>
   )
 }

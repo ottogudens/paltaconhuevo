@@ -82,3 +82,16 @@ class WhatsAppSession(models.Model):
     def __str__(self):
         return f"Sesión WhatsApp ({self.phone})"
 
+
+class WhatsAppFlow(models.Model):
+    """
+    Flujos de autorespuesta por palabra o intención clave (trigger).
+    """
+    trigger_keyword = models.CharField(max_length=150, help_text="Palabra o intención clave")
+    response_text = models.TextField(help_text="Respuesta que enviará el agente")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.trigger_keyword
+

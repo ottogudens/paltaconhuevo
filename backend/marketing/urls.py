@@ -16,5 +16,6 @@ urlpatterns = [
     path('agent-config/', views.AgentConfigView.as_view()),
     path('sessions/', views.WhatsAppSessionListView.as_view()),
     path('sessions/<str:phone>/', views.WhatsAppSessionDetailView.as_view()),
+    path('flows/', views.WhatsAppFlowListCreateView.as_view()),
+    path('flows/<int:pk>/', views.WhatsAppFlowDetailView.as_view()),
 ]
-

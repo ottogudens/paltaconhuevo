@@ -445,6 +445,108 @@ class OrderItemUpdateView(APIView):
         from .serializers import OrderItemSerializer
         return Response(OrderItemSerializer(item).data)
 
+class OrderItemsBatchEditView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+    
+    def put(self, request, pk):
+        from django.shortcuts import get_object_or_404
+        from django.db import transaction
+        from decimal import Decimal
+        from .models import OrderItem
+        from products.models import Product
+        
+        with transaction.atomic():
+            order = get_object_or_404(Order, pk=pk)
+            
+            # 1. Validation
+            if order.status not in ['pendiente']:
+                return Response({'error': 'Solo se pueden editar productos de pedidos en estado "pendiente".'}, status=status.HTTP_400_BAD_REQUEST)
+            if order.payment_status in ['pagado']:
+                return Response({'error': 'No se puede editar un pedido totalmente pagado. Cancele el pago o revierta a pendiente primero.'}, status=status.HTTP_400_BAD_REQUEST)
+                
+            items_data = request.data.get('items', [])
+            if not items_data:
+                return Response({'error': 'El pedido no puede quedar vacío.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 2. Revert stock
+            for item in order.items.all():
+                product = item.product
+                if product.is_bundle:
+                    for comp in product.components.all():
+                        comp.product.stock += (item.quantity * comp.quantity)
+                        comp.product.save()
+                else:
+                    product.stock += item.quantity
+                    product.save()
+                
+            # Clear old items
+            order.items.all().delete()
+            
+            # 3. Pre-validate stock
+            for item_data in items_data:
+                try:
+                    product = Product.objects.get(id=item_data['product_id'])
+                    qty = Decimal(str(item_data['quantity']))
+                    if product.is_bundle:
+                        for comp in product.components.all():
+                            required = qty * comp.quantity
+                            if comp.product.stock < required:
+                                return Response({'error': f'Stock insuficiente de {comp.product.name} para combo {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
+                    else:
+                        if product.stock < qty:
+                            return Response({'error': f'Stock insuficiente para {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
+                except Exception as e:
+                    return Response({'error': f'Dato de ítem inválido: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+
+            # 4. Create new items and deduce stock
+            subtotal = Decimal('0')
+            for item_data in items_data:
+                product = Product.objects.get(id=item_data['product_id'])
+                qty = Decimal(str(item_data['quantity']))
+                unit_price = Decimal(str(item_data.get('unit_price', product.sale_price)))
+                
+                if product.is_bundle:
+                    bundle_cost = Decimal('0')
+                    for comp in product.components.all():
+                        comp_cost = comp.product.purchase_price if comp.product.purchase_price else Decimal('0')
+                        bundle_cost += comp_cost * comp.quantity
+                        
+                        comp.product.stock -= (qty * comp.quantity)
+                        comp.product.save()
+                    unit_cost = bundle_cost
+                else:
+                    unit_cost = product.purchase_price if product.purchase_price else Decimal('0')
+                    
+                    product.stock -= qty
+                    product.save()
+                    
+                oi = OrderItem.objects.create(
+                    order=order, product=product, quantity=qty,
+                    unit_price=unit_price, unit_cost=unit_cost,
+                )
+                subtotal += oi.subtotal
+                
+            # 5. Update Order
+            order.subtotal = float(subtotal)
+            order.total = float(subtotal) + float(order.delivery_cost) - float(order.discount)
+            order.save()
+            
+            # 6. Update Finance Transaction
+            try:
+                from finance.models import Transaction
+                # Try reference_id=str(order.id)
+                txs = Transaction.objects.filter(reference_id=str(order.id), transaction_type='ingreso', category='venta')
+                if not txs.exists():
+                    txs = Transaction.objects.filter(reference_id=f"ORDER-{order.id}", transaction_type='ingreso', category='venta')
+                for tx in txs:
+                    tx.amount = order.total
+                    tx.save()
+            except Exception:
+                pass
+                
+            from .serializers import OrderSerializer
+            return Response(OrderSerializer(order).data, status=status.HTTP_200_OK)
+
 class DownloadOrderTemplateView(APIView):
     permission_classes = [IsAdminOrVendedor]
 
