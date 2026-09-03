@@ -79,7 +79,12 @@ class LowStockView(APIView):
 
     def get(self, request):
         products = Product.objects.filter(is_active=True)
-        low = [ProductSerializer(p).data for p in products if p.stock <= p.min_stock]
+        low = []
+        for p in products:
+            data = ProductSerializer(p).data
+            # Convert to float to safely compare Decimal string values
+            if float(data.get('stock', 0)) <= float(data.get('min_stock', 0)):
+                low.append(data)
         return Response(low)
 
 class DownloadProductTemplateView(APIView):
