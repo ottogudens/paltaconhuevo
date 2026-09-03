@@ -61,7 +61,10 @@ function OrderDetail({ order, onClose, onUpdate }) {
 
   useEffect(() => {
     if (isEditing && products.length === 0) {
-      api.get('/products/').then(res => setProducts(res.data.results || res.data || []))
+      api.get('/products/').then(res => {
+        const allProducts = res.data.results || res.data || []
+        setProducts(allProducts.filter(p => p.can_be_sold !== false))
+      })
       setEditedItems(currentOrder.items.map(i => ({
         product_id: i.product,
         name: i.product_name,
@@ -446,7 +449,8 @@ function CreateOrderModal({ onClose, onSave }) {
           api.get('/products/')
         ])
         setCustomers(cRes.data.results || cRes.data || [])
-        setProducts(pRes.data.results || pRes.data || [])
+        const allProducts = pRes.data.results || pRes.data || []
+        setProducts(allProducts.filter(p => p.can_be_sold !== false))
       } catch (e) { console.error(e) }
     }
     loadData()

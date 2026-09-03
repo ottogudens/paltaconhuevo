@@ -143,7 +143,8 @@ export default function FinanceVentasPage() {
   const fetchProducts = async () => {
     try {
       const res = await api.get('/products/')
-      setProducts(res.data.results || res.data || [])
+      const allProducts = res.data.results || res.data || []
+      setProducts(allProducts.filter(p => p.can_be_sold !== false))
     } catch (e) { console.error('Error fetching products', e) }
   }
 
