@@ -183,7 +183,7 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
                           <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
                        ))}
                      </select>
-                     <input type="number" required min="0.01" step="0.01" value={comp.quantity} onChange={e => {
+                     <input type="number" required min="0" step="any" value={comp.quantity} onChange={e => {
                         const newC = [...form.components];
                         newC[idx].quantity = e.target.value;
                         setForm({...form, components: newC});
