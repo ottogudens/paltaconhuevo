@@ -33,7 +33,7 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
       formData.append('product_type', form.product_type)
       formData.append('unit', form.unit)
       formData.append('purchase_price', form.purchase_price || 0)
-      formData.append('sale_price', form.sale_price || 0)
+      formData.append('sale_price', form.can_be_sold === false ? 0 : form.sale_price || 0)
       formData.append('stock', form.is_bundle ? 0 : form.stock || 0)
       formData.append('min_stock', form.is_bundle ? 0 : form.min_stock || 0)
       formData.append('description', form.description || '')
@@ -115,11 +115,13 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
               </select>
             </div>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
-            <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
-          </div>
+          {form.can_be_sold !== false && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
+              <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
+            </div>
+          )}
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
             <div className="flex items-center gap-2">
               <input type="checkbox" id="is_bundle" checked={form.is_bundle} onChange={e => setForm({...form, is_bundle: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
@@ -321,7 +323,7 @@ export default function ProductsPage() {
         ) : filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filtered.map(p => {
-              const isLow = !p.is_bundle && parseFloat(p.stock) <= parseFloat(p.min_stock)
+              const isLow = parseFloat(p.stock) <= parseFloat(p.min_stock)
               return (
                 <div key={p.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow ${isLow ? 'border-red-200' : 'border-gray-100'}`}>
                   <div className="p-5">
@@ -393,7 +395,10 @@ export default function ProductsPage() {
                         <div className="flex items-center gap-1">
                           {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
                           {p.is_bundle ? (
-                             <span className="font-bold text-sm text-palta-600 px-2 py-1 rounded bg-palta-50 border border-palta-200" title="Calculado por subproductos">COMBO</span>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={`font-bold text-sm ${isLow ? 'text-red-600' : 'text-gray-700'}`}>{p.stock}</span>
+                              <span className="text-[10px] font-bold text-palta-600 bg-palta-50 px-1.5 py-0.5 rounded border border-palta-200">COMBO</span>
+                            </div>
                           ) : (
                             <input 
                               type="number" 
