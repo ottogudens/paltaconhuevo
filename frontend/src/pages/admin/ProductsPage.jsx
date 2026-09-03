@@ -346,6 +346,14 @@ export default function ProductsPage() {
                             className="font-semibold text-gray-900 bg-transparent border-b border-transparent hover:border-gray-300 focus:border-palta-500 focus:outline-none w-full max-w-[150px] p-0 focus:ring-0"
                           />
                           <p className="text-xs text-gray-500 capitalize mt-1">{p.product_type} · {p.unit}</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {p.can_be_sold === false && (
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">🔒 Solo Compra</span>
+                            )}
+                            {p.purchase_multiplier && parseInt(p.purchase_multiplier) > 1 && (
+                              <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded border border-indigo-200">×{p.purchase_multiplier} por unidad</span>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="flex gap-1">

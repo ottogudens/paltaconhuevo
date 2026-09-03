@@ -321,19 +321,23 @@ export default function FinanceComprasPage() {
           ...t, is_purchase: false, date_str: t.date
       }))
       
-      const purchases = (pchRes.data.results || pchRes.data || []).map(p => ({
-          ...p,
-          is_purchase: true,
-          date_str: p.purchase_date,
-          amount: p.total_cost,
-          category: 'compra',
-          description: `Compra a ${p.supplier_name}: ${p.quantity} unid. de ${p.product_id} (Reemplazar con nombre)` // Falta populate
-      }))
+      const prodList = prodRes.data.results || prodRes.data || []
+      const purchases = (pchRes.data.results || pchRes.data || []).map(p => {
+          const prodMatch = prodList.find(pr => pr.id === (p.product || p.product_id))
+          return {
+            ...p,
+            is_purchase: true,
+            date_str: p.purchase_date,
+            amount: p.total_cost,
+            category: 'compra',
+            product_display_name: prodMatch?.name || p.product_name || `Producto #${p.product || p.product_id}`,
+          }
+      })
 
       // Combinar y ordenar
       const combined = [...transactions, ...purchases].sort((a,b) => new Date(b.date_str) - new Date(a.date_str))
       setItems(combined)
-      setProducts(prodRes.data.results || prodRes.data || [])
+      setProducts(prodList)
     } catch (e) { console.error(e) }
     finally { setLoading(false) }
   }
@@ -410,7 +414,12 @@ export default function FinanceComprasPage() {
                       </td>
                       <td className="px-5 py-3 text-gray-600 capitalize">{t.category?.replace('_', ' ')}</td>
                       <td className="px-5 py-3 text-gray-900 font-medium">
-                          {t.is_purchase ? `Proveedor: ${t.supplier_name}` : t.description}
+                          {t.is_purchase ? (
+                            <div>
+                              <span>{t.product_display_name}</span>
+                              <span className="text-xs text-gray-500 ml-2">({t.quantity} unid. — {t.supplier_name})</span>
+                            </div>
+                          ) : t.description}
                       </td>
                       <td className="px-5 py-3 text-right font-bold text-red-600">
                         -{formatCLP(t.amount)}
