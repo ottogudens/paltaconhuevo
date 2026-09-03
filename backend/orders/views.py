@@ -80,23 +80,23 @@ class OrderListCreateView(generics.ListCreateAPIView):
         subtotal = 0
         for item in items_data:
             product = Product.objects.get(id=item['product_id'])
-            qty = float(item['quantity'])
+            qty = Decimal(str(item['quantity']))
             # Security: Always use product.sale_price instead of user input
-            unit_price = float(product.sale_price)
+            unit_price = Decimal(str(product.sale_price))
             # A5 fix: usar order_by explícito para obtener el costo más reciente
             if product.is_bundle:
-                bundle_cost = 0
+                bundle_cost = Decimal('0')
                 for comp in product.components.all():
-                    comp_cost = float(comp.product.purchase_price) if comp.product.purchase_price else 0
-                    bundle_cost += comp_cost * float(comp.quantity)
+                    comp_cost = comp.product.purchase_price if comp.product.purchase_price else Decimal('0')
+                    bundle_cost += comp_cost * comp.quantity
                     
-                    comp.product.stock -= Decimal(str(qty * comp.quantity))
+                    comp.product.stock -= (qty * comp.quantity)
                     comp.product.save()
                 unit_cost = bundle_cost
             else:
-                unit_cost = float(product.purchase_price) if product.purchase_price else 0
+                unit_cost = product.purchase_price if product.purchase_price else Decimal('0')
                 
-                product.stock -= Decimal(str(qty))
+                product.stock -= qty
                 product.save()
                 
             oi = OrderItem.objects.create(
