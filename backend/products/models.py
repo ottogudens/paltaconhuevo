@@ -71,7 +71,7 @@ class Purchase(models.Model):
 class ProductComponent(models.Model):
     bundle = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='components')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='part_of_bundles')
-    quantity = models.DecimalField(max_digits=10, decimal_places=2)
+    quantity = models.DecimalField(max_digits=10, decimal_places=6)
 
     def __str__(self):
         return f"{self.quantity} x {self.product.name} en {self.bundle.name}"
