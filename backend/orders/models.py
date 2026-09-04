@@ -88,6 +88,27 @@ class OrderPayment(models.Model):
             else:
                 self.order.payment_status = 'abonado'
             self.order.save(update_fields=['payment_status'])
+
+            # Otorgar puntos si el pago está completo y no se han otorgado previamente
+            if self.order.payment_status == 'pagado' and not self.order.points_awarded:
+                from loyalty.models import LoyaltyAccount, PointTransaction
+                points = int(self.order.total / 1000) * 10
+                if points > 0:
+                    self.order.points_earned = points
+                    self.order.points_awarded = True
+                    self.order.save(update_fields=['points_earned', 'points_awarded'])
+                    acc, _ = LoyaltyAccount.objects.get_or_create(user=self.order.customer)
+                    acc.points += points
+                    acc.total_points_earned += points
+                    acc.total_purchases += self.order.total
+                    acc.update_level()
+                    PointTransaction.objects.create(
+                        account=acc,
+                        transaction_type='ganado',
+                        points=points,
+                        description=f'Pedido #{self.order.id} Pagado',
+                        reference_id=str(self.order.id)
+                    )
             
             # Create transaction in finance
             from finance.models import Transaction

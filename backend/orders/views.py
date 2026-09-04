@@ -133,7 +133,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
                 if field in serializer.validated_data:
                     serializer.validated_data.pop(field)
         instance = serializer.save()
-        if instance.status == 'entregado' and instance.payment_status == 'pagado' and not instance.points_awarded:
+        if instance.payment_status == 'pagado' and not instance.points_awarded:
             from loyalty.models import LoyaltyAccount, PointTransaction
             points = int(instance.total / 1000) * 10
             if points > 0:
@@ -149,7 +149,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
                     account=acc,
                     transaction_type='ganado',
                     points=points,
-                    description=f'Pedido #{instance.id} Entregado',
+                    description=f'Pedido #{instance.id} Pagado',
                     reference_id=str(instance.id)
                 )
 

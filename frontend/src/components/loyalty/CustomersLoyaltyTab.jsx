@@ -177,7 +177,7 @@ export default function CustomersLoyaltyTab() {
                                   <p className="text-xs text-gray-500">{new Date(o.created_at).toLocaleDateString()}</p>
                                 </div>
                                 <div className="text-right">
-                                  <p className="font-bold text-gray-900">${parseFloat(o.total_price).toLocaleString('es-CL')}</p>
+                                  <p className="font-bold text-gray-900">${(parseFloat(o.total ?? o.total_price) || 0).toLocaleString('es-CL')}</p>
                                   <p className="text-xs capitalize text-palta-600">{o.status}</p>
                                 </div>
                               </li>
