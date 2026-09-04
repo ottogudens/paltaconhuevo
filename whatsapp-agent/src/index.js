@@ -635,6 +635,31 @@ async function tickFlowMachine(phone, session, userInput) {
           } catch(e) {
              console.error('Error Webhook React Flow:', e.message);
           }
+       } else if (currentNode.data?.actionType === 'internal_points') {
+          session.flowState.active = false;
+          try {
+             const pointsInfo = await getUserPoints(session.userToken);
+             const msg = `⭐ Tienes actualmente *${pointsInfo.available_points || 0} PaltaPuntos*.\nEstos puntos se traducen en descuento directo usando $1 CLP de descuento por cada punto.`;
+             session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
+             io.emit('chat_message', { phone, sender: 'bot', text: msg });
+             await sendMessage(phone, msg);
+          } catch(e) {
+             await sendMessage(phone, "Hubo un error revisando tus puntos. Intenta de nuevo más tarde.");
+          }
+          return true;
+       } else if (currentNode.data?.actionType === 'internal_order') {
+          session.flowState.active = false;
+          try {
+             const products = await getProducts();
+             const productList = products.map(p => `🥑 ${p.name} - $${p.sale_price}`).join('\n');
+             const msg = `¡Perfecto! Aquí tienes lo que tenemos disponible:\n\n${productList}\n\nPara hacer tu pedido, simplemente dime qué quieres y la cantidad (Ej: "Quiero 2 mallas de palta y 1 caja de huevos").`;
+             session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
+             io.emit('chat_message', { phone, sender: 'bot', text: msg });
+             await sendMessage(phone, msg);
+          } catch(e) {
+             await sendMessage(phone, "Hubo un error cargando el menú. Intenta de nuevo más tarde.");
+          }
+          return true;
        }
     }
     

@@ -553,12 +553,29 @@ export default function WhatsAppPage() {
                         <span className={`w-3 h-3 rounded-full ${f.is_active ? 'bg-green-500' : 'bg-red-500'}`} title={f.is_active ? 'Activo' : 'Inactivo'} />
                       </div>
                       <div className="text-xs text-gray-400 mt-2">Nodos: {f.nodes?.length || 0}</div>
-                      <button 
-                        onClick={() => { setEditingFlow(f); setShowFlowModal(true); }}
-                        className="mt-2 w-full py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors"
-                      >
-                        Abrir Canvas
-                      </button>
+                      <div className="flex gap-2 w-full mt-2">
+                        <button 
+                          onClick={() => { setEditingFlow(f); setShowFlowModal(true); }}
+                          className="flex-1 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-100 transition-colors"
+                        >
+                          Abrir Canvas
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (window.confirm('¿Estás seguro de eliminar este flujo?')) {
+                              try {
+                                await api.delete(`/marketing/flows/${f.id}/`);
+                                fetchFlows();
+                              } catch (e) {
+                                alert('Error al eliminar');
+                              }
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-red-50 text-red-600 border border-red-200 rounded-lg text-xs font-bold hover:bg-red-100 transition-colors flex items-center justify-center"
+                        >
+                          Eliminar
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

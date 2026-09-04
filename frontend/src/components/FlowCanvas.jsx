@@ -105,6 +105,8 @@ const ActionNode = ({ data }) => {
            <option value="human">Derivar a Humano</option>
            <option value="ai">Derivar a Agente IA (Paltín)</option>
            <option value="webhook">Ejecutar Webhook (API)</option>
+           <option value="internal_order">Crear Pedido Nuevo (App)</option>
+           <option value="internal_points">Envío de Puntos (Loyalty)</option>
         </select>
         {data.actionType === 'webhook' && (
           <input 
@@ -132,8 +134,11 @@ let idCtr = 1;
 const getId = () => `node_${idCtr++}`;
 
 export default function FlowCanvas({ initialNodesData, initialEdgesData, onSave, onCancel }) {
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodesData || initialNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdgesData || initialEdges);
+  const safeNodes = (initialNodesData && initialNodesData.length > 0) ? initialNodesData : initialNodes;
+  const safeEdges = (initialEdgesData && initialEdgesData.length > 0) ? initialEdgesData : initialEdges;
+  
+  const [nodes, setNodes, onNodesChange] = useNodesState(safeNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(safeEdges);
 
   const onConnect = useCallback(
     (params) => setEdges((eds) => addEdge({ ...params, animated: true, style: { strokeWidth: 2 } }, eds)),
