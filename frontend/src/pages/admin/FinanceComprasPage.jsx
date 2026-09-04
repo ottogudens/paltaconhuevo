@@ -164,41 +164,42 @@ function ExpenseModal({ onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto transform transition-transform" onClick={e => e.stopPropagation()}>
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto sm:hidden mt-3 mb-1"></div>
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Nuevo Gasto</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Categoría</label>
               <select value={form.category} onChange={e => setForm({...form, category: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
                 {CATEGORY_OPTIONS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha</label>
               <input type="date" value={form.date} onChange={e => setForm({...form, date: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Monto ($)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Monto ($)</label>
             <input type="number" value={form.amount} onChange={e => setForm({...form, amount: e.target.value})} required min="1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Descripción</label>
             <input type="text" value={form.description} onChange={e => setForm({...form, description: e.target.value})} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Pago de luz" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Pago de luz" />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={onClose} className="w-full sm:w-auto min-h-[44px] px-6 text-sm text-gray-700 font-medium hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving}
-              className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2">
+              className="w-full sm:w-auto min-h-[44px] px-6 text-sm bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2">
               <Check className="w-4 h-4" /> {saving ? 'Guardando...' : 'Registrar'}
             </button>
           </div>
@@ -244,52 +245,53 @@ function PurchaseModal({ purchase, onClose, onSave, products }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto transform transition-transform" onClick={e => e.stopPropagation()}>
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto sm:hidden mt-3 mb-1"></div>
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">Nueva Compra a Proveedor</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Proveedor</label>
               <input type="text" value={form.supplier_name} onChange={e => setForm({...form, supplier_name: e.target.value})} required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Nombre Proveedor" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Nombre Proveedor" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Fecha</label>
               <input type="date" value={form.purchase_date} onChange={e => setForm({...form, purchase_date: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Producto</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Producto</label>
             <select value={form.product} onChange={e => setForm({...form, product: e.target.value})} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
               <option value="">Selecciona un producto</option>
               {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">
              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Cantidad comprada</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Cantidad</label>
                 <input type="number" step="0.01" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} required min="0.1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
             </div>
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Precio Unitario ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Precio Unit. ($)</label>
                 <input type="number" value={form.unit_cost} onChange={e => setForm({...form, unit_cost: e.target.value})} required min="1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
             </div>
           </div>
           <div className="pt-2">
               <p className="text-xs text-gray-500">Al registrar la compra se añadirá el stock automáticamente.</p>
           </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={onClose} className="w-full sm:w-auto min-h-[44px] px-6 text-sm text-gray-700 font-medium hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving || !form.product}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2">
+              className="w-full sm:w-auto min-h-[44px] px-6 text-sm bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2">
               <Check className="w-4 h-4" /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar Compra' : 'Registrar Compra')}
             </button>
           </div>
@@ -385,67 +387,124 @@ export default function FinanceComprasPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-palta-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Fecha</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Tipo</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Categoría</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Descripción / Origen</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Monto</th>
-                    <th className="text-center px-5 py-3 font-medium text-gray-600">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {items.length > 0 ? items.map((t, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-gray-500">{t.date_str}</td>
-                      <td className="px-5 py-3">
-                        {t.is_purchase ? (
-                            <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full text-xs font-medium">
-                              <Store className="w-3 h-3" /> Compra
-                            </span>
-                        ) : (
-                            <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-0.5 rounded-full text-xs font-medium">
-                              <ArrowDownCircle className="w-3 h-3" /> Gasto
-                            </span>
-                        )}
-                      </td>
-                      <td className="px-5 py-3 text-gray-600 capitalize">{t.category?.replace('_', ' ')}</td>
-                      <td className="px-5 py-3 text-gray-900 font-medium">
-                          {t.is_purchase ? (
-                            <div>
-                              <span>{t.product_display_name}</span>
-                              <span className="text-xs text-gray-500 ml-2">({t.quantity} unid. — {t.supplier_name})</span>
-                            </div>
-                          ) : t.description}
-                      </td>
-                      <td className="px-5 py-3 text-right font-bold text-red-600">
-                        -{formatCLP(t.amount)}
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        {t.is_purchase && (
-                          <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => { setEditPurchase(t); setShowPurchaseModal(true) }} className="text-gray-400 hover:text-blue-600" title="Editar">
-                              ✏️
-                            </button>
-                            <button onClick={() => handleDeletePurchase(t.id)} className="text-gray-400 hover:text-red-600" title="Eliminar">
-                              🗑️
-                            </button>
-                          </div>
-                        )}
-                      </td>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Fecha</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Tipo</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Categoría</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Descripción / Origen</th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Monto</th>
+                      <th className="text-center px-5 py-3 font-medium text-gray-600">Acciones</th>
                     </tr>
-                  )) : (
-                    <tr><td colSpan={5} className="px-5 py-12 text-center text-gray-400">
-                      <TrendingDown className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                      No hay compras ni egresos registrados
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {items.length > 0 ? items.map((t, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3 text-gray-500">{t.date_str}</td>
+                        <td className="px-5 py-3">
+                          {t.is_purchase ? (
+                              <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full text-xs font-medium">
+                                <Store className="w-3 h-3" /> Compra
+                              </span>
+                          ) : (
+                              <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-0.5 rounded-full text-xs font-medium">
+                                <ArrowDownCircle className="w-3 h-3" /> Gasto
+                              </span>
+                          )}
+                        </td>
+                        <td className="px-5 py-3 text-gray-600 capitalize">{t.category?.replace('_', ' ')}</td>
+                        <td className="px-5 py-3 text-gray-900 font-medium">
+                            {t.is_purchase ? (
+                              <div>
+                                <span>{t.product_display_name}</span>
+                                <span className="text-xs text-gray-500 ml-2">({t.quantity} unid. — {t.supplier_name})</span>
+                              </div>
+                            ) : t.description}
+                        </td>
+                        <td className="px-5 py-3 text-right font-bold text-red-600">
+                          -{formatCLP(t.amount)}
+                        </td>
+                        <td className="px-5 py-3 text-center">
+                          {t.is_purchase && (
+                            <div className="flex items-center justify-center gap-2">
+                              <button onClick={() => { setEditPurchase(t); setShowPurchaseModal(true) }} className="p-1.5 hover:bg-blue-50 rounded-lg text-gray-400 hover:text-blue-600 min-h-[44px] min-w-[44px] inline-flex items-center justify-center" title="Editar">
+                                ✏️
+                              </button>
+                              <button onClick={() => handleDeletePurchase(t.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-400 hover:text-red-600 min-h-[44px] min-w-[44px] inline-flex items-center justify-center" title="Eliminar">
+                                🗑️
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">
+                        <TrendingDown className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                        No hay compras ni egresos registrados
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {items.length > 0 ? items.map((t, idx) => (
+                  <div key={idx} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-500">{t.date_str}</span>
+                      {t.is_purchase ? (
+                          <span className="inline-flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-1 rounded-full text-[10px] font-bold">
+                            <Store className="w-3 h-3" /> COMPRA
+                          </span>
+                      ) : (
+                          <span className="inline-flex items-center gap-1 text-red-700 bg-red-50 px-2 py-1 rounded-full text-[10px] font-bold">
+                            <ArrowDownCircle className="w-3 h-3" /> GASTO
+                          </span>
+                      )}
+                    </div>
+                    
+                    <div className="mb-3">
+                      <p className="font-bold text-gray-900 leading-tight">
+                        {t.is_purchase ? t.product_display_name : t.description}
+                      </p>
+                      {t.is_purchase && (
+                         <p className="text-xs text-gray-500 mt-1">{t.quantity} unid. — {t.supplier_name}</p>
+                      )}
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                      <span className="text-xs text-gray-500 capitalize px-2 py-1 bg-gray-100 rounded-md">
+                        {t.category?.replace('_', ' ')}
+                      </span>
+                      <span className="font-black text-red-600 text-lg">
+                        -{formatCLP(t.amount)}
+                      </span>
+                    </div>
+
+                    {t.is_purchase && (
+                      <div className="flex items-center justify-end gap-2 pt-3 mt-3 border-t border-gray-50">
+                        <button onClick={() => { setEditPurchase(t); setShowPurchaseModal(true) }} className="flex-1 min-h-[44px] flex items-center justify-center gap-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 text-sm font-medium transition-colors">
+                          ✏️ Editar
+                        </button>
+                        <button onClick={() => handleDeletePurchase(t.id)} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+                          🗑️
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )) : (
+                  <div className="px-5 py-12 text-center text-gray-400">
+                    <TrendingDown className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    No hay compras ni egresos registrados
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

@@ -264,49 +264,96 @@ export default function FinanceVentasPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-palta-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Fecha</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Pedido</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Cliente</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Producto</th>
-                    <th className="text-center px-5 py-3 font-medium text-gray-600">Cantidad</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Medio de Pago</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Subtotal</th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Margen</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {sales.length > 0 ? sales.map(s => (
-                    <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 text-gray-500 font-medium">{s.date}</td>
-                      <td className="px-5 py-3 text-gray-900 font-bold">#{s.order_id}</td>
-                      <td className="px-5 py-3 text-gray-700 capitalize">{s.customer_name}</td>
-                      <td className="px-5 py-3 text-gray-900 font-medium">{s.product_name}</td>
-                      <td className="px-5 py-3 text-center text-gray-700 font-semibold">{s.quantity}</td>
-                      <td className="px-5 py-3 text-right">
-                          <span className="inline-flex bg-palta-50 text-palta-800 text-xs px-2 py-1 rounded-md capitalize">
-                              {s.payment_method.replace('_', ' ')}
-                          </span>
-                      </td>
-                      <td className="px-5 py-3 text-right font-bold text-gray-900">
-                        {formatCLP(s.subtotal)}
-                      </td>
-                      <td className="px-5 py-3 text-right font-bold text-green-600">
-                        {formatCLP(s.margin)}
-                      </td>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Fecha</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Pedido</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Cliente</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Producto</th>
+                      <th className="text-center px-5 py-3 font-medium text-gray-600">Cantidad</th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Medio de Pago</th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Subtotal</th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Margen</th>
                     </tr>
-                  )) : (
-                    <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">
-                      <TrendingUp className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                      No hay ventas registradas
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {sales.length > 0 ? sales.map(s => (
+                      <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3 text-gray-500 font-medium">{s.date}</td>
+                        <td className="px-5 py-3 text-gray-900 font-bold">#{s.order_id}</td>
+                        <td className="px-5 py-3 text-gray-700 capitalize">{s.customer_name}</td>
+                        <td className="px-5 py-3 text-gray-900 font-medium">{s.product_name}</td>
+                        <td className="px-5 py-3 text-center text-gray-700 font-semibold">{s.quantity}</td>
+                        <td className="px-5 py-3 text-right">
+                            <span className="inline-flex bg-palta-50 text-palta-800 text-xs px-2 py-1 rounded-md capitalize">
+                                {s.payment_method.replace('_', ' ')}
+                            </span>
+                        </td>
+                        <td className="px-5 py-3 text-right font-bold text-gray-900">
+                          {formatCLP(s.subtotal)}
+                        </td>
+                        <td className="px-5 py-3 text-right font-bold text-green-600">
+                          {formatCLP(s.margin)}
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={7} className="px-5 py-12 text-center text-gray-400">
+                        <TrendingUp className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                        No hay ventas registradas
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {sales.length > 0 ? sales.map(s => (
+                  <div key={s.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-gray-500">{s.date}</span>
+                      <span className="inline-flex items-center gap-1 text-palta-700 bg-palta-50 px-2 py-1 rounded-full text-[10px] font-bold">
+                        Pedido #{s.order_id}
+                      </span>
+                    </div>
+                    
+                    <div className="mb-3">
+                      <p className="font-bold text-gray-900 leading-tight">
+                        {s.product_name} <span className="text-gray-500 font-normal">x{s.quantity}</span>
+                      </p>
+                      <p className="text-sm text-gray-600 mt-1 capitalize">👤 {s.customer_name}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm text-gray-600 mb-3 border-t border-gray-50 pt-3">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400">Pago</span>
+                        <span className="capitalize text-xs inline-flex w-max bg-gray-100 px-1.5 py-0.5 rounded mt-0.5">{s.payment_method.replace('_', ' ')}</span>
+                      </div>
+                      <div className="flex flex-col text-right">
+                        <span className="text-xs text-gray-400">Margen</span>
+                        <span className="font-bold text-green-600">{formatCLP(s.margin)}</span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center justify-between pt-2 border-t border-gray-50">
+                      <span className="text-xs text-gray-500 font-medium tracking-wide">SUBTOTAL</span>
+                      <span className="font-black text-gray-900 text-lg">
+                        {formatCLP(s.subtotal)}
+                      </span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="px-5 py-12 text-center text-gray-400">
+                    <TrendingUp className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    No hay ventas registradas
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
       </div>

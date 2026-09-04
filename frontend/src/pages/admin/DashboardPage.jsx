@@ -269,37 +269,68 @@ export default function DashboardPage() {
               <h2 className="font-semibold text-gray-900">Pedidos pendientes de entrega</h2>
               <Link to="/orders" className="text-sm text-palta-600 hover:text-palta-700 font-medium">Ver todos →</Link>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50 text-gray-600">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium">#</th>
-                    <th className="text-left px-5 py-3 font-medium">Cliente</th>
-                    <th className="text-left px-5 py-3 font-medium">Productos</th>
-                    <th className="text-left px-5 py-3 font-medium">Estado</th>
-                    <th className="text-left px-5 py-3 font-medium">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {dashboard?.pending_delivery_orders?.length > 0 ? dashboard.pending_delivery_orders.map(o => (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
-                      <td className="px-5 py-3 font-medium text-gray-900">{o.customer_name || 'N/A'}</td>
-                      <td className="px-5 py-3 text-gray-700">{formatProducts(o.items)}</td>
-                      <td className="px-5 py-3">
-                        <select value={o.status} onChange={e => handleOrderStatusChange(o.id, e.target.value)}
-                          className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-palta-500">
-                          {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-5 py-3 font-medium text-gray-900">{formatCLP(o.total)}</td>
+            <>
+              {/* Desktop view */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-600">
+                    <tr>
+                      <th className="text-left px-5 py-3 font-medium">#</th>
+                      <th className="text-left px-5 py-3 font-medium">Cliente</th>
+                      <th className="text-left px-5 py-3 font-medium">Productos</th>
+                      <th className="text-left px-5 py-3 font-medium">Estado</th>
+                      <th className="text-left px-5 py-3 font-medium">Total</th>
                     </tr>
-                  )) : (
-                    <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">No hay pedidos pendientes</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {dashboard?.pending_delivery_orders?.length > 0 ? dashboard.pending_delivery_orders.map(o => (
+                      <tr key={o.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
+                        <td className="px-5 py-3 font-medium text-gray-900">{o.customer_name || 'N/A'}</td>
+                        <td className="px-5 py-3 text-gray-700">{formatProducts(o.items)}</td>
+                        <td className="px-5 py-3">
+                          <select value={o.status} onChange={e => handleOrderStatusChange(o.id, e.target.value)}
+                            className="px-2 py-1 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-palta-500 bg-white">
+                            {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                          </select>
+                        </td>
+                        <td className="px-5 py-3 font-medium text-gray-900">{formatCLP(o.total)}</td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400">No hay pedidos pendientes</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card view */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {dashboard?.pending_delivery_orders?.length > 0 ? dashboard.pending_delivery_orders.map(o => (
+                  <div key={o.id} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                       <span className="text-xs font-bold font-mono text-gray-500">#{o.id}</span>
+                       <span className="text-xs font-semibold text-gray-700">{o.customer_name || 'N/A'}</span>
+                    </div>
+                    
+                    <div className="mb-3 text-sm text-gray-700">
+                      {formatProducts(o.items)}
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                      <select value={o.status} onChange={e => handleOrderStatusChange(o.id, e.target.value)}
+                        className="px-2 py-2 border border-gray-300 rounded text-xs focus:ring-2 focus:ring-palta-500 bg-white min-h-[44px]">
+                        {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                      </select>
+                      <span className="font-bold text-gray-900 text-lg">
+                        {formatCLP(o.total)}
+                      </span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="p-8 text-center text-gray-400">No hay pedidos pendientes</div>
+                )}
+              </div>
+            </>
           </div>
 
           {/* Low Stock Alert */}
@@ -350,28 +381,55 @@ export default function DashboardPage() {
               </select>
             </div>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-600">
-                <tr>
-                  <th className="text-left px-5 py-3 font-medium">Producto</th>
-                  <th className="text-right px-5 py-3 font-medium">Cantidad Vendida</th>
-                  <th className="text-right px-5 py-3 font-medium">Total Ventas</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {sortedProducts.length > 0 ? sortedProducts.map((p, i) => (
-                  <tr key={i} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-5 py-3 font-medium text-gray-900">{p.product__name}</td>
-                    <td className="px-5 py-3 text-right text-gray-700">{p.total_quantity}</td>
-                    <td className="px-5 py-3 text-right font-bold text-palta-600">{formatCLP(p.total_sales)}</td>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-gray-600">
+                  <tr>
+                    <th className="text-left px-5 py-3 font-medium">Producto</th>
+                    <th className="text-right px-5 py-3 font-medium">Cantidad Vendida</th>
+                    <th className="text-right px-5 py-3 font-medium">Total Ventas</th>
                   </tr>
-                )) : (
-                  <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-400">No hay productos vendidos en este período</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {sortedProducts.length > 0 ? sortedProducts.map((p, i) => (
+                    <tr key={i} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-5 py-3 font-medium text-gray-900">{p.product__name}</td>
+                      <td className="px-5 py-3 text-right text-gray-700">{p.total_quantity}</td>
+                      <td className="px-5 py-3 text-right font-bold text-palta-600">{formatCLP(p.total_sales)}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={3} className="px-5 py-8 text-center text-gray-400">No hay productos vendidos en este período</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card View */}
+            <div className="block sm:hidden divide-y divide-gray-100">
+              {sortedProducts.length > 0 ? sortedProducts.map((p, i) => (
+                <div key={i} className="p-4 hover:bg-gray-50 transition-colors flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <p className="font-bold text-gray-900 leading-tight">
+                      {p.product__name}
+                    </p>
+                    <span className="text-sm font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded">
+                      {p.total_quantity} unid.
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-50 pt-2 mt-1">
+                    <span className="text-xs text-gray-500 font-medium">TOTAL VENTAS</span>
+                    <span className="font-black text-palta-600 text-lg">
+                      {formatCLP(p.total_sales)}
+                    </span>
+                  </div>
+                </div>
+              )) : (
+                <div className="p-8 text-center text-gray-400">No hay productos vendidos en este período</div>
+              )}
+            </div>
+          </>
         </div>
 
       </div>

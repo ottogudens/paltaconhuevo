@@ -64,45 +64,47 @@ export default function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
+          <form onSubmit={handleLogin} className="space-y-5">
             <div>
-              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Correo o Teléfono</label>
-              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="correo@ejemplo.com o 912345678" required />
+              <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1.5">Correo o Teléfono</label>
+              <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="correo@ejemplo.com o 912345678" required />
             </div>
             <div>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-xs font-semibold text-gray-700 uppercase tracking-wider">Contraseña</label>
-                <button type="button" onClick={() => setShowReset(true)} className="text-xs text-palta-600 font-medium hover:underline">¿Olvidaste tu clave?</button>
+                <button type="button" onClick={() => setShowReset(true)} className="text-xs text-palta-600 font-medium hover:underline p-1">¿Olvidaste tu clave?</button>
               </div>
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="••••••••" required />
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="••••••••" required />
             </div>
-            <button type="submit" disabled={loading} className="w-full py-3 bg-palta-600 hover:bg-palta-700 text-white font-bold rounded-lg text-sm transition-colors shadow disabled:opacity-50 mt-2">{loading ? 'Iniciando...' : 'Iniciar Sesión'}</button>
+            <button type="submit" disabled={loading} className="w-full min-h-[48px] bg-palta-600 hover:bg-palta-700 text-white font-bold rounded-lg text-sm transition-colors shadow disabled:opacity-50 mt-4 flex items-center justify-center">{loading ? 'Iniciando...' : 'Iniciar Sesión'}</button>
           </form>
-          <p className="text-center mt-6 text-sm text-gray-600">¿No tienes cuenta? <a href="/register" className="text-palta-700 font-bold hover:underline">Regístrate</a></p>
+          <p className="text-center mt-6 text-sm text-gray-600">¿No tienes cuenta? <a href="/register" className="text-palta-700 font-bold hover:underline p-2">Regístrate</a></p>
         </div>
       </div>
 
       {showReset && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowReset(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={() => setShowReset(false)}>
+          <div className="bg-white max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 transform transition-transform" onClick={e => e.stopPropagation()}>
+            {/* Grabber indicator for mobile */}
+            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto sm:hidden mb-4"></div>
             <div className="flex items-center justify-between border-b pb-3">
               <h2 className="text-lg font-bold text-gray-900">Recuperar Contraseña</h2>
-              <button onClick={() => setShowReset(false)} className="text-gray-400 hover:text-gray-600 font-bold text-lg">✕</button>
+              <button onClick={() => setShowReset(false)} className="text-gray-400 hover:text-gray-600 font-bold text-lg min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg">✕</button>
             </div>
             <form onSubmit={handleResetPassword} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Correo o Teléfono registrado</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Correo o Teléfono registrado</label>
                 <input type="text" placeholder="correo@ejemplo.com o +56912345678" value={resetIdentifier} onChange={e => setResetIdentifier(e.target.value)} required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Nueva Contraseña</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Nueva Contraseña</label>
                 <input type="password" placeholder="Mínimo 4 caracteres" value={resetPassword} onChange={e => setResetPassword(e.target.value)} required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+                  className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowReset(false)} className="px-4 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
-                <button type="submit" disabled={resetLoading} className="px-4 py-2 text-xs bg-palta-600 text-white font-bold rounded-lg hover:bg-palta-700 disabled:opacity-50">
+              <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t border-gray-100">
+                <button type="button" onClick={() => setShowReset(false)} className="w-full sm:w-auto min-h-[44px] px-6 text-sm text-gray-600 hover:bg-gray-100 rounded-lg font-medium">Cancelar</button>
+                <button type="submit" disabled={resetLoading} className="w-full sm:w-auto min-h-[44px] px-6 text-sm bg-palta-600 text-white font-bold rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center justify-center">
                   {resetLoading ? 'Guardando...' : 'Cambiar Contraseña'}
                 </button>
               </div>

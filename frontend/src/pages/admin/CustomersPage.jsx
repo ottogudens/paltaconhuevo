@@ -156,56 +156,58 @@ function CustomerModal({ customer, onClose, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto transform transition-transform" onClick={e => e.stopPropagation()}>
+        {/* Grabber indicator for mobile */}
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto sm:hidden mt-3 mb-1"></div>
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">{isEditing ? 'Editar Cliente' : 'Nuevo Cliente'}</h2>
-          <button onClick={onClose} className="p-3 -mr-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center -mr-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nombre <span className="text-red-500">*</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre <span className="text-red-500">*</span></label>
               <input type="text" value={form.first_name} onChange={e => setForm({...form, first_name: e.target.value})} required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Juan" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Juan" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Apellido</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Apellido</label>
               <input type="text" value={form.last_name} onChange={e => setForm({...form, last_name: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Pérez" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Pérez" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Teléfono <span className="text-red-500">*</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Teléfono <span className="text-red-500">*</span></label>
             <input type="tel" value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Correo electrónico <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Correo electrónico <span className="text-gray-400 font-normal">(opcional)</span></label>
             <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="correo@ejemplo.com" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="correo@ejemplo.com" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dirección <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Dirección <span className="text-gray-400 font-normal">(opcional)</span></label>
               <input type="text" value={form.address} onChange={e => setForm({...form, address: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Av. Principal 123" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Av. Principal 123" />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Comuna <span className="text-gray-400 font-normal">(opcional)</span></label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Comuna <span className="text-gray-400 font-normal">(opcional)</span></label>
               <input type="text" value={form.commune} onChange={e => setForm({...form, commune: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Santiago" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Santiago" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">WhatsApp <span className="text-gray-400 font-normal">(opcional)</span></label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">WhatsApp <span className="text-gray-400 font-normal">(opcional)</span></label>
             <input type="tel" value={form.whatsapp_number} onChange={e => setForm({...form, whatsapp_number: e.target.value})}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="+56912345678" />
           </div>
-          <div className="flex justify-end gap-3 pt-3">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-3">
+            <button type="button" onClick={onClose} className="w-full sm:w-auto min-h-[44px] px-6 text-sm text-gray-700 font-medium hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving}
-              className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center gap-2">
+              className="w-full sm:w-auto min-h-[44px] px-6 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center justify-center gap-2">
               {isEditing ? <Pencil className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
               {saving ? 'Guardando...' : (isEditing ? 'Guardar Cambios' : 'Crear Cliente')}
             </button>
@@ -358,59 +360,114 @@ export default function CustomersPage() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-palta-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('first_name')}>Cliente <SortIcon field="first_name" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('email')}>Email <SortIcon field="email" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('phone')}>Teléfono <SortIcon field="phone" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('commune')}>Comuna <SortIcon field="commune" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Registro <SortIcon field="created_at" /></th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {customers.length > 0 ? customers.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelected(c)}>
-                      <td className="px-5 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-palta-400 to-palta-600 flex items-center justify-center text-xs font-bold text-white">
-                            {(c.first_name || c.username || '?')[0].toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900">{c.first_name} {c.last_name}</p>
-                            <p className="text-xs text-gray-500">@{c.username}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-gray-600">{c.email}</td>
-                      <td className="px-5 py-3 text-gray-600">{c.phone || '-'}</td>
-                      <td className="px-5 py-3 text-gray-600">{c.commune || '-'}</td>
-                      <td className="px-5 py-3 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '-'}</td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Ver detalle">
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button onClick={(e) => { e.stopPropagation(); setCustomerToEdit(c); }} className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600" title="Editar cliente">
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                          <button onClick={(e) => handleDeleteCustomer(e, c.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-500" title="Eliminar cliente">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('first_name')}>Cliente <SortIcon field="first_name" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('email')}>Email <SortIcon field="email" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('phone')}>Teléfono <SortIcon field="phone" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('commune')}>Comuna <SortIcon field="commune" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Registro <SortIcon field="created_at" /></th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
                     </tr>
-                  )) : (
-                    <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">
-                      <Users className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                      No hay clientes registrados
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {customers.length > 0 ? customers.map(c => (
+                      <tr key={c.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelected(c)}>
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-palta-400 to-palta-600 flex items-center justify-center text-xs font-bold text-white">
+                              {(c.first_name || c.username || '?')[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{c.first_name} {c.last_name}</p>
+                              <p className="text-xs text-gray-500">@{c.username}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3 text-gray-600">{c.email}</td>
+                        <td className="px-5 py-3 text-gray-600">{c.phone || '-'}</td>
+                        <td className="px-5 py-3 text-gray-600">{c.commune || '-'}</td>
+                        <td className="px-5 py-3 text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '-'}</td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600 min-h-[44px] min-w-[44px] inline-flex items-center justify-center" title="Ver detalle">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={(e) => { e.stopPropagation(); setCustomerToEdit(c); }} className="p-1.5 hover:bg-blue-50 rounded-lg text-blue-600 min-h-[44px] min-w-[44px] inline-flex items-center justify-center" title="Editar cliente">
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            <button onClick={(e) => handleDeleteCustomer(e, c.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-500 min-h-[44px] min-w-[44px] inline-flex items-center justify-center" title="Eliminar cliente">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={6} className="px-5 py-12 text-center text-gray-400">
+                        <Users className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                        No hay clientes registrados
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {customers.length > 0 ? customers.map(c => (
+                  <div key={c.id} className="p-4 hover:bg-gray-50 transition-colors" onClick={() => setSelected(c)}>
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-palta-400 to-palta-600 flex items-center justify-center text-sm font-bold text-white">
+                          {(c.first_name || c.username || '?')[0].toUpperCase()}
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 leading-tight">{c.first_name} {c.last_name}</p>
+                          <p className="text-xs text-gray-500">@{c.username}</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm text-gray-600 mb-4">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400">Email</span>
+                        <span className="truncate">{c.email}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400">Teléfono</span>
+                        <span>{c.phone || '-'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400">Comuna</span>
+                        <span>{c.commune || '-'}</span>
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-gray-400">Registro</span>
+                        <span>{c.created_at ? new Date(c.created_at).toLocaleDateString('es-CL') : '-'}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-3 border-t border-gray-50">
+                      <button onClick={(e) => { e.stopPropagation(); setCustomerToEdit(c); }} className="flex-1 min-h-[44px] flex items-center justify-center gap-2 rounded-lg text-blue-600 bg-blue-50 hover:bg-blue-100 text-sm font-medium transition-colors">
+                        <Pencil className="w-4 h-4" /> Editar
+                      </button>
+                      <button onClick={(e) => handleDeleteCustomer(e, c.id)} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg text-red-600 bg-red-50 hover:bg-red-100 transition-colors">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="px-5 py-12 text-center text-gray-400">
+                    <Users className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    No hay clientes registrados
+                  </div>
+                )}
+              </div>
+            </>
           )}
 
           {hasMore && !loading && (

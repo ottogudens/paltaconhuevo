@@ -69,15 +69,16 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
 
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto transform transition-transform" onClick={e => e.stopPropagation()}>
+        <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto sm:hidden mt-3 mb-1"></div>
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
           <h2 className="text-xl font-bold text-gray-900">{isEdit ? 'Editar' : 'Nuevo'} Producto</h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Imagen del Producto</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Imagen del Producto</label>
             <div className="flex items-center gap-4">
               {previewUrl ? (
                 <img src={previewUrl} alt="Vista previa" className="w-16 h-16 object-cover rounded-lg border" />
@@ -86,28 +87,28 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
                   <Package className="w-8 h-8" />
                 </div>
               )}
-              <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-palta-50 file:text-palta-700 hover:file:bg-palta-100 cursor-pointer" />
+              <input type="file" accept="image/*" onChange={handleImageChange} className="text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-palta-50 file:text-palta-700 hover:file:bg-palta-100 cursor-pointer min-h-[44px]" />
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Nombre</label>
             <input type="text" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Palta Hass" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Ej: Palta Hass" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo</label>
               <select value={form.product_type} onChange={e => setForm({...form, product_type: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
                 <option value="palta">Palta</option>
                 <option value="huevo">Huevo</option>
                 <option value="otro">Otro</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Unidad</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Unidad</label>
               <select value={form.unit} onChange={e => setForm({...form, unit: e.target.value})}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
                 <option value="unidad">Unidad</option>
                 <option value="kilo">Kilo</option>
                 <option value="docena">Docena</option>
@@ -117,45 +118,45 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
           </div>
           {form.can_be_sold !== false && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Precio Venta ($)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Precio Venta ($)</label>
               <input type="number" value={form.sale_price} onChange={e => setForm({...form, sale_price: e.target.value})} required min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Precio cliente" />
             </div>
           )}
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4 mt-2">
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="is_bundle" checked={form.is_bundle} onChange={e => setForm({...form, is_bundle: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
+              <input type="checkbox" id="is_bundle" checked={form.is_bundle} onChange={e => setForm({...form, is_bundle: e.target.checked})} className="w-5 h-5 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
               <label htmlFor="is_bundle" className="text-sm font-medium text-gray-700">Combo / Mix compuesto</label>
             </div>
             <div className="flex items-center gap-2">
-              <input type="checkbox" id="can_be_sold" checked={form.can_be_sold !== false} onChange={e => setForm({...form, can_be_sold: e.target.checked})} className="w-4 h-4 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
+              <input type="checkbox" id="can_be_sold" checked={form.can_be_sold !== false} onChange={e => setForm({...form, can_be_sold: e.target.checked})} className="w-5 h-5 text-palta-600 focus:ring-palta-500 border-gray-300 rounded" />
               <label htmlFor="can_be_sold" className="text-sm font-medium text-gray-700">Disponible para Venta al Cliente</label>
             </div>
           </div>
           
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Multiplicador de Compra al Proveedor</label>
-            <div className="flex text-sm text-gray-500 mb-1">Si compras "1" de este producto, cuántas unidades se añadirán al stock interno (Ej. Caja = 180).</div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Multiplicador de Compra al Proveedor</label>
+            <div className="flex text-sm text-gray-500 mb-2">Si compras "1" de este producto, cuántas unidades se añadirán al stock interno (Ej. Caja = 180).</div>
             <input type="number" value={form.purchase_multiplier} onChange={e => setForm({...form, purchase_multiplier: e.target.value})} required min="1"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="1" />
+              className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="1" />
           </div>
           
           {!form.is_bundle ? (
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Precio Compra ($)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Precio Compra ($)</label>
                 <input type="number" value={form.purchase_price} onChange={e => setForm({...form, purchase_price: e.target.value})} min="0"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Costo de compra" />
+                  className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Costo de compra" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Stock</label>
                 <input type="number" value={form.stock} onChange={e => setForm({...form, stock: e.target.value})} min="0" step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+                  className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
               </div>
               <div className="col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stock mínimo</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Stock mínimo</label>
                 <input type="number" value={form.min_stock} onChange={e => setForm({...form, min_stock: e.target.value})} min="0" step="0.01"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
+                  className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" />
               </div>
             </div>
           ) : (
@@ -168,7 +169,7 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                <div className="mb-3 flex items-center justify-between">
                  <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2"><Package className="w-4 h-4" /> Componentes del Combo</h3>
-                 <span className="text-sm font-bold text-palta-600 bg-palta-50 px-2 py-1 rounded">Costo Calculado: {formatCLP((form.components || []).reduce((acc, comp) => { const child = allProducts.find(p => p.id === parseInt(comp.product)); return acc + (parseFloat(child?.purchase_price || 0) * parseFloat(comp.quantity || 1)); }, 0))}</span>
+                 <span className="text-[10px] font-bold text-palta-600 bg-palta-50 px-2 py-1 rounded">Costo Calculado: {formatCLP((form.components || []).reduce((acc, comp) => { const child = allProducts.find(p => p.id === parseInt(comp.product)); return acc + (parseFloat(child?.purchase_price || 0) * parseFloat(comp.quantity || 1)); }, 0))}</span>
                </div>
                <div className="space-y-3">
                  {(form.components || []).map((comp, idx) => (
@@ -177,7 +178,7 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
                         const newC = [...form.components];
                         newC[idx].product = e.target.value;
                         setForm({...form, components: newC});
-                     }} className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500">
+                     }} className="flex-1 px-2 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
                        <option value="">Seleccione producto...</option>
                        {allProducts.filter(p => !p.is_bundle).map(p => (
                           <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
@@ -187,32 +188,32 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
                         const newC = [...form.components];
                         newC[idx].quantity = e.target.value;
                         setForm({...form, components: newC});
-                     }} className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Cant." />
+                     }} className="w-20 px-2 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Cant." />
                      <button type="button" onClick={() => {
                         const newC = form.components.filter((_, i) => i !== idx);
                         setForm({...form, components: newC});
-                     }} className="p-2 text-red-500 hover:bg-red-100 rounded-lg">
+                     }} className="min-h-[44px] min-w-[44px] flex items-center justify-center text-red-500 hover:bg-red-100 rounded-lg">
                        <X className="w-4 h-4" />
                      </button>
                    </div>
                  ))}
                  <button type="button" onClick={() => {
                     setForm({...form, components: [...(form.components || []), {product: '', quantity: 1}]})
-                 }} className="text-sm font-medium text-palta-600 hover:text-palta-800 flex items-center gap-1">
+                 }} className="min-h-[44px] text-sm font-medium text-palta-600 hover:text-palta-800 flex items-center gap-1">
                    <Plus className="w-4 h-4" /> Añadir componente
                  </button>
                </div>
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">Descripción</label>
             <textarea value={form.description} onChange={e => setForm({...form, description: e.target.value})} rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Opcional" />
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="Opcional" />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg">Cancelar</button>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-4 border-t border-gray-100">
+            <button type="button" onClick={onClose} className="w-full sm:w-auto min-h-[44px] px-6 text-sm text-gray-700 font-medium hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={saving}
-              className="px-4 py-2 text-sm bg-palta-600 text-white rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center gap-2">
+              className="w-full sm:w-auto min-h-[44px] px-6 text-sm bg-palta-600 text-white font-bold rounded-lg hover:bg-palta-700 disabled:opacity-50 flex items-center justify-center gap-2">
               <Check className="w-4 h-4" /> {saving ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear Producto')}
             </button>
           </div>

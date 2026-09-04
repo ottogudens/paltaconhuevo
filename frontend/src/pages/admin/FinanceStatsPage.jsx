@@ -193,7 +193,8 @@ export default function FinanceStatsPage() {
               <div className="px-5 py-4 border-b border-gray-100">
                 <h2 className="font-semibold text-gray-900">Análisis detallado por producto</h2>
               </div>
-              <div className="overflow-x-auto">
+              {/* Desktop Table View */}
+              <div className="hidden sm:block overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-gray-50 text-gray-600">
                     <tr>
@@ -236,6 +237,46 @@ export default function FinanceStatsPage() {
                     )}
                   </tbody>
                 </table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {sortedProducts.map((p, idx) => {
+                  const pct = p.total_revenue > 0 ? (p.total_profit / p.total_revenue) * 100 : 0;
+                  return (
+                    <div key={idx} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="font-bold text-gray-900 leading-tight">
+                          {p.product__name}
+                        </p>
+                        <span className={`inline-flex px-2 py-1 rounded text-xs font-semibold ${pct >= 30 ? 'bg-green-100 text-green-700' : pct >= 15 ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'}`}>
+                          {formatPct(pct)}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-y-2 gap-x-4 text-sm text-gray-600 mt-2">
+                        <div className="flex flex-col">
+                          <span className="text-xs text-gray-400">Volumen</span>
+                          <span>{p.total_quantity} unid.</span>
+                        </div>
+                        <div className="flex flex-col text-right">
+                          <span className="text-xs text-gray-400">Ingresos</span>
+                          <span>{formatCLP(p.total_revenue)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between pt-2 mt-2 border-t border-gray-50">
+                        <span className="text-xs text-gray-500 font-medium tracking-wide">UTILIDAD</span>
+                        <span className="font-black text-palta-600 text-lg">
+                          {formatCLP(p.total_profit)}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+                {sortedProducts.length === 0 && (
+                  <div className="p-8 text-center text-gray-400">No hay datos en este período</div>
+                )}
               </div>
             </div>
           </>
