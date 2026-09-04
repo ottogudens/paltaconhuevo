@@ -52,6 +52,7 @@ const anthropic = { messages: { create: (...args) => getAnthropic().messages.cre
 // Cache en memoria con TTL (60s)
 let productsCache = { data: null, expiresAt: 0 };
 let agentConfigCache = { data: null, expiresAt: 0 };
+let flowsCache = { data: null, expiresAt: 0 };
 
 // (Memoria movida a Postgres vía API Django)
 let waSocket = null;
@@ -201,6 +202,23 @@ async function getAgentConfig() {
   }
 }
 
+// Obtener flujos definidos desde Django con caché de 60 segundos
+async function getFlows() {
+  const now = Date.now();
+  if (flowsCache.data && flowsCache.expiresAt > now) {
+    return flowsCache.data;
+  }
+  try {
+    const res = await api.get('/marketing/flows/');
+    const data = res.data.results || res.data;
+    flowsCache = { data, expiresAt: now + 60000 };
+    return data;
+  } catch (e) {
+    logger.error({ error: e.message }, 'Error obteniendo flujos');
+    return flowsCache.data || [];
+  }
+}
+
 // Notificar a un humano por WhatsApp si hay un mensaje derivado
 async function notifyHumanOperator(customerPhone, customerName) {
   try {
@@ -272,59 +290,10 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
 
   let finalResponse = null;
 
-  const tools = [
+  let tools = [
     {
       name: "request_human",
       description: "Deriva al cliente con un operador humano.",
-      input_schema: { type: "object", properties: {} }
-    },
-    {
-      name: "add_to_cart",
-      description: "Agrega productos al carrito por ID y cantidad.",
-      input_schema: {
-        type: "object",
-        properties: {
-          items: {
-            type: "array",
-            items: {
-              type: "object",
-              properties: {
-                product_id: { type: "integer", description: "ID numérico del producto" },
-                quantity: { type: "integer", description: "Cantidad" }
-              },
-              required: ["product_id", "quantity"]
-            }
-          }
-        },
-        required: ["items"]
-      }
-    },
-    {
-      name: "get_loyalty_points",
-      description: "Obtiene los puntos de fidelidad del cliente.",
-      input_schema: { type: "object", properties: {} }
-    },
-    {
-      name: "confirm_order",
-      description: "Confirma el carrito y pregunta por el método de entrega (retiro/despacho).",
-      input_schema: { type: "object", properties: {} }
-    },
-    {
-      name: "set_delivery",
-      description: "Guarda el tipo de entrega (retiro o despacho) y la dirección si aplica.",
-      input_schema: {
-        type: "object",
-        properties: {
-          type: { type: "string", enum: ["retiro", "despacho"] },
-          address: { type: "string" },
-          commune: { type: "string" }
-        },
-        required: ["type"]
-      }
-    },
-    {
-      name: "generate_payment",
-      description: "Genera el link de pago y finaliza el pedido.",
       input_schema: { type: "object", properties: {} }
     },
     {
@@ -353,6 +322,64 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
       }
     }
   ];
+
+  if (config.enable_sales !== false) {
+    tools.push(
+      {
+        name: "add_to_cart",
+        description: "Agrega productos al carrito por ID y cantidad.",
+        input_schema: {
+          type: "object",
+          properties: {
+            items: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  product_id: { type: "integer", description: "ID numérico del producto" },
+                  quantity: { type: "integer", description: "Cantidad" }
+                },
+                required: ["product_id", "quantity"]
+              }
+            }
+          },
+          required: ["items"]
+        }
+      },
+      {
+        name: "confirm_order",
+        description: "Confirma el carrito y pregunta por el método de entrega (retiro/despacho).",
+        input_schema: { type: "object", properties: {} }
+      },
+      {
+        name: "set_delivery",
+        description: "Guarda el tipo de entrega (retiro o despacho) y la dirección si aplica.",
+        input_schema: {
+          type: "object",
+          properties: {
+            type: { type: "string", enum: ["retiro", "despacho"] },
+            address: { type: "string" },
+            commune: { type: "string" }
+          },
+          required: ["type"]
+        }
+      },
+      {
+        name: "generate_payment",
+        description: "Genera el link de pago y finaliza el pedido.",
+        input_schema: { type: "object", properties: {} }
+      }
+    );
+  }
+
+  if (config.enable_loyalty !== false) {
+    tools.push({
+      name: "get_loyalty_points",
+      description: "Obtiene los puntos de fidelidad del cliente.",
+      input_schema: { type: "object", properties: {} }
+    });
+  }
+
 
 
   // Bucle para permitir que Claude llame múltiples herramientas si es necesario
@@ -588,6 +615,18 @@ async function handleMessageLogic(phone, message, session) {
       const menuText = getMenu(session);
       session.messages.push({ sender: 'bot', text: menuText, timestamp: new Date().toISOString() });
       return menuText;
+    }
+
+    // Intercepción por Flujos (WhatsAppFlow)
+    const flows = await getFlows();
+    if (flows && flows.length > 0) {
+      const matchFlow = flows.find(f => f.is_active && lower.includes(f.trigger_keyword.toLowerCase().trim()));
+      if (matchFlow) {
+        logger.info({ event: 'flow_intercepted', trigger: matchFlow.trigger_keyword, phone }, 'Respondiendo mediante flujo estructurado');
+        session.messages.push({ sender: 'bot', text: matchFlow.response_text, timestamp: new Date().toISOString() });
+        io.emit('chat_message', { phone, sender: 'bot', text: matchFlow.response_text });
+        return matchFlow.response_text; // Interceptamos y NO llamamos a AI
+      }
     }
 
     const botReply = await processWithAI(session, message, phone);

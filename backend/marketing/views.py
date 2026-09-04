@@ -239,6 +239,7 @@ class AgentConfigView(APIView):
                 'additional_info': 'Horarios de atención: Lunes a Sábado de 09:00 a 19:00 hrs.',
                 'human_notification_phone': '', 'whatsapp_connected_phone': '',
                 'ai_provider': 'claude', 'api_key': '',
+                'enable_sales': True, 'enable_loyalty': True,
             })
 
     def post(self, request):

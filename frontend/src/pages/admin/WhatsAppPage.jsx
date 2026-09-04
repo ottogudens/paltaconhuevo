@@ -23,8 +23,13 @@ export default function WhatsAppPage() {
   const [sendingReply, setSendingReply] = useState(false)
 
   // Configuración del agente
-  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', api_key: '', whatsapp_connected_phone: '' })
+  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', api_key: '', whatsapp_connected_phone: '', enable_sales: true, enable_loyalty: true })
   const [savingConfig, setSavingConfig] = useState(false)
+
+  // Flujos Automatizados
+  const [flows, setFlows] = useState([])
+  const [showFlowModal, setShowFlowModal] = useState(false)
+  const [editingFlow, setEditingFlow] = useState(null)
 
   // QR / Vinculación
   const [qr, setQr] = useState(null)
@@ -99,6 +104,16 @@ export default function WhatsAppPage() {
     }
   }
 
+  // Cargar flujos automatizados
+  const fetchFlows = async () => {
+    try {
+      const res = await api.get('/marketing/flows/')
+      setFlows(res.data.results || res.data)
+    } catch (e) {
+      console.error('Error fetching flows:', e)
+    }
+  }
+
   // Guardar configuración del agente
   const handleSaveConfig = async (e) => {
     e.preventDefault()
@@ -170,6 +185,7 @@ export default function WhatsAppPage() {
     fetchStatus()
     fetchChats()
     fetchAgentConfig()
+    fetchFlows()
 
     // Setup WebSocket
     const socketUrl = WA_API_URL.replace('/api/wa', '')
@@ -260,10 +276,10 @@ export default function WhatsAppPage() {
             <p className="text-gray-500 text-sm mt-1">Administra el agente de IA, configura prompts y atiende mensajes derivados en tiempo real.</p>
           </div>
           
-          <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm">
+          <div className="flex bg-white p-1 rounded-xl border border-gray-200 shadow-sm overflow-x-auto">
             <button
               onClick={() => setActiveTab('chats')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'chats' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'chats' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
             >
               <MessageSquare className="w-4 h-4" /> Chats en Vivo
               {chats.some(c => c.pendingHuman) && (
@@ -271,16 +287,22 @@ export default function WhatsAppPage() {
               )}
             </button>
             <button
+              onClick={() => setActiveTab('flows')}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'flows' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              <Bot className="w-4 h-4" /> Flujos y Tareas
+            </button>
+            <button
               onClick={() => setActiveTab('config')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'config' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'config' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
             >
               <Settings className="w-4 h-4" /> Configuración Agente IA
             </button>
             <button
               onClick={() => setActiveTab('qr')}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'qr' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
+              className={`whitespace-nowrap px-4 py-2 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${activeTab === 'qr' ? 'bg-palta-600 text-white shadow' : 'text-gray-600 hover:text-gray-900'}`}
             >
-              <Smartphone className="w-4 h-4" /> Vinculación WhatsApp
+              <Smartphone className="w-4 h-4" /> Vinculación
             </button>
           </div>
         </div>
@@ -452,6 +474,30 @@ export default function WhatsAppPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                <div className="p-4 border border-gray-200 rounded-xl bg-gray-50 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm">Ventas Automáticas</h3>
+                    <p className="text-xs text-gray-500 mt-1">Permite a la IA agregar productos y confirmar carritos.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={agentConfig.enable_sales ?? true} onChange={e => setAgentConfig({...agentConfig, enable_sales: e.target.checked})} />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-palta-600"></div>
+                  </label>
+                </div>
+                
+                <div className="p-4 border border-gray-200 rounded-xl bg-gray-50 flex items-center justify-between">
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-sm">Fidelización (Paltapuntos)</h3>
+                    <p className="text-xs text-gray-500 mt-1">Permite consultar y notificar puntos al cliente.</p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" className="sr-only peer" checked={agentConfig.enable_loyalty ?? true} onChange={e => setAgentConfig({...agentConfig, enable_loyalty: e.target.checked})} />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-palta-600"></div>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex justify-end pt-3">
                 <button
                   type="submit"
@@ -462,6 +508,95 @@ export default function WhatsAppPage() {
                 </button>
               </div>
             </form>
+          </div>
+        )}
+
+        {/* TAB 4: FLUJOS AUTOMATIZADOS */}
+        {activeTab === 'flows' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-6">
+            <h2 className="text-lg font-bold text-gray-900 border-b border-gray-100 pb-3 flex items-center justify-between">
+              <span className="flex items-center gap-2"><Bot className="w-5 h-5 text-palta-600" /> Flujos Estructurados</span>
+              <button 
+                onClick={() => { setEditingFlow(null); setShowFlowModal(true); }}
+                className="px-4 py-2 bg-palta-600 hover:bg-palta-700 text-white font-bold rounded-lg text-sm shadow flex items-center gap-2"
+              >
+                + Nuevo Flujo
+              </button>
+            </h2>
+            <div className="text-sm text-gray-500 mb-4">
+              Crea flujos automáticos interceptando palabras clave específicas. Si el usuario escribe la palabra clave, el bot responderá inmediatamente con el texto fijo, sin consumir llamadas a la IA.
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {flows.length === 0 ? (
+                <p className="text-sm text-gray-400 p-4 border border-gray-100 rounded-xl bg-gray-50 col-span-2 text-center">No hay flujos configurados aún.</p>
+              ) : flows.map(f => (
+                <div key={f.id} className="p-4 border border-gray-200 rounded-xl flex flex-col gap-2 relative group hover:border-palta-300">
+                  <div className="flex justify-between items-start">
+                    <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-bold font-mono truncate max-w-[70%]">
+                      Palabra: {f.trigger_keyword}
+                    </span>
+                    <div className="flex gap-2">
+                       <span className={`w-3 h-3 rounded-full ${f.is_active ? 'bg-green-500' : 'bg-red-500'}`} title={f.is_active ? 'Activo' : 'Inactivo'} />
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-700 whitespace-pre-wrap">{f.response_text}</p>
+                  <button 
+                    onClick={() => { setEditingFlow(f); setShowFlowModal(true); }}
+                    className="mt-2 w-full py-1.5 border border-gray-300 text-gray-700 rounded-lg text-xs font-bold hover:bg-gray-50 transition-colors"
+                  >
+                    Editar
+                  </button>
+                </div>
+              ))}
+            </div>
+            
+            {showFlowModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+                <div className="bg-white rounded-2xl w-full max-w-lg p-6 shadow-xl relative flex flex-col gap-4">
+                  <h3 className="font-bold text-lg text-gray-800">{editingFlow ? 'Editar Flujo' : 'Nuevo Flujo'}</h3>
+                  <form onSubmit={async (e) => {
+                      e.preventDefault();
+                      const payload = {
+                        trigger_keyword: e.target.trigger_keyword.value,
+                        response_text: e.target.response_text.value,
+                        is_active: e.target.is_active.checked
+                      };
+                      try {
+                        if (editingFlow) {
+                          await api.put(`/marketing/flows/${editingFlow.id}/`, payload);
+                        } else {
+                          await api.post('/marketing/flows/', payload);
+                        }
+                        setShowFlowModal(false);
+                        fetchFlows();
+                      } catch (err) {
+                        alert('Error guardando flujo');
+                      }
+                  }}>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Palabra Clave (Trigger)</label>
+                        <input name="trigger_keyword" defaultValue={editingFlow?.trigger_keyword} required className="w-full border border-gray-300 focus:ring-2 focus:ring-palta-500 rounded-lg p-2.5 text-sm" placeholder="Ej: horario, ubicacion, hola" />
+                        <p className="text-xs text-gray-400 mt-1">Si el cliente incluye esta palabra en su mensaje, se activará el flujo.</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Respuesta Fija</label>
+                        <textarea name="response_text" defaultValue={editingFlow?.response_text} required rows={3} className="w-full border border-gray-300 focus:ring-2 focus:ring-palta-500 rounded-lg p-2.5 text-sm" placeholder="Mensaje que enviará el bot automáticamente"/>
+                      </div>
+                      <label className="flex items-center gap-2 text-sm font-medium text-gray-700 cursor-pointer">
+                        <input type="checkbox" name="is_active" defaultChecked={editingFlow ? editingFlow.is_active : true} className="rounded text-palta-600 focus:ring-palta-500 w-4 h-4"/>
+                        Flujo Activo
+                      </label>
+                      <div className="flex justify-end gap-2 pt-4 border-t border-gray-100">
+                         <button type="button" onClick={() => setShowFlowModal(false)} className="px-5 py-2.5 bg-gray-100 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-200 transition-colors">Cancelar</button>
+                         <button type="submit" className="px-5 py-2.5 bg-palta-600 text-white rounded-lg text-sm font-bold hover:bg-palta-700 transition-colors shadow">Guardar</button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

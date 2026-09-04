@@ -64,6 +64,8 @@ class AgentConfig(models.Model):
     whatsapp_connected_phone = models.CharField(max_length=30, blank=True)
     ai_provider = models.CharField(max_length=20, choices=PROVIDER_CHOICES, default='claude')
     api_key = models.CharField(max_length=255, blank=True)
+    enable_sales = models.BooleanField(default=True, help_text="Permitir ventas automáticas de la IA")
+    enable_loyalty = models.BooleanField(default=True, help_text="Permitir consultar puntos de fidelidad")
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
