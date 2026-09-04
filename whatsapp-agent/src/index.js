@@ -836,6 +836,30 @@ app.get('/api/wa/chats/:phone/messages', async (req, res) => {
   });
 });
 
+app.delete('/api/wa/chats/:phone', async (req, res) => {
+  const { phone } = req.params;
+  try {
+    await api.delete(`/marketing/sessions/${phone}/`);
+    io.emit('chats_updated');
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Error eliminando chat' });
+  }
+});
+
+app.delete('/api/wa/chats/:phone/messages', async (req, res) => {
+  const { phone } = req.params;
+  try {
+    const session = await getSession(phone);
+    session.messages = [];
+    await saveSession(phone, session);
+    io.emit('chats_updated');
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Error vaciando mensajes' });
+  }
+});
+
 app.post('/api/wa/chats/:phone/reply', async (req, res) => {
   const { phone } = req.params;
   const { message } = req.body;

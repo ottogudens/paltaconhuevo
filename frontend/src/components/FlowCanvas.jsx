@@ -11,116 +11,110 @@ import {
   Position 
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { MessageSquare, Image as ImageIcon, Link2, Hand, Bot, Phone } from 'lucide-react';
+import { MessageSquare, Image as ImageIcon, Link2, Hand, Bot, Phone, Trash2 } from 'lucide-react';
 
 // === Custom Nodes ===
 
 // 1. Text Node
-const TextNode = ({ data }) => {
-  return (
-    <div className="bg-white rounded-xl shadow-md border-2 border-blue-500 w-64 text-sm group hover:shadow-lg transition-all">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 bg-blue-500" />
-      <div className="flex items-center gap-2 p-3 bg-blue-50 border-b border-blue-100 rounded-t-xl font-bold text-blue-800">
-        <MessageSquare className="w-4 h-4 text-blue-600" /> Mensaje de Texto
-      </div>
-      <div className="p-3">
-        <textarea 
-          className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-blue-500 resize-none nodrag" 
-          defaultValue={data.label} 
-          rows={3}
-          onChange={(e) => data.onChange(data.id, e.target.value)}
-          placeholder="Escribe el mensaje aquí..."
-        />
-      </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-blue-500" />
+const TextNode = ({ data }) => (
+  <div className="bg-white rounded-xl shadow-md border-2 border-blue-500 w-64 text-sm group hover:shadow-lg transition-all">
+    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-blue-500" />
+    <div className="flex items-center justify-between p-3 bg-blue-50 border-b border-blue-100 rounded-t-xl font-bold text-blue-800">
+      <div className="flex items-center gap-2"><MessageSquare className="w-4 h-4 text-blue-600" /> Mensaje de Texto</div>
+      {data.onDelete && <button onClick={() => data.onDelete(data.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>}
     </div>
-  );
-};
+    <div className="p-3">
+      <textarea 
+        className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-blue-500 resize-none nodrag" 
+        value={data.label || ''} 
+        rows={3}
+        onChange={(e) => data.onChange(data.id, e.target.value)}
+        placeholder="Escribe el mensaje aquí..."
+      />
+    </div>
+    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-blue-500" />
+  </div>
+);
 
 // 2. Image Node
-const ImageNode = ({ data }) => {
-  return (
-    <div className="bg-white rounded-xl shadow-md border-2 border-purple-500 w-64 text-sm group hover:shadow-lg transition-all">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 bg-purple-500" />
-      <div className="flex items-center gap-2 p-3 bg-purple-50 border-b border-purple-100 rounded-t-xl font-bold text-purple-800">
-        <ImageIcon className="w-4 h-4 text-purple-600" /> Archivo Multimeda (URL)
-      </div>
-      <div className="p-3 space-y-2">
-        <input 
-          className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-purple-500 nodrag" 
-          defaultValue={data.url} 
-          onChange={(e) => data.onUrlChange(data.id, e.target.value)}
-          placeholder="https://ejemplo.com/imagen.png"
-        />
-        <input 
-          className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-purple-500 nodrag" 
-          defaultValue={data.caption} 
-          onChange={(e) => data.onCaptionChange(data.id, e.target.value)}
-          placeholder="Pie de foto (opcional)"
-        />
-      </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-purple-500" />
+const ImageNode = ({ data }) => (
+  <div className="bg-white rounded-xl shadow-md border-2 border-purple-500 w-64 text-sm group hover:shadow-lg transition-all">
+    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-purple-500" />
+    <div className="flex items-center justify-between p-3 bg-purple-50 border-b border-purple-100 rounded-t-xl font-bold text-purple-800">
+      <div className="flex items-center gap-2"><ImageIcon className="w-4 h-4 text-purple-600" /> Archivo Multimedia</div>
+      {data.onDelete && <button onClick={() => data.onDelete(data.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>}
     </div>
-  );
-};
+    <div className="p-3 space-y-2">
+      <input 
+        className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-purple-500 nodrag" 
+        value={data.url || ''} 
+        onChange={(e) => data.onUrlChange(data.id, e.target.value)}
+        placeholder="https://ejemplo.com/imagen.png"
+      />
+      <input 
+        className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-purple-500 nodrag" 
+        value={data.caption || ''} 
+        onChange={(e) => data.onCaptionChange(data.id, e.target.value)}
+        placeholder="Pie de foto (opcional)"
+      />
+    </div>
+    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-purple-500" />
+  </div>
+);
 
 // 3. Condition Node (Wait for response)
-const ConditionNode = ({ data }) => {
-  return (
-    <div className="bg-white rounded-xl shadow-md border-2 border-yellow-500 w-64 text-sm group hover:shadow-lg transition-all">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 bg-yellow-500" />
-      <div className="flex items-center gap-2 p-3 bg-yellow-50 border-b border-yellow-100 rounded-t-xl font-bold text-yellow-800">
-        <Hand className="w-4 h-4 text-yellow-600" /> Pausa / Condición
-      </div>
-      <div className="p-3">
-        <p className="text-xs text-gray-500 mb-2">
-          El flujo se detendrá aquí hasta que el usuario responda. Se debe validar respuesta exacta o palabras clave.
-        </p>
-        <input 
-          className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-yellow-500 nodrag" 
-          defaultValue={data.expected} 
-          onChange={(e) => data.onExpectedChange(data.id, e.target.value)}
-          placeholder="Input esperado (ej: 'si', '1')"
-        />
-      </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-yellow-500" />
+const ConditionNode = ({ data }) => (
+  <div className="bg-white rounded-xl shadow-md border-2 border-yellow-500 w-64 text-sm group hover:shadow-lg transition-all">
+    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-yellow-500" />
+    <div className="flex items-center justify-between p-3 bg-yellow-50 border-b border-yellow-100 rounded-t-xl font-bold text-yellow-800">
+      <div className="flex items-center gap-2"><Hand className="w-4 h-4 text-yellow-600" /> Pausa / Condición</div>
+      {data.onDelete && <button onClick={() => data.onDelete(data.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>}
     </div>
-  );
-};
+    <div className="p-3">
+      <p className="text-xs text-gray-500 mb-2">Se detendrá aquí hasta que el usuario envíe las palabras exactas.</p>
+      <input 
+        className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-yellow-500 nodrag" 
+        value={data.expected || ''} 
+        onChange={(e) => data.onExpectedChange(data.id, e.target.value)}
+        placeholder="Input esperado (ej: 'si', '1')"
+      />
+    </div>
+    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-yellow-500" />
+  </div>
+);
 
 // 4. Action Node (Handoff / API)
-const ActionNode = ({ data }) => {
-  return (
-    <div className="bg-white rounded-xl shadow-md border-2 border-red-500 w-64 text-sm group hover:shadow-lg transition-all">
-      <Handle type="target" position={Position.Top} className="w-3 h-3 bg-red-500" />
-      <div className="flex items-center gap-2 p-3 bg-red-50 border-b border-red-100 rounded-t-xl font-bold text-red-800">
-        <Bot className="w-4 h-4 text-red-600" /> Acción Especial
-      </div>
-      <div className="p-3">
-        <select 
-          className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-red-500 nodrag"
-          defaultValue={data.actionType}
-          onChange={(e) => data.onActionChange(data.id, e.target.value)}
-        >
-           <option value="human">Derivar a Humano</option>
-           <option value="ai">Derivar a Agente IA (Paltín)</option>
-           <option value="webhook">Ejecutar Webhook (API)</option>
-           <option value="internal_order">Crear Pedido Nuevo (App)</option>
-           <option value="internal_points">Envío de Puntos (Loyalty)</option>
-        </select>
-        {data.actionType === 'webhook' && (
-          <input 
-            className="w-full mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-red-500 nodrag" 
-            defaultValue={data.webhookUrl} 
-            onChange={(e) => data.onWebhookChange(data.id, e.target.value)}
-            placeholder="URL del Webhook (ej. n8n)"
-          />
-        )}
-      </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-red-500" />
+const ActionNode = ({ data }) => (
+  <div className="bg-white rounded-xl shadow-md border-2 border-red-500 w-64 text-sm group hover:shadow-lg transition-all">
+    <Handle type="target" position={Position.Top} className="w-3 h-3 bg-red-500" />
+    <div className="flex items-center justify-between p-3 bg-red-50 border-b border-red-100 rounded-t-xl font-bold text-red-800">
+      <div className="flex items-center gap-2"><Bot className="w-4 h-4 text-red-600" /> Acción Especial</div>
+      {data.onDelete && <button onClick={() => data.onDelete(data.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4"/></button>}
     </div>
-  );
-};
+    <div className="p-3">
+      <select 
+        className="w-full text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-red-500 nodrag"
+        value={data.actionType || 'human'}
+        onChange={(e) => data.onActionChange(data.id, e.target.value)}
+      >
+         <option value="human">Derivar a Humano</option>
+         <option value="ai">Derivar a Agente IA (Paltín)</option>
+         <option value="webhook">Ejecutar Webhook (API)</option>
+         <option value="internal_order">Crear Pedido Nuevo (App)</option>
+         <option value="internal_points">Envío de Puntos (Loyalty)</option>
+      </select>
+      {data.actionType === 'webhook' && (
+        <input 
+          className="w-full mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-red-500 nodrag" 
+          value={data.webhookUrl || ''} 
+          onChange={(e) => data.onWebhookChange(data.id, e.target.value)}
+          placeholder="URL del Webhook (ej. n8n)"
+        />
+      )}
+    </div>
+    <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-red-500" />
+  </div>
+);
 
 
 // === Main Component ===
@@ -145,6 +139,11 @@ export default function FlowCanvas({ initialNodesData, initialEdgesData, onSave,
     [setEdges],
   );
 
+  const onNodeDelete = useCallback((id) => {
+    setNodes((nds) => nds.filter(node => node.id !== id));
+    setEdges((eds) => eds.filter(edge => edge.source !== id && edge.target !== id));
+  }, [setNodes, setEdges]);
+
   // Update handlers
   const onTextChange = (id, val) => {
     setNodes((nds) => nds.map(node => node.id === id ? { ...node, data: { ...node.data, label: val } } : node));
@@ -154,19 +153,21 @@ export default function FlowCanvas({ initialNodesData, initialEdgesData, onSave,
   };
 
   const nodeTypes = useMemo(() => ({
-    text: (props) => <TextNode {...props} data={{ ...props.data, onChange: onTextChange }} />,
+    text: (props) => <TextNode {...props} data={{ ...props.data, onChange: onTextChange, onDelete: onNodeDelete }} />,
     image: (props) => <ImageNode {...props} data={{ 
       ...props.data, 
       onUrlChange: (id, v) => onImagePropChange(id, 'url', v), 
-      onCaptionChange: (id, v) => onImagePropChange(id, 'caption', v) 
+      onCaptionChange: (id, v) => onImagePropChange(id, 'caption', v),
+      onDelete: onNodeDelete
     }} />,
-    condition: (props) => <ConditionNode {...props} data={{ ...props.data, onExpectedChange: (id, v) => onImagePropChange(id, 'expected', v) }} />,
+    condition: (props) => <ConditionNode {...props} data={{ ...props.data, onExpectedChange: (id, v) => onImagePropChange(id, 'expected', v), onDelete: onNodeDelete }} />,
     action: (props) => <ActionNode {...props} data={{ 
       ...props.data, 
       onActionChange: (id, v) => onImagePropChange(id, 'actionType', v),
-      onWebhookChange: (id, v) => onImagePropChange(id, 'webhookUrl', v)
+      onWebhookChange: (id, v) => onImagePropChange(id, 'webhookUrl', v),
+      onDelete: onNodeDelete
     }} />
-  }), [setNodes]);
+  }), [setNodes, onNodeDelete]);
 
   const addSpecificNode = (typeStr, labelText) => {
     const newNode = {

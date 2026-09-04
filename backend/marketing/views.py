@@ -288,6 +288,10 @@ class WhatsAppSessionDetailView(APIView):
         session.save()
         return Response(WhatsAppSessionSerializer(session).data)
 
+    def delete(self, request, phone):
+        WhatsAppSession.objects.filter(phone=phone).delete()
+        return Response({'success': True})
+
 class WhatsAppSessionListView(APIView):
     """
     Endpoint para que el agente obtenga todas las sesiones (para el panel admin).

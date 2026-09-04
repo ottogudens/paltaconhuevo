@@ -181,6 +181,30 @@ export default function WhatsAppPage() {
     }
   }
 
+  const handleDeleteChat = async (phone) => {
+    if (!window.confirm(`¿Seguro que deseas eliminar el chat con ${phone}? Se borrará el historial y la sesión de la base de datos.`)) return;
+    try {
+      await fetch(`${WA_API_URL}/chats/${phone}`, { method: 'DELETE' });
+      if (selectedChatPhone === phone) {
+        setSelectedChatPhone(null);
+        setCurrentChatData(null);
+      }
+      fetchChats();
+    } catch (e) {
+      alert('Error al eliminar chat');
+    }
+  };
+
+  const handleClearMessages = async (phone) => {
+    if (!window.confirm(`¿Seguro que deseas vaciar los mensajes de ${phone}? El historial se borrará pero la conversación se mantendrá abierta.`)) return;
+    try {
+      await fetch(`${WA_API_URL}/chats/${phone}/messages`, { method: 'DELETE' });
+      fetchChatMessages(phone);
+    } catch (e) {
+      alert('Error al vaciar mensajes');
+    }
+  };
+
 
   useEffect(() => {
     fetchStatus()
@@ -360,7 +384,21 @@ export default function WhatsAppPage() {
                       <h3 className="font-bold text-gray-900">{currentChatData.name}</h3>
                       <p className="text-xs text-gray-400">{currentChatData.phone}</p>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleClearMessages(currentChatData.phone)}
+                        title="Vaciar mensajes"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200"
+                      >
+                        Vaciar
+                      </button>
+                      <button
+                        onClick={() => handleDeleteChat(currentChatData.phone)}
+                        title="Eliminar chat completo"
+                        className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-red-50 text-red-600 hover:bg-red-100"
+                      >
+                        Eliminar
+                      </button>
                       <button
                         onClick={() => handleToggleHumanMode(currentChatData.phone, currentChatData.isHumanMode)}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${currentChatData.isHumanMode ? 'bg-palta-100 text-palta-700 hover:bg-palta-200' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-2xs'}`}
