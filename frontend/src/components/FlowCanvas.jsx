@@ -125,6 +125,15 @@ const ActionNode = ({ id, data }) => {
             placeholder="URL del Webhook (ej. n8n)"
           />
         )}
+        {data.actionType === 'ai' && (
+          <textarea 
+            className="w-full mt-2 text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded p-2 focus:ring-2 focus:ring-red-500 nodrag resize-none" 
+            rows={3}
+            value={data.aiPrompt || ''} 
+            onChange={(e) => updateNodeData(id, { aiPrompt: e.target.value })}
+            placeholder="Instrucciones del prompt para la IA (Opcional)..."
+          />
+        )}
       </div>
       <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-red-500" />
     </div>

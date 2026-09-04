@@ -254,10 +254,15 @@ async function processWithAI(session, userMessage, customerPhone) {
 
   const basePrompt = config.system_prompt || 'Eres el asistente virtual de "Palta con Huevo" 🥑.';
   const extraInfo = config.additional_info ? `\nINFORMACIÓN ADICIONAL DEL NEGOCIO:\n${config.additional_info}` : '';
+  const flowInstruction = session.nextAIPrompt ? `\n\n📌 INSTRUCCIÓN DE FLUJO ACTIVO:\n${session.nextAIPrompt}\n` : '';
+
+  if (session.nextAIPrompt) {
+    session.nextAIPrompt = null;
+  }
 
   const systemPrompt = `${basePrompt}
 ${extraInfo}
-
+${flowInstruction}
 PRODUCTOS REGISTRADOS EN EL SISTEMA:
 ${productList}
 
@@ -624,6 +629,9 @@ async function tickFlowMachine(phone, session, userInput) {
           return true;
        } else if (currentNode.data?.actionType === 'ai') {
           session.flowState.active = false;
+          if (currentNode.data.aiPrompt) {
+              session.nextAIPrompt = currentNode.data.aiPrompt;
+          }
           // Rompe el estado y el mensaje actual se pasa directo a AI. Se asume handled=false globalmente para que handleMessageLogic caiga al processWithAI final.
           break; 
        } else if (currentNode.data?.actionType === 'webhook') {
