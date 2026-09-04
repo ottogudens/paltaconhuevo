@@ -581,6 +581,15 @@ export default function WhatsAppPage() {
                   initialEdgesData={editingFlow.edges}
                   onCancel={() => setShowFlowModal(false)}
                   onSave={async (nodes, edges) => {
+                    if (!editingFlow.name || !editingFlow.name.trim()) {
+                      alert('Por favor ingresa un nombre para el flujo.');
+                      return;
+                    }
+                    if (!editingFlow.trigger_keyword || !editingFlow.trigger_keyword.trim()) {
+                      alert('Por favor ingresa al menos una palabra clave (trigger).');
+                      return;
+                    }
+                    
                     const payload = {
                       name: editingFlow.name,
                       trigger_keyword: editingFlow.trigger_keyword,
@@ -597,7 +606,8 @@ export default function WhatsAppPage() {
                       setShowFlowModal(false);
                       fetchFlows();
                     } catch (e) {
-                      alert('Error guardando flujo en Canvas');
+                      console.error('API Error Response:', e.response?.data);
+                      alert('Error guardando flujo en Canvas: ' + (e.userMessage || 'Revisa la consola.'));
                     }
                   }}
                 />
