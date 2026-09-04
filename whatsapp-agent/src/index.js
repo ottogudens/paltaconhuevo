@@ -558,6 +558,108 @@ async function handleMessage(phone, message) {
   }
 }
 
+// === FLUJOS TIPO CANVAS (STATE MACHINE) ===
+async function tickFlowMachine(phone, session, userInput) {
+  if (!session.flowState || !session.flowState.active) return false;
+  
+  const flows = await getFlows();
+  const flow = flows.find(f => f.id === session.flowState.flowId);
+  if (!flow || !flow.nodes) {
+    session.flowState.active = false;
+    return false;
+  }
+  
+  let currentNode = flow.nodes.find(n => n.id === session.flowState.currentNodeId);
+  let handled = false;
+
+  while(currentNode) {
+    let nextNodeId = null;
+    let waitForUser = false;
+    
+    // Ejecutar la acción del nodo
+    if (currentNode.type === 'input') {
+       // Nodo inicial, avanzamos
+       handled = true;
+    } else if (currentNode.type === 'text') {
+       if (currentNode.data?.label) {
+          session.messages.push({ sender: 'bot', text: currentNode.data.label, timestamp: new Date().toISOString() });
+          io.emit('chat_message', { phone, sender: 'bot', text: currentNode.data.label });
+          await sendMessage(phone, currentNode.data.label);
+          handled = true;
+       }
+    } else if (currentNode.type === 'image') {
+       if (currentNode.data?.url) {
+          const caption = currentNode.data.caption || '';
+          session.messages.push({ sender: 'bot', text: `[Imagen: ${caption}]`, timestamp: new Date().toISOString() });
+          io.emit('chat_message', { phone, sender: 'bot', text: `[Imagen: ${caption}]` });
+          await sendMessage(phone, { image: { url: currentNode.data.url }, caption });
+          handled = true;
+       }
+    } else if (currentNode.type === 'condition') {
+       if (!session.flowState.waitingForInput) {
+           session.flowState.waitingForInput = true;
+           waitForUser = true; 
+           handled = true; // Se detiene aquí esperando a futuro
+       } else {
+           session.flowState.waitingForInput = false;
+           const expected = (currentNode.data?.expected || '').toLowerCase().trim();
+           if (expected && !userInput.toLowerCase().trim().includes(expected)) {
+              // No calza con la condición. Queda atrapado esperando
+              session.flowState.waitingForInput = true; 
+              waitForUser = true;
+              handled = true;
+           }
+       }
+    } else if (currentNode.type === 'action') {
+       if (currentNode.data?.actionType === 'human') {
+          session.isHumanMode = true;
+          session.pendingHuman = true;
+          notifyHumanOperator(phone, session.userData?.first_name);
+          const msg = '👨‍💼 Te transfiero de inmediato con un operador humano.';
+          session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
+          io.emit('chat_message', { phone, sender: 'bot', text: msg });
+          await sendMessage(phone, msg);
+          
+          session.flowState.active = false;
+          return true;
+       } else if (currentNode.data?.actionType === 'ai') {
+          session.flowState.active = false;
+          // Rompe el estado y el mensaje actual se pasa directo a AI. Se asume handled=false globalmente para que handleMessageLogic caiga al processWithAI final.
+          break; 
+       } else if (currentNode.data?.actionType === 'webhook') {
+          try {
+             if (currentNode.data.webhookUrl) {
+                await axios.post(currentNode.data.webhookUrl, { phone, user: session.userData, input: userInput });
+                handled = true;
+             }
+          } catch(e) {
+             console.error('Error Webhook React Flow:', e.message);
+          }
+       }
+    }
+    
+    // Si debemos esperar al usuario, cortamos el while
+    if (waitForUser) {
+        break;
+    }
+
+    // Avanzar
+    const edge = flow.edges?.find(e => e.source === currentNode.id);
+    nextNodeId = edge ? edge.target : null;
+    
+    if (nextNodeId) {
+        currentNode = flow.nodes.find(n => n.id === nextNodeId);
+        session.flowState.currentNodeId = nextNodeId;
+    } else {
+        session.flowState.active = false;
+        break; // Fin del flujo
+    }
+  }
+  
+  return handled; // Retorna true si es que atajó la conversación
+}
+
+
 // Lógica principal de mensajes
 async function handleMessageLogic(phone, message, session) {
   session.lastMessageAt = new Date().toISOString();
@@ -612,23 +714,46 @@ async function handleMessageLogic(phone, message, session) {
 
     if (['hola','inicio','menu','menú','0'].includes(lower)) {
       logger.info({ event: 'heuristic_short_circuit', intent: 'menu', phone }, 'Respondiendo menú por heurística');
+      session.flowState = null; // Reiniciamos flujos
       const menuText = getMenu(session);
       session.messages.push({ sender: 'bot', text: menuText, timestamp: new Date().toISOString() });
       return menuText;
     }
 
-    // Intercepción por Flujos (WhatsAppFlow)
+    // 1. Verificamos si estamos atrapados en un flujo
+    if (session.flowState && session.flowState.active) {
+       const isFlowHandled = await tickFlowMachine(phone, session, message);
+       if (isFlowHandled) {
+          return null; // El canvas flow se encargó
+       }
+    }
+
+    // 2. Revisamos si el input dispara un NUEVO flujo
     const flows = await getFlows();
     if (flows && flows.length > 0) {
-      const matchFlow = flows.find(f => f.is_active && lower.includes(f.trigger_keyword.toLowerCase().trim()));
+      const matchFlow = flows.find(f => f.is_active && lower.includes(f.trigger_keyword?.toLowerCase().trim()));
       if (matchFlow) {
-        logger.info({ event: 'flow_intercepted', trigger: matchFlow.trigger_keyword, phone }, 'Respondiendo mediante flujo estructurado');
-        session.messages.push({ sender: 'bot', text: matchFlow.response_text, timestamp: new Date().toISOString() });
-        io.emit('chat_message', { phone, sender: 'bot', text: matchFlow.response_text });
-        return matchFlow.response_text; // Interceptamos y NO llamamos a AI
+        logger.info({ event: 'flow_intercepted', trigger: matchFlow.trigger_keyword, phone }, 'Iniciando flujo estructurado Canvas');
+        
+        // Iniciamos el flujo en session
+        const startNode = matchFlow.nodes?.find(n => n.type === 'input') || matchFlow.nodes?.[0];
+        if (startNode) {
+           session.flowState = {
+             active: true,
+             flowId: matchFlow.id,
+             currentNodeId: startNode.id,
+             waitingForInput: false
+           };
+           // Hacemos el primer tick enviando el mensaje original (para que lea si el primer nodo es un check condition igual)
+           const isFlowHandled = await tickFlowMachine(phone, session, message);
+           if (isFlowHandled) {
+              return null;
+           }
+        }
       }
     }
 
+    // 3. Fallback al motor IA
     const botReply = await processWithAI(session, message, phone);
 
     if (botReply) {
@@ -642,6 +767,7 @@ async function handleMessageLogic(phone, message, session) {
     return '❌ Tuve un problema. Intenta de nuevo o escribe "menu" para volver al inicio.';
   }
 }
+
 
 function getMenu(session) {
   const name = session?.userData?.first_name || '';

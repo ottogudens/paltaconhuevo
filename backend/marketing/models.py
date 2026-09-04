@@ -87,13 +87,15 @@ class WhatsAppSession(models.Model):
 
 class WhatsAppFlow(models.Model):
     """
-    Flujos de autorespuesta por palabra o intención clave (trigger).
+    Flujos estructurados con soporte de diseño tipo Canvas (Nodos y Aristas).
     """
+    name = models.CharField(max_length=150, default="Nuevo Flujo", help_text="Nombre del Flujo")
     trigger_keyword = models.CharField(max_length=150, help_text="Palabra o intención clave")
-    response_text = models.TextField(help_text="Respuesta que enviará el agente")
+    nodes = models.JSONField(default=list, blank=True, help_text="Configuración de Canvas Nodos")
+    edges = models.JSONField(default=list, blank=True, help_text="Configuración de Canvas Conexiones")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.trigger_keyword
+        return f"{self.name} ({self.trigger_keyword})"
 

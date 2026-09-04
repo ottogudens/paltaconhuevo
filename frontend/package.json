@@ -9,6 +9,7 @@
     "start": "serve -s dist -l $PORT"
   },
   "dependencies": {
+    "@xyflow/react": "^12.11.6",
     "axios": "^1.7.2",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.408.0",
@@ -18,6 +19,7 @@
     "react-router-dom": "^6.22.3",
     "recharts": "^2.12.7",
     "socket.io-client": "^4.8.3",
+    "uuid": "^14.0.2",
     "zustand": "^4.5.0"
   },
   "devDependencies": {
