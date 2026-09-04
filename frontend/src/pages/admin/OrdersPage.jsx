@@ -879,73 +879,142 @@ export default function OrdersPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* Table & Mobile Card View */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-palta-600" />
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id')}># <SortIcon field="id" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customer__first_name')}>Cliente <SortIcon field="customer__first_name" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600">Productos</th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total')}>Total <SortIcon field="total" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Estado <SortIcon field="status" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('payment_status')}>Pago <SortIcon field="payment_status" /></th>
-                    <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Fecha <SortIcon field="created_at" /></th>
-                    <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {orders.length > 0 ? orders.map(o => (
-                    <tr key={o.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedOrder(o)}>
-                      <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
-                      <td className="px-5 py-3">
-                        <p className="font-medium text-gray-900">{o.customer_name || 'N/A'}</p>
-                        <p className="text-xs text-gray-500">{o.customer_phone || ''}</p>
-                      </td>
-                      <td className="px-5 py-3 text-gray-700 text-xs leading-relaxed max-w-xs">{formatProducts(o.items)}</td>
-                      <td className="px-5 py-3 font-medium">{formatCLP(o.total)}</td>
-                      <td className="px-5 py-3">{statusBadge(o.status)}</td>
-                      <td className="px-5 py-3">{payBadge(o.payment_status)}</td>
-                      <td className="px-5 py-3 text-gray-500">{new Date(o.created_at).toLocaleDateString('es-CL')}</td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex justify-end gap-1">
-                          <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); }} className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Ver / Editar">
+            <>
+              {/* Mobile View: Cards */}
+              <div className="block sm:hidden divide-y divide-gray-100">
+                {orders.length > 0 ? (
+                  orders.map((o) => (
+                    <div
+                      key={o.id}
+                      onClick={() => setSelectedOrder(o)}
+                      className="p-4 space-y-3 hover:bg-palta-50/50 active:bg-palta-50 transition-colors cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
+                          #{o.id}
+                        </span>
+                        <span className="text-xs text-gray-400">
+                          {new Date(o.created_at).toLocaleDateString('es-CL')}
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-gray-900 text-base">{o.customer_name || 'N/A'}</p>
+                          <p className="text-xs text-gray-500">{o.customer_phone || 'Sin teléfono'}</p>
+                        </div>
+                        <p className="font-bold text-gray-900 text-lg">{formatCLP(o.total)}</p>
+                      </div>
+
+                      <p className="text-xs text-gray-600 line-clamp-2 bg-gray-50 p-2 rounded-lg">
+                        {formatProducts(o.items)}
+                      </p>
+
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="flex items-center gap-1.5">
+                          {statusBadge(o.status)}
+                          {payBadge(o.payment_status)}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setSelectedOrder(o)
+                            }}
+                            className="p-2 text-palta-600 bg-palta-50 rounded-lg"
+                            title="Ver detalles"
+                          >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button onClick={(e) => handleDelete(e, o.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-600" title="Eliminar">
+                          <button
+                            onClick={(e) => handleDelete(e, o.id)}
+                            className="p-2 text-red-600 bg-red-50 rounded-lg"
+                            title="Eliminar"
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                      </td>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-8 text-center text-gray-400">
+                    <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                    No hay pedidos
+                  </div>
+                )}
+              </div>
+
+              {/* Desktop View: Table */}
+              <div className="hidden sm:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('id')}># <SortIcon field="id" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('customer__first_name')}>Cliente <SortIcon field="customer__first_name" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600">Productos</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('total')}>Total <SortIcon field="total" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('status')}>Estado <SortIcon field="status" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('payment_status')}>Pago <SortIcon field="payment_status" /></th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-600 cursor-pointer hover:bg-gray-100" onClick={() => handleSort('created_at')}>Fecha <SortIcon field="created_at" /></th>
+                      <th className="text-right px-5 py-3 font-medium text-gray-600">Acción</th>
                     </tr>
-                  )) : (
-                    <tr><td colSpan={8} className="px-5 py-12 text-center text-gray-400">
-                      <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-                      No hay pedidos
-                    </td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {orders.length > 0 ? orders.map(o => (
+                      <tr key={o.id} className="hover:bg-gray-50 transition-colors cursor-pointer" onClick={() => setSelectedOrder(o)}>
+                        <td className="px-5 py-3 font-mono text-gray-500">#{o.id}</td>
+                        <td className="px-5 py-3">
+                          <p className="font-medium text-gray-900">{o.customer_name || 'N/A'}</p>
+                          <p className="text-xs text-gray-500">{o.customer_phone || ''}</p>
+                        </td>
+                        <td className="px-5 py-3 text-gray-700 text-xs leading-relaxed max-w-xs">{formatProducts(o.items)}</td>
+                        <td className="px-5 py-3 font-medium">{formatCLP(o.total)}</td>
+                        <td className="px-5 py-3">{statusBadge(o.status)}</td>
+                        <td className="px-5 py-3">{payBadge(o.payment_status)}</td>
+                        <td className="px-5 py-3 text-gray-500">{new Date(o.created_at).toLocaleDateString('es-CL')}</td>
+                        <td className="px-5 py-3 text-right">
+                          <div className="flex justify-end gap-1">
+                            <button onClick={(e) => { e.stopPropagation(); setSelectedOrder(o); }} className="p-1.5 hover:bg-palta-50 rounded-lg text-palta-600" title="Ver / Editar">
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={(e) => handleDelete(e, o.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-red-600" title="Eliminar">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr><td colSpan={8} className="px-5 py-12 text-center text-gray-400">
+                        <ShoppingCart className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+                        No hay pedidos
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
 
           {hasMore && !loading && (
             <div className="flex justify-center p-4 border-t border-gray-100">
               <button 
                 onClick={() => fetchOrders(page + 1)} 
-                className="px-6 py-2 bg-palta-50 text-palta-700 font-medium rounded-lg hover:bg-palta-100 transition-colors"
+                className="w-full sm:w-auto px-6 py-2.5 bg-palta-50 text-palta-700 font-medium rounded-xl hover:bg-palta-100 transition-colors min-h-[44px]"
               >
                 Cargar más pedidos
               </button>
             </div>
           )}
         </div>
+
       </div>
 
       {selectedOrder && (

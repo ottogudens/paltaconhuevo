@@ -2,17 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-* { @apply scroll-smooth; }
-body { @apply bg-white text-gray-900 font-sans; }
+html, body {
+  @apply bg-gray-50 text-gray-900 font-sans antialiased;
+  overflow-x: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+* {
+  @apply scroll-smooth;
+}
 
 @layer components {
-  .btn-primary { @apply px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 transition font-medium; }
-  .btn-secondary { @apply px-4 py-2 bg-huevo-500 text-gray-900 rounded-lg hover:bg-huevo-600 transition font-medium; }
-  .btn-outline { @apply px-4 py-2 border-2 border-palta-600 text-palta-600 rounded-lg hover:bg-palta-50 transition; }
-  .card { @apply bg-white border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition p-4; }
-  .input-field { @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-palta-500 focus:border-transparent; }
-  .badge { @apply inline-block px-3 py-1 rounded-full text-sm font-medium; }
+  .btn-primary { @apply px-4 py-2.5 bg-palta-600 text-white rounded-xl hover:bg-palta-700 active:scale-[0.98] transition font-medium min-h-[44px] flex items-center justify-center gap-2 shadow-sm; }
+  .btn-secondary { @apply px-4 py-2.5 bg-huevo-500 text-gray-900 rounded-xl hover:bg-huevo-600 active:scale-[0.98] transition font-medium min-h-[44px] flex items-center justify-center gap-2 shadow-sm; }
+  .btn-outline { @apply px-4 py-2.5 border-2 border-palta-600 text-palta-600 rounded-xl hover:bg-palta-50 active:scale-[0.98] transition font-medium min-h-[44px] flex items-center justify-center gap-2; }
+  .card { @apply bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition p-4 sm:p-5; }
+  .input-field { @apply w-full px-4 py-2.5 text-base sm:text-sm border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-palta-500 focus:border-transparent min-h-[44px]; }
+  .badge { @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold; }
   .badge-success { @apply badge bg-palta-100 text-palta-700; }
   .badge-warning { @apply badge bg-huevo-100 text-huevo-700; }
   .badge-danger { @apply badge bg-red-100 text-red-700; }
 }
+
+/* Safe area padding helper for modern mobile devices */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 1rem);
+}
+

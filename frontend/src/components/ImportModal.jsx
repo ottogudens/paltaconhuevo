@@ -53,9 +53,9 @@ export default function ImportModal({ isOpen, onClose, onImportSuccess, title, e
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between p-6 border-b border-gray-100">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-md max-h-[90dvh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 sm:p-6 border-b border-gray-100">
           <h2 className="text-xl font-bold text-gray-900">{title}</h2>
           <button onClick={handleClose} className="text-gray-400 hover:text-gray-500 transition-colors">
             <X className="w-6 h-6" />

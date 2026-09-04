@@ -46,7 +46,7 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
   const navContent = (
     <div className="flex flex-col h-full">
       {/* Logo */}
-      <div className="p-5 border-b border-palta-700/30">
+      <div className="p-5 border-b border-palta-700/30 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-palta-400 to-palta-600 flex items-center justify-center text-xl shadow-lg">
             🥑
@@ -56,6 +56,14 @@ export default function Sidebar({ mobileOpen, setMobileOpen }) {
             <p className="text-palta-300 text-xs">Gestión de Ventas</p>
           </div>
         </div>
+        {/* Mobile close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="lg:hidden p-2 text-palta-300 hover:text-white hover:bg-white/10 rounded-xl transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Cerrar menú"
+        >
+          <X className="w-6 h-6" />
+        </button>
       </div>
 
       {/* Navigation */}
