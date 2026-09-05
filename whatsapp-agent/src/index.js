@@ -108,9 +108,16 @@ async function sendMessage(phone, message) {
   let jid = session?.remoteJid;
   
   if (!jid) {
-    // Si no tenemos el JID exacto guardado, lo construimos asumiendo el formato
+    // Construir JID a partir del número: se eliminan TODOS los no-dígitos (incluido '+')
+    // para garantizar un JID válido para Baileys (ej: 56912345678@s.whatsapp.net)
     let clean = phone.replace(/\D/g, '');
-    if (clean.length === 9 && clean.startsWith('9')) clean = '56' + clean;
+    if (clean.startsWith('56') && clean.length === 11) {
+      // Formato correcto: 56912345678
+    } else if (clean.startsWith('9') && clean.length === 9) {
+      clean = '56' + clean;
+    } else if (clean.length === 8) {
+      clean = '569' + clean;
+    }
     jid = `${clean}@s.whatsapp.net`;
   }
   
@@ -897,13 +904,21 @@ app.post('/api/wa/chats/:phone/toggle-human', async (req, res) => {
   res.json({ phone, isHumanMode: session.isHumanMode });
 });
 
-app.post('/send', (req, res) => {
+app.post('/send', async (req, res) => {
   const { to, message } = req.body;
   const token = req.headers.authorization?.replace('Bearer ', '');
   const expectedToken = process.env.INTERNAL_TOKEN || '';
-  if (token !== expectedToken) return res.status(401).json({ error: 'Unauthorized' });
-  sendMessage(to, message);
-  res.json({ sent: true });
+  if (token !== expectedToken) {
+    console.warn(`[/send] 401 Unauthorized — token recibido: "${token?.slice(0,8)}...", esperado vacío: ${!expectedToken}`);
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    await sendMessage(to, message);
+    res.json({ sent: true });
+  } catch (e) {
+    console.error('[/send] Error enviando mensaje a', to, ':', e.message);
+    res.status(500).json({ sent: false, error: e.message });
+  }
 });
 
 app.get('/health', (req, res) => res.json({ status: 'ok', connected: isConnected }));

@@ -3,7 +3,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.conf import settings
-import anthropic, requests, random, datetime
+import anthropic, requests, random, datetime, logging
+
+logger = logging.getLogger(__name__)
 from .models import Campaign, Contest, Offer, AgentConfig
 from .serializers import CampaignSerializer, ContestSerializer, OfferSerializer, AgentConfigSerializer
 from users.models import User
@@ -42,15 +44,23 @@ class SendCampaignView(APIView):
         for user in users:
             if campaign.channel in ['whatsapp', 'ambos'] and user.whatsapp_number and user.whatsapp_notifications:
                 try:
-                    requests.post(
+                    resp = requests.post(
                         f"{settings.WHATSAPP_SERVICE_URL}/send",
                         json={"to": user.whatsapp_number, "message": campaign.message},
                         headers={"Authorization": f"Bearer {settings.WHATSAPP_SERVICE_TOKEN}"},
                         timeout=5,
                     )
-                    sent += 1
-                except Exception:
-                    pass
+                    if resp.status_code == 200:
+                        sent += 1
+                    else:
+                        logger.warning(
+                            f"[Campaign {campaign.id}] Fallo envio WA a {user.whatsapp_number}: "
+                            f"HTTP {resp.status_code} — {resp.text[:200]}"
+                        )
+                except requests.exceptions.Timeout:
+                    logger.warning(f"[Campaign {campaign.id}] Timeout enviando WA a {user.whatsapp_number}")
+                except Exception as e:
+                    logger.error(f"[Campaign {campaign.id}] Error enviando WA a {user.whatsapp_number}: {e}")
         campaign.status = 'enviada'
         campaign.sent_at = datetime.datetime.now()
         campaign.recipients_count = sent
@@ -113,15 +123,23 @@ class SendOfferView(APIView):
         for user in users:
             if channel in ['whatsapp', 'ambos'] and user.whatsapp_number and user.whatsapp_notifications:
                 try:
-                    requests.post(
+                    resp = requests.post(
                         f"{settings.WHATSAPP_SERVICE_URL}/send",
                         json={"to": user.whatsapp_number, "message": message_text},
                         headers={"Authorization": f"Bearer {settings.WHATSAPP_SERVICE_TOKEN}"},
                         timeout=5,
                     )
-                    sent += 1
-                except Exception:
-                    pass
+                    if resp.status_code == 200:
+                        sent += 1
+                    else:
+                        logger.warning(
+                            f"[Offer {offer.id}] Fallo envio WA a {user.whatsapp_number}: "
+                            f"HTTP {resp.status_code} — {resp.text[:200]}"
+                        )
+                except requests.exceptions.Timeout:
+                    logger.warning(f"[Offer {offer.id}] Timeout enviando WA a {user.whatsapp_number}")
+                except Exception as e:
+                    logger.error(f"[Offer {offer.id}] Error enviando WA a {user.whatsapp_number}: {e}")
         return Response({'sent': sent, 'message': 'Oferta enviada masivamente con éxito'})
 
 
