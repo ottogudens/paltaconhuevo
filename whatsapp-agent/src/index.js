@@ -391,6 +391,11 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
       description: "Obtiene los puntos de fidelidad del cliente.",
       input_schema: { type: "object", properties: {} }
     });
+    tools.push({
+      name: "get_recipe",
+      description: "Obtiene recetas sugeridas con palta y/o huevo. Usar cuando el cliente pida ideas, recetas o qué cocinar.",
+      input_schema: { type: "object", properties: {} }
+    });
   }
 
 
@@ -478,6 +483,20 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
           else if (name === 'get_loyalty_points') {
             const loyalty = await getUserPoints(session.userToken);
             toolResultText = `El usuario tiene ${loyalty.points} puntos. Nivel: ${loyalty.level}.`;
+          }
+          else if (name === 'get_recipe') {
+            try {
+              const res = await api.get('/recipes/');
+              const recetas = res.data.results || res.data || [];
+              if (recetas.length > 0) {
+                 const recString = recetas.map(r => `- ${r.title} (${r.difficulty} - ${r.calories}kcal)\n  Ingredientes destac.: ${r.ingredients?.map(i=>i.item).join(', ')}\n  Prep: ${r.steps?.[0]}...`).join('\n\n');
+                 toolResultText = `Toma las recetas y sugiérelas de manera conversacional, sin copiar y pegar el json. Aquí están algunas:\n${recString}`;
+              } else {
+                 toolResultText = `No hay recetas disponibles actualmente en la base de datos de fidelización. Ofrece disculpas.`;
+              }
+            } catch (e) {
+              toolResultText = `Error obteniendo recetas. Dile que en este momento no tienes el recetario a mano.`;
+            }
           }
           else if (name === 'confirm_order') {
             session.step = 'confirming';

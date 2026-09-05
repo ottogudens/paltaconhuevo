@@ -184,6 +184,13 @@ export default function DashboardPage() {
           <StatCard icon={DollarSign} label="Ventas Período" value={formatCLP(dashboard?.sales_period_value)} color="blue" />
         </div>
 
+        {/* Third Row: Nuevas Métricas Financieras */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
+          <StatCard icon={ShoppingCart} label="Stock Valorizado (Activo)" value={formatCLP(dashboard?.valorized_stock)} color="palta" />
+          <StatCard icon={TrendingUp} label="Deuda Compras Proveedores" value={formatCLP(dashboard?.unpaid_purchases_total)} color="red" />
+          <StatCard icon={DollarSign} label="Punto de Equilibrio (Utilidad Caja)" value={formatCLP(dashboard?.unwithdrawn_profit)} color="blue" />
+        </div>
+
         {/* Second row */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <StatCard icon={Users} label="Total Clientes" value={dashboard?.total_customers || 0} color="blue" />

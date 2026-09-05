@@ -217,9 +217,11 @@ function PurchaseModal({ purchase, onClose, onSave, products }) {
     quantity: purchase.quantity,
     unit_cost: purchase.unit_cost,
     purchase_date: purchase.purchase_date || purchase.date_str,
+    payment_status: purchase.payment_status || 'pagado',
+    paid_amount: purchase.paid_amount || purchase.total_cost || 0,
     notes: purchase.notes || ''
   } : {
-    supplier_name: '', product: '', quantity: '', unit_cost: '', purchase_date: new Date().toISOString().split('T')[0], notes: ''
+    supplier_name: '', product: '', quantity: '', unit_cost: '', purchase_date: new Date().toISOString().split('T')[0], payment_status: 'pagado', paid_amount: '', notes: ''
   })
   const [saving, setSaving] = useState(false)
 
@@ -231,7 +233,10 @@ function PurchaseModal({ purchase, onClose, onSave, products }) {
           ...form,
           quantity: parseFloat(form.quantity),
           unit_cost: parseFloat(form.unit_cost),
-          total_cost: parseFloat(form.quantity) * parseFloat(form.unit_cost)
+          total_cost: parseFloat(form.quantity) * parseFloat(form.unit_cost),
+          paid_amount: form.payment_status === 'pagado' 
+            ? (parseFloat(form.quantity) * parseFloat(form.unit_cost)) 
+            : parseFloat(form.paid_amount || 0)
       }
       if (isEdit) {
         await api.patch(`/products/purchases/${purchase.id}/`, payload)
@@ -283,6 +288,24 @@ function PurchaseModal({ purchase, onClose, onSave, products }) {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">Precio Unit. ($)</label>
                 <input type="number" value={form.unit_cost} onChange={e => setForm({...form, unit_cost: e.target.value})} required min="1"
                 className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500" placeholder="0" />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+             <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Estado de Pago</label>
+                <select value={form.payment_status} onChange={e => setForm({...form, payment_status: e.target.value})} required
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
+                    <option value="pagado">Pagado Total</option>
+                    <option value="abono">Abono / Parcial</option>
+                    <option value="pendiente_pago">Pendiente de Pago</option>
+                </select>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Monto Abonado ($)</label>
+                <input type="number" value={form.payment_status === 'pagado' ? (form.quantity * form.unit_cost || 0) : form.paid_amount} 
+                onChange={e => setForm({...form, paid_amount: e.target.value})} 
+                disabled={form.payment_status === 'pagado' || form.payment_status === 'pendiente_pago'}
+                className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 disabled:bg-gray-100 disabled:text-gray-500" placeholder="0" />
             </div>
           </div>
           <div className="pt-2">
@@ -426,7 +449,16 @@ export default function FinanceComprasPage() {
                             ) : t.description}
                         </td>
                         <td className="px-5 py-3 text-right font-bold text-red-600">
+                          {t.is_purchase && t.payment_status !== 'pagado' && (
+                             <div className="text-xs font-normal text-gray-500 mb-0.5">
+                               Abonado: {formatCLP(t.paid_amount)}<br/>
+                               Falta: {formatCLP(t.amount - t.paid_amount)}
+                             </div>
+                          )}
                           -{formatCLP(t.amount)}
+                          {t.is_purchase && (
+                              <div className={`mt-1 text-[10px] uppercase font-bold py-0.5 px-2 rounded-full inline-block ${t.payment_status === 'pagado' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.payment_status?.replace('_', ' ')}</div>
+                          )}
                         </td>
                         <td className="px-5 py-3 text-center">
                           {t.is_purchase && (
@@ -481,9 +513,15 @@ export default function FinanceComprasPage() {
                       <span className="text-xs text-gray-500 capitalize px-2 py-1 bg-gray-100 rounded-md">
                         {t.category?.replace('_', ' ')}
                       </span>
-                      <span className="font-black text-red-600 text-lg">
-                        -{formatCLP(t.amount)}
-                      </span>
+                      <div className="text-right">
+                        {t.is_purchase && t.payment_status !== 'pagado' && (
+                           <p className="text-[10px] font-normal text-gray-500 mb-0.5">Falta: {formatCLP(t.amount - t.paid_amount)}</p>
+                        )}
+                        <span className="font-black text-red-600 text-lg flex items-center justify-end gap-2">
+                          {t.is_purchase && <span className={`text-[9px] uppercase tracking-wider py-0.5 px-1.5 rounded bg-gray-100 ${t.payment_status === 'pagado' ? 'text-green-600' : 'text-red-500'}`}>{t.payment_status?.replace('_', ' ')}</span>}
+                          -{formatCLP(t.amount)}
+                        </span>
+                      </div>
                     </div>
 
                     {t.is_purchase && (

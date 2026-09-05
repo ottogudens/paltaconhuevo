@@ -8,11 +8,12 @@ import anthropic, uuid
 from .models import Recipe, RecipeComment
 from .serializers import RecipeSerializer, RecipeCommentSerializer
 
-class RecipeListView(generics.ListAPIView):
+class RecipeListView(generics.ListCreateAPIView):
     serializer_class = RecipeSerializer
     permission_classes = [AllowAny]
+    
     def get_queryset(self):
-        qs = Recipe.objects.filter(is_published=True).order_by('-created_at')
+        qs = Recipe.objects.all().order_by('-created_at')
         cat = self.request.query_params.get('category')
         meal = self.request.query_params.get('meal_type')
         diff = self.request.query_params.get('difficulty')
@@ -39,11 +40,15 @@ class AiGenerateRecipeView(APIView):
         difficulty = request.data.get('difficulty', 'facil')
         servings = request.data.get('servings', 2)
         client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        prompt = f"""Eres un chef nutricionista chileno. Crea una receta innovadora con {"palta y huevo" if ingredient == "ambos" else ingredient}.
-Tipo de comida: {meal_type}, Dificultad: {difficulty}, Porciones: {servings}.
-Responde SOLO en JSON con esta estructura exacta:
-{{"title":"nombre creativo","description":"descripción atractiva","ingredients":[{{"item":"ingrediente","amount":"cantidad"}}],"steps":["paso 1","paso 2"],"tips":"consejos","calories":250,"proteins_g":15,"fats_g":18,"carbs_g":8,"fiber_g":3,"vitamins_info":"vitaminas destacadas","health_benefits":"beneficios para la salud","meta_description":"descripción SEO corta"}}"""
-        msg = client.messages.create(model="claude-sonnet-4-6", max_tokens=1000, messages=[{"role":"user","content":prompt}])
+        prompt = f"""Eres un chef nutricionista experimentado. Crea una receta innovadora, paso a paso, con {"palta y/o huevo" if ingredient == "ambos" else ingredient}.
+Tipo: {meal_type}, Dificultad: {difficulty}, Porciones: {servings}.
+Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
+{{"title":"nombre corto y creativo","description":"descripción atractiva","ingredients":[{{"item":"ingrediente 1","amount":"cantidad"}}],"steps":["paso 1","paso 2"],"tips":"un buen consejo","calories":250,"proteins_g":15,"fats_g":18,"carbs_g":8,"fiber_g":3,"vitamins_info":"vitaminas","health_benefits":"beneficios","meta_description":"SEO"}}"""
+        msg = client.messages.create(
+            model="claude-3-5-sonnet-20241022", 
+            max_tokens=1500, 
+            messages=[{"role":"user","content":prompt}]
+        )
         import json
         try:
             data = json.loads(msg.content[0].text)

@@ -6,6 +6,8 @@ import { Star, Users, Gift, Tag } from 'lucide-react'
 import CustomersLoyaltyTab from '../../components/loyalty/CustomersLoyaltyTab'
 import RewardsTab from '../../components/loyalty/RewardsTab'
 import OffersTab from '../../components/loyalty/OffersTab'
+import RecipesLoyaltyTab from '../../components/loyalty/RecipesLoyaltyTab'
+import { ChefHat } from 'lucide-react'
 
 export default function LoyaltyDashboard() {
   const [activeTab, setActiveTab] = useState('clientes')
@@ -15,7 +17,7 @@ export default function LoyaltyDashboard() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const tab = params.get('tab')
-    if (tab && ['clientes', 'premios', 'ofertas'].includes(tab)) {
+    if (tab && ['clientes', 'premios', 'ofertas', 'recetas'].includes(tab)) {
       setActiveTab(tab)
     }
   }, [location])
@@ -29,6 +31,7 @@ export default function LoyaltyDashboard() {
     { id: 'clientes', label: 'Clientes y Puntos', icon: Users },
     { id: 'premios', label: 'Gestión de Premios', icon: Gift },
     { id: 'ofertas', label: 'Ofertas Masivas', icon: Tag },
+    { id: 'recetas', label: 'Blog de Recetas (IA)', icon: ChefHat },
   ]
 
   return (
@@ -62,6 +65,7 @@ export default function LoyaltyDashboard() {
           {activeTab === 'clientes' && <CustomersLoyaltyTab />}
           {activeTab === 'premios' && <RewardsTab />}
           {activeTab === 'ofertas' && <OffersTab />}
+          {activeTab === 'recetas' && <RecipesLoyaltyTab />}
         </div>
 
       </div>
