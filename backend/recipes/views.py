@@ -39,19 +39,23 @@ class AiGenerateRecipeView(APIView):
         meal_type = request.data.get('meal_type', 'almuerzo')
         difficulty = request.data.get('difficulty', 'facil')
         servings = request.data.get('servings', 2)
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
         prompt = f"""Eres un chef nutricionista experimentado. Crea una receta innovadora, paso a paso, con {"palta y/o huevo" if ingredient == "ambos" else ingredient}.
 Tipo: {meal_type}, Dificultad: {difficulty}, Porciones: {servings}.
 Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
 {{"title":"nombre corto y creativo","description":"descripción atractiva","ingredients":[{{"item":"ingrediente 1","amount":"cantidad"}}],"steps":["paso 1","paso 2"],"tips":"un buen consejo","calories":250,"proteins_g":15,"fats_g":18,"carbs_g":8,"fiber_g":3,"vitamins_info":"vitaminas","health_benefits":"beneficios","meta_description":"SEO"}}"""
-        msg = client.messages.create(
-            model="claude-3-5-sonnet-20241022", 
-            max_tokens=1500, 
-            messages=[{"role":"user","content":prompt}]
-        )
         import json
         try:
-            data = json.loads(msg.content[0].text)
+            if not settings.ANTHROPIC_API_KEY:
+                return Response({'error': 'La clave de API de Anthropic (ANTHROPIC_API_KEY) no está configurada.'}, status=400)
+            
+            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            msg = client.messages.create(
+                model="claude-3-5-sonnet-20241022", 
+                max_tokens=1500, 
+                messages=[{"role":"user","content":prompt}]
+            )
+            raw_text = msg.content[0].text
+            data = json.loads(raw_text)
             slug_base = slugify(data['title'])
             slug = f"{slug_base}-{str(uuid.uuid4())[:4]}"
             recipe = Recipe.objects.create(
@@ -72,7 +76,9 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
             )
             return Response(RecipeSerializer(recipe, context={'request':request}).data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'error': str(e), 'raw': msg.content[0].text}, status=400)
+            err_msg = str(e)
+            raw = locals().get('raw_text', 'No generado')
+            return Response({'error': err_msg, 'raw': raw}, status=400)
 
 class RecipeLikeView(APIView):
     def post(self, request, slug):
