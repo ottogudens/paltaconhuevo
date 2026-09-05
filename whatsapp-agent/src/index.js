@@ -152,8 +152,9 @@ async function getProducts() {
   try {
     const res = await api.get('/products/');
     const data = res.data.results || res.data;
-    productsCache = { data, expiresAt: now + 60000 };
-    return data;
+    const availableData = data.filter(p => p.can_be_sold === true && parseFloat(p.stock) > 0);
+    productsCache = { data: availableData, expiresAt: now + 60000 };
+    return availableData;
   } catch (e) {
     logger.error({ error: e.message }, 'Error obteniendo productos');
     return productsCache.data || [];
@@ -445,9 +446,10 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
           else if (name === 'add_to_cart') {
             const addedItems = [];
             const stockWarnings = [];
+            const items = input.items || [];
 
-            for (const item of input.items) {
-              const product = products.find(p => p.id === item.product_id);
+            for (const item of items) {
+              const product = products.find(p => p.id === parseInt(item.product_id));
               if (product) {
                 const existing = session.cart.find(i => i.product.id === product.id);
                 const currentInCart = existing ? existing.quantity : 0;

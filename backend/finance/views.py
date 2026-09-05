@@ -195,8 +195,8 @@ class DatabaseBackupView(APIView):
     def get(self, request):
         import io
         out = io.StringIO()
-        call_command('dumpdata', exclude=['contenttypes', 'auth.Permission', 'sessions'], format='json', indent=2, stdout=out)
-        response = HttpResponse(out.getvalue(), content_type='application/json')
+        call_command('dumpdata', exclude=['contenttypes', 'auth.Permission', 'sessions', 'admin.logentry'], format='json', indent=2, stdout=out)
+        response = HttpResponse(out.getvalue().encode('utf-8'), content_type='application/json')
         response['Content-Disposition'] = 'attachment; filename="backup.json"'
         return response
 
@@ -261,7 +261,7 @@ class ImportFinanceView(APIView):
     VALID_TYPES = {'ingreso', 'egreso'}
     VALID_CATEGORIES = {
         'venta', 'compra', 'gasto_operacional', 'combustible',
-        'cajas', 'despacho', 'marketing', 'otro'
+        'cajas', 'despacho', 'marketing', 'retiro_utilidad', 'otro'
     }
 
     def post(self, request):

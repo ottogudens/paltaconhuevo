@@ -23,11 +23,14 @@ class Product(models.Model):
         return f"{self.name} (${self.sale_price}/{self.unit})"
 
 class Purchase(models.Model):
+    PAYMENT_STATUS_CHOICES = [('pendiente_pago', 'Pendiente de pago'), ('abono', 'Abono'), ('pagado', 'Pagado')]
     supplier_name = models.CharField(max_length=200, default='Proveedor')
     product = models.ForeignKey(Product, on_delete=models.PROTECT, related_name='purchases')
     quantity = models.DecimalField(max_digits=10, decimal_places=2)
     unit_cost = models.DecimalField(max_digits=10, decimal_places=0)
     total_cost = models.DecimalField(max_digits=12, decimal_places=0)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pagado')
+    paid_amount = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     purchase_date = models.DateField()
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

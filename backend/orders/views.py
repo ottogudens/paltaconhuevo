@@ -32,13 +32,13 @@ class OrderListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        qs = Order.objects.select_related('customer')
         if user.role in ['admin', 'vendedor']:
-            qs = Order.objects.all()
             status_filter = self.request.query_params.get('status')
             if status_filter:
                 qs = qs.filter(status=status_filter)
             return qs
-        return Order.objects.filter(customer=user)
+        return qs.filter(customer=user)
 
     def create(self, request, *args, **kwargs):
         data = request.data
@@ -310,12 +310,13 @@ class DashboardView(APIView):
         from .models import Order, OrderItem
 
         today = datetime.date.today()
+        tomorrow = today + datetime.timedelta(days=1)
         month_start = today.replace(day=1)
         
         payment_filter = request.query_params.get('payment_status', 'pagado')
         
-        orders_today = Order.objects.filter(created_at__date=today)
-        orders_month = Order.objects.filter(created_at__date__gte=month_start)
+        orders_today = Order.objects.filter(created_at__gte=today, created_at__lt=tomorrow)
+        orders_month = Order.objects.filter(created_at__gte=month_start)
         
         # Filtro de ventas dinámico para la vista aislada (por defecto Mes)
         sales_period = request.query_params.get('sales_period', 'month')
@@ -326,7 +327,7 @@ class DashboardView(APIView):
         else: # month
             sales_start_date = month_start
             
-        sales_period_orders = Order.objects.filter(created_at__date__gte=sales_start_date)
+        sales_period_orders = Order.objects.filter(created_at__gte=sales_start_date)
         
         if payment_filter == 'pagado':
             orders_today = orders_today.filter(payment_status='pagado')
@@ -336,10 +337,10 @@ class DashboardView(APIView):
         sales_period_value = float(sales_period_orders.aggregate(t=Sum('total'))['t'] or 0)
         
         # Pedidos pagados en el período (suma de totales)
-        sales_paid = float(Order.objects.filter(created_at__date__gte=sales_start_date, payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
+        sales_paid = float(Order.objects.filter(created_at__gte=sales_start_date, payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
         
         # Pedidos entregados pero no pagados en el período
-        sales_unpaid = float(Order.objects.filter(created_at__date__gte=sales_start_date, status='entregado').exclude(payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
+        sales_unpaid = float(Order.objects.filter(created_at__gte=sales_start_date, status='entregado').exclude(payment_status='pagado').aggregate(t=Sum('total'))['t'] or 0)
         
         # Pedidos pendientes (no entregados y no pagados) (cantidad)
         pending_qs = Order.objects.exclude(status='entregado').exclude(payment_status='pagado')
@@ -347,7 +348,7 @@ class DashboardView(APIView):
         orders_pending_value = float(pending_qs.aggregate(t=Sum('total'))['t'] or 0)
 
         # Listado de pedidos pendientes: no entregados, ordenados por más recientes
-        pending_orders = Order.objects.exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
+        pending_orders = Order.objects.select_related('customer').exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
 
         products_sold_qs = OrderItem.objects.filter(order__created_at__date__gte=sales_start_date)
         if payment_filter == 'pagado':
@@ -374,6 +375,23 @@ class DashboardView(APIView):
             .order_by('-total_spent')[:5]
         )
 
+        # Nuevas métricas
+        from products.models import Purchase
+        from finance.models import Transaction
+
+        # Stock Valorizado
+        valorized_stock = sum(float(p.stock) * float(p.sale_price) for p in Product.objects.filter(is_active=True) if p.stock > 0)
+        
+        # Compras Pendientes de Pago (Total Compras - Monto ya abonado)
+        unpaid_purchases_qs = Purchase.objects.exclude(payment_status='pagado')
+        unpaid_purchases_total = float(sum((p.total_cost - p.paid_amount) for p in unpaid_purchases_qs))
+
+        # Utilidad No Retirada = Margen Bruto - Gastos (excluyendo compra de inventario) - Retiros
+        gross_profit = float(OrderItem.objects.filter(order__payment_status='pagado').aggregate(t=Sum('margin'))['t'] or 0)
+        expenses = float(Transaction.objects.filter(transaction_type='egreso').exclude(category__in=['compra', 'retiro_utilidad']).aggregate(t=Sum('amount'))['t'] or 0)
+        withdrawals = float(Transaction.objects.filter(transaction_type='egreso', category='retiro_utilidad').aggregate(t=Sum('amount'))['t'] or 0)
+        unwithdrawn_profit = gross_profit - expenses - withdrawals
+
         return Response({
             'sales_period_value': sales_period_value,
             'sales_period': sales_period,
@@ -389,6 +407,9 @@ class DashboardView(APIView):
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,
             'products_sold': products_sold,
             'top_customers': top_customers,
+            'valorized_stock': valorized_stock,
+            'unpaid_purchases_total': unpaid_purchases_total,
+            'unwithdrawn_profit': unwithdrawn_profit,
         })
 
 class OrderPaymentCreateView(APIView):

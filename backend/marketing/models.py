@@ -44,7 +44,7 @@ class Contest(models.Model):
 class Offer(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
-    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0, null=True, blank=True)
     image = models.ImageField(upload_to='offers/', null=True, blank=True)
     valid_from = models.DateField()
     valid_until = models.DateField()
