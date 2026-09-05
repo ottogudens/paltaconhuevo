@@ -4,6 +4,7 @@ import { Plus, Trash2, Edit3, Image as ImageIcon, Sparkles, X, Check, ChefHat } 
 
 function AiRecipeModal({ onClose, onSave }) {
   const [form, setForm] = useState({
+    provider: 'anthropic',
     ingredient: 'ambos',
     meal_type: 'almuerzo',
     difficulty: 'facil',
@@ -41,6 +42,15 @@ function AiRecipeModal({ onClose, onSave }) {
           {!preview ? (
             <>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Motor de IA</label>
+                  <select value={form.provider} onChange={e => setForm({...form, provider: e.target.value})}
+                    className="w-full px-3 py-2 border rounded-lg text-sm bg-white focus:ring-2 focus:ring-purple-500">
+                    <option value="anthropic">Claude 3.5 Sonnet</option>
+                    <option value="openai">OpenAI GPT-4o-mini</option>
+                    <option value="gemini">Google Gemini 1.5 Flash</option>
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Ingrediente Clave</label>
                   <select value={form.ingredient} onChange={e => setForm({...form, ingredient: e.target.value})}

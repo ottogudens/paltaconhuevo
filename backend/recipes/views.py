@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticatedOrReadOnly
 from django.conf import settings
 from django.utils.text import slugify
-import anthropic, uuid
+import uuid
 from .models import Recipe, RecipeComment
 from .serializers import RecipeSerializer, RecipeCommentSerializer
 
@@ -44,17 +44,46 @@ Tipo: {meal_type}, Dificultad: {difficulty}, Porciones: {servings}.
 Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
 {{"title":"nombre corto y creativo","description":"descripción atractiva","ingredients":[{{"item":"ingrediente 1","amount":"cantidad"}}],"steps":["paso 1","paso 2"],"tips":"un buen consejo","calories":250,"proteins_g":15,"fats_g":18,"carbs_g":8,"fiber_g":3,"vitamins_info":"vitaminas","health_benefits":"beneficios","meta_description":"SEO"}}"""
         import json
+        import traceback
+        
+        provider = request.data.get('provider', 'anthropic')
+
         try:
-            if not settings.ANTHROPIC_API_KEY:
-                return Response({'error': 'La clave de API de Anthropic (ANTHROPIC_API_KEY) no está configurada.'}, status=400)
-            
-            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-            msg = client.messages.create(
-                model="claude-3-5-sonnet-20241022", 
-                max_tokens=1500, 
-                messages=[{"role":"user","content":prompt}]
-            )
-            raw_text = msg.content[0].text
+            raw_text = ""
+            if provider == 'openai':
+                if not settings.OPENAI_API_KEY:
+                    return Response({'error': 'La clave de API de OpenAI (OPENAI_API_KEY) no está configurada.'}, status=400)
+                import openai
+                client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+                completion = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    response_format={"type": "json_object"}
+                )
+                raw_text = completion.choices[0].message.content
+                
+            elif provider == 'gemini':
+                if not settings.GEMINI_API_KEY:
+                    return Response({'error': 'La clave de API de Gemini (GEMINI_API_KEY) no está configurada.'}, status=400)
+                import google.generativeai as genai
+                genai.configure(api_key=settings.GEMINI_API_KEY)
+                model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+                response = model.generate_content(prompt)
+                raw_text = response.text
+                
+            else:
+                # Default a anthropic
+                if not settings.ANTHROPIC_API_KEY:
+                    return Response({'error': 'La clave de API de Anthropic (ANTHROPIC_API_KEY) no está configurada.'}, status=400)
+                import anthropic
+                client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                msg = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=1500,
+                    messages=[{"role":"user","content":prompt}]
+                )
+                raw_text = msg.content[0].text
+
             data = json.loads(raw_text)
             slug_base = slugify(data['title'])
             slug = f"{slug_base}-{str(uuid.uuid4())[:4]}"
