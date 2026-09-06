@@ -342,13 +342,44 @@ class AiAdvisoryView(APIView):
         user_message = f"Tipo de asesoría: {prompt_type}\nContexto o petición del usuario: {context}\nPor favor ayúdame con esto."
 
         try:
-            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-            msg = client.messages.create(
-                model="claude-sonnet-4-6", 
-                max_tokens=1024,
-                messages=[{"role": "user", "content": f"{system_prompt}\n\n{user_message}"}],
-            )
-            return Response({'response': msg.content[0].text, 'provider': provider})
+            response_text = ""
+            if provider == 'openai':
+                import requests
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {getattr(settings, 'OPENAI_API_KEY', '')}"
+                }
+                payload = {
+                    "model": "gpt-4o-mini",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message}
+                    ]
+                }
+                resp = requests.post("https://api.openai.com/v1/chat/completions", headers=headers, json=payload)
+                resp.raise_for_status()
+                response_text = resp.json()["choices"][0]["message"]["content"]
+            elif provider == 'gemini':
+                import requests
+                api_key = getattr(settings, 'GEMINI_API_KEY', '')
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                headers = {"Content-Type": "application/json"}
+                payload = {
+                    "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_message}"}]}]
+                }
+                resp = requests.post(url, headers=headers, json=payload)
+                resp.raise_for_status()
+                response_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+            else:
+                client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+                msg = client.messages.create(
+                    model="claude-3-5-sonnet-20240620", 
+                    max_tokens=1024,
+                    messages=[{"role": "user", "content": f"{system_prompt}\n\n{user_message}"}],
+                )
+                response_text = msg.content[0].text
+                
+            return Response({'response': response_text, 'provider': provider})
         except Exception as e:
             import logging
             logging.getLogger(__name__).exception("AI Advisory error: %s", e)

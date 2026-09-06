@@ -32,7 +32,7 @@ class OrderListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         user = self.request.user
-        qs = Order.objects.select_related('customer')
+        qs = Order.objects.select_related('customer').prefetch_related('items', 'items__product', 'payments')
         if user.role in ['admin', 'vendedor']:
             status_filter = self.request.query_params.get('status')
             if status_filter:
@@ -127,12 +127,39 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         # Security: Prevent non-staff users from updating restricted fields
         user = self.request.user
+        instance = self.get_object()
+        old_status = instance.status
+        
         if user.role not in ['admin', 'vendedor']:
             restricted_fields = ['status', 'payment_status', 'total', 'subtotal', 'delivery_cost', 'points_earned', 'mercadopago_preference_id', 'mercadopago_payment_id', 'mercadopago_link']
             for field in restricted_fields:
                 if field in serializer.validated_data:
                     serializer.validated_data.pop(field)
+                    
+        new_status = serializer.validated_data.get('status', old_status)
         instance = serializer.save()
+        
+        # STOCK SYNC ON CANCELLATION
+        if old_status != 'cancelado' and new_status == 'cancelado':
+            from decimal import Decimal
+            for item in instance.items.all():
+                if item.product.is_bundle:
+                    for comp in item.product.components.all():
+                        comp.product.stock += Decimal(str(item.quantity * comp.quantity))
+                        comp.product.save(update_fields=['stock'])
+                else:
+                    item.product.stock += Decimal(str(item.quantity))
+                    item.product.save(update_fields=['stock'])
+        elif old_status == 'cancelado' and new_status != 'cancelado':
+            from decimal import Decimal
+            for item in instance.items.all():
+                if item.product.is_bundle:
+                    for comp in item.product.components.all():
+                        comp.product.stock -= Decimal(str(item.quantity * comp.quantity))
+                        comp.product.save(update_fields=['stock'])
+                else:
+                    item.product.stock -= Decimal(str(item.quantity))
+                    item.product.save(update_fields=['stock'])
         if instance.payment_status == 'pagado' and not instance.points_awarded:
             from loyalty.models import LoyaltyAccount, PointTransaction
             points = int(instance.total / 1000) * 10
@@ -321,7 +348,7 @@ class DashboardView(APIView):
     permission_classes = [IsAdminOrVendedor]
 
     def get(self, request):
-        from django.db.models import Sum, Count
+        from django.db.models import Sum, Count, F
         from django.utils import timezone
         import datetime
         from products.models import Product
@@ -368,7 +395,7 @@ class DashboardView(APIView):
         orders_pending_value = float(pending_qs.aggregate(t=Sum('total'))['t'] or 0)
 
         # Listado de pedidos pendientes: no entregados, ordenados por más recientes
-        pending_orders = Order.objects.select_related('customer').exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
+        pending_orders = Order.objects.select_related('customer').prefetch_related('items', 'items__product', 'payments').exclude(status__in=['entregado', 'cancelado']).order_by('-created_at')[:10]
 
         products_sold_qs = OrderItem.objects.filter(order__created_at__date__gte=sales_start_date)
         if payment_filter == 'pagado':
@@ -401,14 +428,20 @@ class DashboardView(APIView):
 
         # Stock Valorizado Base (Paltas y Huevos)
         base_products = Product.objects.filter(is_active=True, product_type__in=['palta', 'huevo'])
-        valorized_stock_available = sum(float(p.stock) * float(p.sale_price) for p in base_products if p.stock > 0)
         
-        pending_items = OrderItem.objects.filter(order__status='pendiente', product__in=base_products)
-        valorized_stock_pending = sum(float(item.quantity) * float(item.product.sale_price) for item in pending_items)
+        val_stock = base_products.filter(stock__gt=0).aggregate(val=Sum(F('stock') * F('sale_price')))['val']
+        valorized_stock_available = float(val_stock or 0)
+        
+        val_pending = OrderItem.objects.filter(order__status='pendiente', product__in=base_products).aggregate(
+            val=Sum(F('quantity') * F('product__sale_price'))
+        )['val']
+        valorized_stock_pending = float(val_pending or 0)
         
         # Compras Pendientes de Pago (Total Compras - Monto ya abonado)
-        unpaid_purchases_qs = Purchase.objects.exclude(payment_status='pagado')
-        unpaid_purchases_total = float(sum((p.total_cost - p.paid_amount) for p in unpaid_purchases_qs))
+        val_unpaid = Purchase.objects.exclude(payment_status='pagado').aggregate(
+            val=Sum(F('total_cost') - F('paid_amount'))
+        )['val']
+        unpaid_purchases_total = float(val_unpaid or 0)
 
         # Utilidad No Retirada = Margen Bruto - Gastos (excluyendo compra de inventario) - Retiros
         gross_profit = float(OrderItem.objects.filter(order__payment_status='pagado').aggregate(t=Sum('margin'))['t'] or 0)
@@ -427,7 +460,7 @@ class DashboardView(APIView):
             'orders_pending': orders_pending,
             'orders_pending_value': orders_pending_value,
             'total_customers': User.objects.filter(role='cliente').count(),
-            'low_stock_count': sum(1 for p in Product.objects.filter(is_active=True) if p.stock <= p.min_stock),
+            'low_stock_count': Product.objects.filter(is_active=True, stock__lte=F('min_stock')).count(),
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,
             'products_sold': products_sold,
             'top_customers': top_customers,
@@ -470,11 +503,23 @@ class OrderItemUpdateView(APIView):
         quantity = request.data.get('quantity')
         unit_price = request.data.get('unit_price')
         
+        
         needs_order_recalc = False
         
         if status_val:
             item.status = status_val
         if quantity is not None:
+            # Sync stock
+            from decimal import Decimal
+            diff = Decimal(str(quantity)) - item.quantity
+            if diff != 0:
+                if item.product.is_bundle:
+                    for comp in item.product.components.all():
+                        comp.product.stock -= (diff * comp.quantity)
+                        comp.product.save(update_fields=['stock'])
+                else:
+                    item.product.stock -= diff
+                    item.product.save(update_fields=['stock'])
             item.quantity = quantity
             needs_order_recalc = True
         if unit_price is not None:
