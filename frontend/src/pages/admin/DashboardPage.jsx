@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const [pieChartMetric, setPieChartMetric] = useState('total_sales')
   const [showCalculator, setShowCalculator] = useState(false)
   const [productSortOption, setProductSortOption] = useState('total_sales_desc')
+  const [includePendingStock, setIncludePendingStock] = useState(false)
 
   const fetchDashboard = async () => {
     try {
@@ -141,6 +142,16 @@ export default function DashboardPage() {
     return 0
   })
 
+  // Stock valorizado calc
+  const getValorizedStock = () => {
+    if (!dashboard) return 0;
+    let total = dashboard.valorized_stock_available || 0;
+    if (includePendingStock) {
+      total += (dashboard.valorized_stock_pending || 0);
+    }
+    return total;
+  }
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -186,7 +197,21 @@ export default function DashboardPage() {
 
         {/* Third Row: Nuevas Métricas Financieras */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
-          <StatCard icon={ShoppingCart} label="Stock Valorizado (Activo)" value={formatCLP(dashboard?.valorized_stock)} color="palta" />
+          <div className="relative">
+            <StatCard icon={ShoppingCart} label="Stock Valorizado (Activo)" value={formatCLP(getValorizedStock())} color="palta" />
+            <div className="absolute top-2 right-2 sm:bottom-2 sm:top-auto sm:right-4 flex items-center gap-1.5">
+              <input 
+                type="checkbox" 
+                id="includePendingStock" 
+                checked={includePendingStock} 
+                onChange={(e) => setIncludePendingStock(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-palta-600 focus:ring-palta-500 border-gray-300"
+              />
+              <label htmlFor="includePendingStock" className="text-[10px] text-gray-500 leading-none cursor-pointer">
+                Incluir pedidos pendientes
+              </label>
+            </div>
+          </div>
           <StatCard icon={TrendingUp} label="Deuda Compras Proveedores" value={formatCLP(dashboard?.unpaid_purchases_total)} color="red" />
           <StatCard icon={DollarSign} label="Punto de Equilibrio (Utilidad Caja)" value={formatCLP(dashboard?.unwithdrawn_profit)} color="blue" />
         </div>

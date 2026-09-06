@@ -310,6 +310,7 @@ class WhatsAppSessionDetailView(APIView):
         WhatsAppSession.objects.filter(phone=phone).delete()
         return Response({'success': True})
 
+
 class WhatsAppSessionListView(APIView):
     """
     Endpoint para que el agente obtenga todas las sesiones (para el panel admin).
@@ -320,4 +321,32 @@ class WhatsAppSessionListView(APIView):
         sessions = WhatsAppSession.objects.all()
         return Response(WhatsAppSessionSerializer(sessions, many=True).data)
 
+
+class AiAdvisoryView(APIView):
+    permission_classes = [IsAdminOrVendedor]
+
+    def post(self, request):
+        provider = request.data.get('provider', 'claude')
+        prompt_type = request.data.get('type', 'optimizar_ventas')
+        context = request.data.get('context', '')
+        
+        system_prompt = (
+            "Eres un agente inteligente experto en asesoría de ventas, campañas publicitarias y optimización de productos "
+            "para 'Palta con Huevo', un negocio chileno de venta de paltas y huevos de alta calidad.\n"
+            "Tu objetivo es dar consejos accionables, creativos y orientados a resultados basados en el contexto proveído.\n"
+            "Responde en español, usando formato Markdown (con negritas, listas y sugerencias claras) y adaptándote al estilo chileno, con enfoque muy profesional."
+        )
+        
+        user_message = f"Tipo de asesoría: {prompt_type}\nContexto o petición del usuario: {context}\nPor favor ayúdame con esto."
+
+        try:
+            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            msg = client.messages.create(
+                model="claude-sonnet-4-6", 
+                max_tokens=1024,
+                messages=[{"role": "user", "content": f"{system_prompt}\n\n{user_message}"}],
+            )
+            return Response({'response': msg.content[0].text, 'provider': provider})
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

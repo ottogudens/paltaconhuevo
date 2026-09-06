@@ -379,8 +379,12 @@ class DashboardView(APIView):
         from products.models import Purchase
         from finance.models import Transaction
 
-        # Stock Valorizado
-        valorized_stock = sum(float(p.stock) * float(p.sale_price) for p in Product.objects.filter(is_active=True) if p.stock > 0)
+        # Stock Valorizado Base (Paltas y Huevos)
+        base_products = Product.objects.filter(is_active=True, product_type__in=['palta', 'huevo'])
+        valorized_stock_available = sum(float(p.stock) * float(p.sale_price) for p in base_products if p.stock > 0)
+        
+        pending_items = OrderItem.objects.filter(order__status='pendiente', product__in=base_products)
+        valorized_stock_pending = sum(float(item.quantity) * float(item.product.sale_price) for item in pending_items)
         
         # Compras Pendientes de Pago (Total Compras - Monto ya abonado)
         unpaid_purchases_qs = Purchase.objects.exclude(payment_status='pagado')
@@ -407,7 +411,8 @@ class DashboardView(APIView):
             'pending_delivery_orders': OrderSerializer(pending_orders, many=True).data,
             'products_sold': products_sold,
             'top_customers': top_customers,
-            'valorized_stock': valorized_stock,
+            'valorized_stock_available': valorized_stock_available,
+            'valorized_stock_pending': valorized_stock_pending,
             'unpaid_purchases_total': unpaid_purchases_total,
             'unwithdrawn_profit': unwithdrawn_profit,
         })
