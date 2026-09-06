@@ -194,7 +194,9 @@ class ImportProductsView(APIView):
                     prod.save()
                     updated += 1
             except Exception as e:
-                errors.append(f"Fila {i}: Error procesando - {str(e)}")
+                import logging
+                logging.getLogger(__name__).exception("Fila %d error: %s", i, e)
+                errors.append(f"Fila {i}: Error procesando datos copiados.")
 
         return Response({'created': created, 'updated': updated, 'errors': errors})
 

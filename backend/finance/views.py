@@ -213,7 +213,9 @@ class DatabaseBackupView(APIView):
             call_command('loaddata', path)
             return Response({'status': 'Database restored successfully'})
         except Exception as e:
-            return Response({'error': str(e)}, status=500)
+            import logging
+            logging.getLogger(__name__).exception("Database restore error: %s", e)
+            return Response({'error': 'Error interno al restaurar base de datos'}, status=500)
         finally:
             os.remove(path)
 
@@ -324,7 +326,9 @@ class ImportFinanceView(APIView):
                 )
                 created += 1
             except Exception as e:
-                errors.append(f"Fila {i}: Error procesando - {str(e)}")
+                import logging
+                logging.getLogger(__name__).exception("Fila %d error: %s", i, e)
+                errors.append(f"Fila {i}: Error procesando - detalles en logs")
 
         return Response({'created': created, 'errors': errors})
 
@@ -398,7 +402,9 @@ class ImportSalesView(APIView):
                 ws = wb.active
                 rows = list(ws.iter_rows(min_row=2, values_only=True))
         except Exception as e:
-            return Response({'error': f'Error al leer el archivo: {str(e)}'}, status=400)
+            import logging
+            logging.getLogger(__name__).exception("Import file read error: %s", e)
+            return Response({'error': 'Error al leer el archivo.'}, status=400)
 
         created_items = 0
         errors = []
@@ -522,7 +528,9 @@ class ImportSalesView(APIView):
 
                         created_items += 1
                     except Exception as e:
-                        errors.append(f"Fila {i}: Error - {str(e)}")
+                        import logging
+                        logging.getLogger(__name__).exception("Fila %d error: %s", i, e)
+                        errors.append(f"Fila {i}: Error interno (ver logs)")
 
                 # Si estamos en modo reemplazar y hubo errores, revertir TODO
                 if import_mode == 'replace' and errors:
@@ -546,6 +554,8 @@ class ImportSalesView(APIView):
                                 created_by=request.user,
                             )
         except Exception as e:
-            return Response({'error': str(e)}, status=500)
+            import logging
+            logging.getLogger(__name__).exception("Sales import error: %s", e)
+            return Response({'error': 'Error interno importando ventas.'}, status=500)
 
         return Response({'created': created_items, 'errors': errors})

@@ -18,11 +18,13 @@ const logger = pino({
 const app = express();
 
 const server = http.createServer(app);
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
+const corsConfig = ALLOWED_ORIGINS.length > 0 ? { origin: ALLOWED_ORIGINS } : { origin: '*' };
 const io = new Server(server, {
-  cors: { origin: '*' }
+  cors: corsConfig
 });
 
-app.use(cors());
+app.use(cors(corsConfig));
 app.use(express.json());
 
 // Inicialización lazy: no crashear si faltan variables de entorno
@@ -836,8 +838,18 @@ function getMenu(session) {
   return `${greeting}\n\nSoy Paltín, tu asistente.\n\n📦 *Quiero pedir*\n⭐ *Mis puntos*\n🍳 *Recetas*\n🎁 *Ofertas*\n👨‍💼 *Hablar con humano*\n\n¡Dime tu opción para comenzar!`;
 }
 
+// Middleware para auth
+function requireAdminAuth(req, res, next) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  const expectedToken = process.env.INTERNAL_TOKEN || process.env.DJANGO_API_TOKEN;
+  if (!expectedToken || token !== expectedToken) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}
+
 // Endpoints API para administración de WhatsApp
-app.get('/api/wa/chats', async (req, res) => {
+app.get('/api/wa/chats', requireAdminAuth, async (req, res) => {
   try {
     const resApi = await api.get('/marketing/sessions/');
     const dbSessions = resApi.data || [];
@@ -860,7 +872,7 @@ app.get('/api/wa/chats', async (req, res) => {
   }
 });
 
-app.get('/api/wa/chats/:phone/messages', async (req, res) => {
+app.get('/api/wa/chats/:phone/messages', requireAdminAuth, async (req, res) => {
   const { phone } = req.params;
   const session = await getSession(phone);
   res.json({
@@ -872,7 +884,7 @@ app.get('/api/wa/chats/:phone/messages', async (req, res) => {
   });
 });
 
-app.delete('/api/wa/chats/:phone', async (req, res) => {
+app.delete('/api/wa/chats/:phone', requireAdminAuth, async (req, res) => {
   const { phone } = req.params;
   try {
     await api.delete(`/marketing/sessions/${phone}/`);
@@ -883,7 +895,7 @@ app.delete('/api/wa/chats/:phone', async (req, res) => {
   }
 });
 
-app.delete('/api/wa/chats/:phone/messages', async (req, res) => {
+app.delete('/api/wa/chats/:phone/messages', requireAdminAuth, async (req, res) => {
   const { phone } = req.params;
   try {
     const session = await getSession(phone);
@@ -896,7 +908,7 @@ app.delete('/api/wa/chats/:phone/messages', async (req, res) => {
   }
 });
 
-app.post('/api/wa/chats/:phone/reply', async (req, res) => {
+app.post('/api/wa/chats/:phone/reply', requireAdminAuth, async (req, res) => {
   const { phone } = req.params;
   const { message } = req.body;
   if (!message) return res.status(400).json({ error: 'Mensaje requerido' });
@@ -914,7 +926,7 @@ app.post('/api/wa/chats/:phone/reply', async (req, res) => {
   res.json({ success: true });
 });
 
-app.post('/api/wa/chats/:phone/toggle-human', async (req, res) => {
+app.post('/api/wa/chats/:phone/toggle-human', requireAdminAuth, async (req, res) => {
   const { phone } = req.params;
   const { isHumanMode } = req.body;
   const session = await getSession(phone);
@@ -930,7 +942,7 @@ app.post('/send', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '');
   const expectedToken = process.env.INTERNAL_TOKEN || '';
   if (token !== expectedToken) {
-    console.warn(`[/send] 401 Unauthorized — token recibido: "${token?.slice(0,8)}...", esperado vacío: ${!expectedToken}`);
+    console.warn('[/send] 401 Unauthorized — token inválido');
     return res.status(401).json({ error: 'Unauthorized' });
   }
   try {
@@ -945,7 +957,7 @@ app.post('/send', async (req, res) => {
 app.get('/health', (req, res) => res.json({ status: 'ok', connected: isConnected }));
 app.get('/api/wa/status', (req, res) => res.json({ connected: isConnected, has_qr: !!currentQR }));
 app.get('/api/wa/qr', (req, res) => res.json({ qr: currentQR }));
-app.post('/api/wa/pairing-code', async (req, res) => {
+app.post('/api/wa/pairing-code', requireAdminAuth, async (req, res) => {
   try {
     const { phone } = req.body;
     if (!phone) {
@@ -992,7 +1004,7 @@ function safeRemoveAuthInfo() {
   }
 }
 
-app.post('/api/wa/logout', async (req, res) => {
+app.post('/api/wa/logout', requireAdminAuth, async (req, res) => {
   try {
     console.log('🚪 Solicitando desvinculación manual de WhatsApp...');
     isConnected = false;

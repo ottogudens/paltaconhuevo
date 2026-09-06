@@ -268,7 +268,9 @@ class AgentConfigView(APIView):
             serializer.save()
             return Response(serializer.data)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            import logging
+            logging.getLogger(__name__).exception("Analysis error: %s", e)
+            return Response({'error': 'Error interno al procesar el análisis.'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -348,5 +350,7 @@ class AiAdvisoryView(APIView):
             )
             return Response({'response': msg.content[0].text, 'provider': provider})
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            import logging
+            logging.getLogger(__name__).exception("AI Advisory error: %s", e)
+            return Response({'error': 'Error de comunicación con el servicio de IA.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

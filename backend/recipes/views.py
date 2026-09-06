@@ -105,7 +105,9 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
             )
             return Response(RecipeSerializer(recipe, context={'request':request}).data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            err_msg = str(e)
+            import logging
+            logging.getLogger(__name__).exception("Recipe error: %s", e)
+            err_msg = "Error interno generando receta."
             raw = locals().get('raw_text', 'No generado')
             return Response({'error': err_msg, 'raw': raw}, status=400)
 

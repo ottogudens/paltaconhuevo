@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'username', 'role', 'created_at']
 
 class CreateUserSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, min_length=4, required=False, allow_blank=True)
+    password = serializers.CharField(write_only=True, min_length=8, required=False, allow_blank=True)
 
     class Meta:
         model = User
@@ -50,7 +50,7 @@ class CreateUserSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        password = validated_data.pop('password', None) or 'paltaconhuevo2024'
+        password = validated_data.pop('password', None) or User.objects.make_random_password(length=20)
         email = validated_data.get('email', '')
         phone = validated_data.get('phone', '')
         import uuid

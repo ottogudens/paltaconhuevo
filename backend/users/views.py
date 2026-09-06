@@ -478,7 +478,9 @@ class ImportCustomersView(APIView):
                     if updated:
                         user.save()
             except Exception as e:
-                errors.append(f"Fila {i}: {str(e)}")
+                import logging
+                logging.getLogger(__name__).exception("Fila %d error: %s", i, e)
+                errors.append(f"Fila {i}: Error procesando datos (ver logs internos)")
         return Response({'created': created, 'errors': errors})
 
 class CustomerHistoryView(APIView):

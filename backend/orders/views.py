@@ -203,7 +203,7 @@ class GenerateMercadoPagoView(APIView):
                 "failure": f"{settings.WHATSAPP_SERVICE_URL}/mp/failure",
             },
             "auto_return": "approved",
-            "notification_url": f"{settings.WHATSAPP_SERVICE_URL}/api/orders/webhook/mercadopago/",
+            "notification_url": f"{__import__('os').getenv('BACKEND_PUBLIC_URL', 'https://backend-production-d44c6.up.railway.app')}/api/orders/webhook/mercadopago/",
             "external_reference": str(order.id),
         }
         result = sdk.preference().create(preference_data)
@@ -225,6 +225,26 @@ class MercadoPagoWebhookView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
+        x_signature = request.META.get('HTTP_X_SIGNATURE', '')
+        x_request_id = request.META.get('HTTP_X_REQUEST_ID', '')
+        webhook_secret = settings.MERCADOPAGO_WEBHOOK_SECRET
+        
+        if webhook_secret and x_signature:
+            import hmac
+            import hashlib
+            parts = dict(p.split('=', 1) for p in x_signature.split(',') if '=' in p)
+            ts = parts.get('ts', '')
+            v1 = parts.get('v1', '')
+            
+            data_id = request.query_params.get('data.id', '')
+            manifest = f"id:{data_id};request-id:{x_request_id};ts:{ts};"
+            computed = hmac.new(
+                webhook_secret.encode(), manifest.encode(), hashlib.sha256
+            ).hexdigest()
+            
+            if not hmac.compare_digest(computed, v1):
+                return Response({'error': 'Invalid signature'}, status=status.HTTP_403_FORBIDDEN)
+                
         data = request.data
         if data.get('type') == 'payment':
             payment_id = data.get('data', {}).get('id')
@@ -522,7 +542,9 @@ class OrderItemsBatchEditView(APIView):
                         if product.stock < qty:
                             return Response({'error': f'Stock insuficiente para {product.name}'}, status=status.HTTP_400_BAD_REQUEST)
                 except Exception as e:
-                    return Response({'error': f'Dato de ítem inválido: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
+                    import logging
+                    logging.getLogger(__name__).exception("Error en BatchEditView: %s", e)
+                    return Response({'error': 'Dato de ítem inválido. Ocurrió un error interno.'}, status=status.HTTP_400_BAD_REQUEST)
 
             # 4. Create new items and deduce stock
             subtotal = Decimal('0')
@@ -713,7 +735,9 @@ class ImportOrdersView(APIView):
 
                 created += 1
             except Exception as e:
-                errors.append(f"Fila {i}: Error procesando - {str(e)}")
+                import logging
+                logging.getLogger(__name__).exception("Error procesando Fila %d: %s", i, e)
+                errors.append(f"Fila {i}: Error procesando datos copiados.")
 
         return Response({'created': created, 'errors': errors})
 
