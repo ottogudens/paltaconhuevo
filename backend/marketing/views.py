@@ -74,6 +74,8 @@ class AiGenerateCampaignView(APIView):
     def post(self, request):
         context = request.data.get('context', '')
         try:
+            if not settings.ANTHROPIC_API_KEY:
+                return Response({'error': 'La clave de API de Anthropic (ANTHROPIC_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
             client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             msg = client.messages.create(
                 model="claude-3-5-sonnet-20240620", max_tokens=500,
@@ -213,6 +215,8 @@ class AiAnalysisView(APIView):
         )
         
         try:
+            if not settings.ANTHROPIC_API_KEY:
+                return Response({'error': 'La clave de API de Anthropic (ANTHROPIC_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
             client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
             msg = client.messages.create(
                 model="claude-3-5-sonnet-20240620", max_tokens=800,
@@ -354,6 +358,8 @@ class AiAdvisoryView(APIView):
         try:
             response_text = ""
             if provider == 'openai':
+                if not getattr(settings, 'OPENAI_API_KEY', ''):
+                    return Response({'error': 'La clave de API de OpenAI (OPENAI_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
                 import requests
                 headers = {
                     "Content-Type": "application/json",
@@ -370,6 +376,8 @@ class AiAdvisoryView(APIView):
                 resp.raise_for_status()
                 response_text = resp.json()["choices"][0]["message"]["content"]
             elif provider == 'gemini':
+                if not getattr(settings, 'GEMINI_API_KEY', ''):
+                    return Response({'error': 'La clave de API de Gemini (GEMINI_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
                 import requests
                 api_key = getattr(settings, 'GEMINI_API_KEY', '')
                 url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
@@ -381,6 +389,8 @@ class AiAdvisoryView(APIView):
                 resp.raise_for_status()
                 response_text = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
             else:
+                if not settings.ANTHROPIC_API_KEY:
+                    return Response({'error': 'La clave de API de Anthropic (ANTHROPIC_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
                 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
                 msg = client.messages.create(
                     model="claude-3-5-sonnet-20240620", 
