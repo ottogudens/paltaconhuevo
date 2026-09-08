@@ -73,16 +73,20 @@ class AiGenerateCampaignView(APIView):
 
     def post(self, request):
         context = request.data.get('context', '')
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
-        msg = client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=500,
-            messages=[{"role": "user", "content": (
-                "Eres un experto en marketing para 'Palta con Huevo', un negocio chileno de venta de paltas y huevos. "
-                f"Crea un mensaje de WhatsApp/Email atractivo y corto para una campaña. Contexto: {context}. "
-                "Responde SOLO con el mensaje, sin explicaciones, en español chileno."
-            )}],
-        )
-        return Response({'message': msg.content[0].text})
+        try:
+            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            msg = client.messages.create(
+                model="claude-3-5-sonnet-20240620", max_tokens=500,
+                messages=[{"role": "user", "content": (
+                    "Eres un experto en marketing para 'Palta con Huevo', un negocio chileno de venta de paltas y huevos. "
+                    f"Crea un mensaje de WhatsApp/Email atractivo y corto para una campaña. Contexto: {context}. "
+                    "Responde SOLO con el mensaje, sin explicaciones, en español chileno."
+                )}],
+            )
+            return Response({'message': msg.content[0].text})
+        except Exception as e:
+            logger.exception("AiGenerateCampaignView error:")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class OfferListCreateView(generics.ListCreateAPIView):
@@ -198,7 +202,7 @@ class AiAnalysisView(APIView):
             created_at__date__gte=month_start
         ).aggregate(total=Sum('total'), count=Count('id'))
         analysis_type = request.data.get('type', 'general')
-        client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        
         prompt = (
             "Eres un analista de negocios para 'Palta con Huevo', negocio chileno de paltas y huevos.\n"
             f"Datos del mes actual: Ventas totales: ${sales_data['total'] or 0} CLP, "
@@ -207,11 +211,17 @@ class AiAnalysisView(APIView):
             f"Contexto adicional: {request.data.get('context', '')}.\n"
             "Proporciona análisis concreto y recomendaciones accionables en español chileno. Sé breve y específico."
         )
-        msg = client.messages.create(
-            model="claude-sonnet-4-6", max_tokens=800,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        return Response({'analysis': msg.content[0].text})
+        
+        try:
+            client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+            msg = client.messages.create(
+                model="claude-3-5-sonnet-20240620", max_tokens=800,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return Response({'analysis': msg.content[0].text})
+        except Exception as e:
+            logger.exception("AiAnalysisView error:")
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AgentConfigView(APIView):
@@ -383,5 +393,5 @@ class AiAdvisoryView(APIView):
         except Exception as e:
             import logging
             logging.getLogger(__name__).exception("AI Advisory error: %s", e)
-            return Response({'error': 'Error de comunicación con el servicio de IA.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f'Error de comunicación con el servicio de IA: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
