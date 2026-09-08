@@ -78,13 +78,23 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
                 import anthropic
                 client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
                 msg = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
+                    model="claude-3-5-sonnet-20240620",
                     max_tokens=1500,
                     messages=[{"role":"user","content":prompt}]
                 )
                 raw_text = msg.content[0].text
 
-            data = json.loads(raw_text)
+            # Clean up potential markdown formatting
+            cleaned_text = raw_text.strip()
+            if cleaned_text.startswith('```json'):
+                cleaned_text = cleaned_text[7:]
+            elif cleaned_text.startswith('```'):
+                cleaned_text = cleaned_text[3:]
+            if cleaned_text.endswith('```'):
+                cleaned_text = cleaned_text[:-3]
+            cleaned_text = cleaned_text.strip()
+
+            data = json.loads(cleaned_text)
             slug_base = slugify(data['title'])
             slug = f"{slug_base}-{str(uuid.uuid4())[:4]}"
             recipe = Recipe.objects.create(
