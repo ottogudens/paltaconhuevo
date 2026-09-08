@@ -84,15 +84,12 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
                 )
                 raw_text = msg.content[0].text
 
-            # Clean up potential markdown formatting
-            cleaned_text = raw_text.strip()
-            if cleaned_text.startswith('```json'):
-                cleaned_text = cleaned_text[7:]
-            elif cleaned_text.startswith('```'):
-                cleaned_text = cleaned_text[3:]
-            if cleaned_text.endswith('```'):
-                cleaned_text = cleaned_text[:-3]
-            cleaned_text = cleaned_text.strip()
+            import re
+            match = re.search(r'\{.*\}', raw_text, re.DOTALL)
+            if match:
+                cleaned_text = match.group(0)
+            else:
+                cleaned_text = raw_text
 
             data = json.loads(cleaned_text)
             slug_base = slugify(data['title'])
@@ -117,7 +114,7 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
         except Exception as e:
             import logging
             logging.getLogger(__name__).exception("Recipe error: %s", e)
-            err_msg = "Error interno generando receta."
+            err_msg = f"Error interno generando receta: {str(e)}"
             raw = locals().get('raw_text', 'No generado')
             return Response({'error': err_msg, 'raw': raw}, status=400)
 
