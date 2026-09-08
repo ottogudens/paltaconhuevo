@@ -36,6 +36,9 @@ class Purchase(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def save(self, *args, **kwargs):
+        if kwargs.get('raw', False):
+            super().save(*args, **kwargs)
+            return
         is_new = self.pk is None
         stock_diff = self.quantity
         if not is_new:

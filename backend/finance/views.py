@@ -8,7 +8,7 @@ import openpyxl, datetime, os, tempfile
 from django.core.management import call_command
 from .models import Transaction, CompanySettings
 from .serializers import TransactionSerializer, CompanySettingsSerializer
-from core.permissions import IsAdminOrVendedor
+from core.permissions import IsAdmin, IsAdminOrVendedor
 from orders.models import Order
 
 
@@ -190,34 +190,54 @@ class CompanySettingsView(APIView):
 
 
 class DatabaseBackupView(APIView):
-    permission_classes = [IsAdminOrVendedor]
+    permission_classes = [IsAdmin]
 
     def get(self, request):
-        import io
+        import io, logging
         out = io.StringIO()
-        call_command('dumpdata', exclude=['contenttypes', 'auth.Permission', 'sessions', 'admin.logentry'], format='json', indent=2, stdout=out)
-        response = HttpResponse(out.getvalue().encode('utf-8'), content_type='application/json')
-        response['Content-Disposition'] = 'attachment; filename="backup.json"'
-        return response
+        try:
+            call_command(
+                'dumpdata',
+                exclude=['contenttypes', 'auth.Permission', 'sessions', 'admin.logentry', 'authtoken.token'],
+                format='json',
+                indent=2,
+                use_natural_foreign_keys=True,
+                use_natural_primary_keys=True,
+                stdout=out
+            )
+            response = HttpResponse(out.getvalue().encode('utf-8'), content_type='application/json; charset=utf-8')
+            response['Content-Disposition'] = 'attachment; filename="backup.json"'
+            return response
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).exception("Database backup export error: %s", e)
+            return Response({'error': f'Error al generar copia de seguridad: {str(e)}'}, status=500)
 
     def post(self, request):
         if 'file' not in request.FILES:
-            return Response({'error': 'No file provided'}, status=400)
+            return Response({'error': 'No se proporcionó ningún archivo de respaldo'}, status=400)
             
         file = request.FILES['file']
+        if not file.name.endswith('.json'):
+            return Response({'error': 'El archivo debe ser un JSON de respaldo válido (.json)'}, status=400)
+
         fd, path = tempfile.mkstemp(suffix='.json')
         try:
             with os.fdopen(fd, 'wb') as tmp:
                 for chunk in file.chunks():
                     tmp.write(chunk)
             call_command('loaddata', path)
-            return Response({'status': 'Database restored successfully'})
+            return Response({'status': 'ok', 'message': 'Base de datos restaurada con éxito'})
         except Exception as e:
             import logging
             logging.getLogger(__name__).exception("Database restore error: %s", e)
-            return Response({'error': 'Error interno al restaurar base de datos'}, status=500)
+            return Response({'error': f'Error al restaurar base de datos: {str(e)}'}, status=500)
         finally:
-            os.remove(path)
+            if os.path.exists(path):
+                try:
+                    os.remove(path)
+                except OSError:
+                    pass
 
 
 class DownloadFinanceTemplateView(APIView):

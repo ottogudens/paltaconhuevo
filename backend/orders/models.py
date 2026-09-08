@@ -46,6 +46,9 @@ class OrderItem(models.Model):
     status = models.CharField(max_length=25, choices=Order.STATUS_CHOICES, default='pendiente')
 
     def save(self, *args, **kwargs):
+        if kwargs.get('raw', False):
+            super().save(*args, **kwargs)
+            return
         self.subtotal = self.quantity * self.unit_price
         self.margin = self.subtotal - (self.quantity * self.unit_cost)
         super().save(*args, **kwargs)
@@ -77,6 +80,9 @@ class OrderPayment(models.Model):
     notes = models.TextField(blank=True)
 
     def save(self, *args, **kwargs):
+        if kwargs.get('raw', False):
+            super().save(*args, **kwargs)
+            return
         is_new = self.pk is None
         super().save(*args, **kwargs)
         

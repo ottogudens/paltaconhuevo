@@ -181,36 +181,63 @@ export default function SettingsPage() {
   }
 
   const handleBackupDownload = async () => {
+    setDownloadingBackup(true)
     try {
-      const res = await api.get('/finance/backup/', { responseType: 'blob' })
-      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const res = await api.get('/finance/backup/', {
+        responseType: 'blob',
+        timeout: 60000 // 60 segundos para exportar datos grandes
+      })
+      const blob = new Blob([res.data], { type: 'application/json' })
+      const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
-      link.setAttribute('download', 'database_backup.json')
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+      link.setAttribute('download', `database_backup_${timestamp}.json`)
       document.body.appendChild(link)
       link.click()
       link.remove()
       window.URL.revokeObjectURL(url)
     } catch (e) {
-      alert('Error al generar copia de seguridad')
+      let msg = 'Error al generar copia de seguridad'
+      if (e.response?.data instanceof Blob) {
+        try {
+          const text = await e.response.data.text()
+          const parsed = JSON.parse(text)
+          if (parsed.error || parsed.detail) msg = parsed.error || parsed.detail
+        } catch (_) {}
+      } else if (e.response?.data?.error || e.response?.data?.detail) {
+        msg = e.response.data.error || e.response.data.detail
+      } else if (e.userMessage) {
+        msg = e.userMessage
+      }
+      alert(msg)
+    } finally {
+      setDownloadingBackup(false)
     }
   }
 
   const handleBackupUpload = async (e) => {
     e.preventDefault()
     if (!backupFile) return
-    if (!confirm('PRECAUCIÓN: Esto reemplazará los datos actuales por los del respaldo. ¿Deseas continuar?')) return
+    if (!confirm('PRECAUCIÓN: Esto cargará los datos del respaldo en la base de datos. ¿Deseas continuar?')) return
     setSaving(true)
     try {
       const formData = new FormData()
       formData.append('file', backupFile)
-      await api.post('/finance/backup/', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      const res = await api.post('/finance/backup/', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 120000 // 120 segundos para importar
       })
-      alert('Restauración completada con éxito. Por favor recarga la página.')
+      alert(res.data?.message || 'Restauración completada con éxito. Por favor recarga la página.')
       window.location.reload()
     } catch (e) {
-      alert('Error al restaurar base de datos')
+      let msg = 'Error al restaurar base de datos'
+      if (e.response?.data?.error || e.response?.data?.detail) {
+        msg = e.response.data.error || e.response.data.detail
+      } else if (e.userMessage) {
+        msg = e.userMessage
+      }
+      alert(msg)
     } finally {
       setSaving(false)
     }
@@ -545,8 +572,20 @@ export default function SettingsPage() {
                 <div className="border border-gray-200 rounded-xl p-5 flex flex-col items-start min-h-[220px]">
                   <h3 className="font-bold text-gray-900 mb-2">Respaldar (Exportar)</h3>
                   <p className="text-gray-500 text-xs mb-6 flex-1">Genera un archivo JSON con toda la información (Productos, Clientes, Pedidos y Stats). No se incluyen los registros de sesiones del sistema.</p>
-                  <button onClick={handleBackupDownload} className="w-full py-2.5 bg-palta-600 text-white rounded-lg hover:bg-palta-700 font-medium flex items-center justify-center gap-2">
-                    <Download className="w-4 h-4" /> Descargar Backup (.json)
+                  <button 
+                    onClick={handleBackupDownload} 
+                    disabled={downloadingBackup}
+                    className="w-full py-2.5 bg-palta-600 text-white rounded-lg hover:bg-palta-700 font-medium flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {downloadingBackup ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Generando Respaldo...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" /> Descargar Backup (.json)
+                      </>
+                    )}
                   </button>
                 </div>
 

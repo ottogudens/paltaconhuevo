@@ -32,7 +32,7 @@ class FinanceTests(TestCase):
         import datetime
         today = datetime.date.today()
         Transaction.objects.create(
-            transaction_type='ingreso', category='venta', amount=100000, description='Ventas', date=today
+            transaction_type='ingreso', category='otro', amount=100000, description='Otros ingresos', date=today
         )
         Transaction.objects.create(
             transaction_type='egreso', category='compra', amount=40000, description='Insumos', date=today
@@ -44,4 +44,29 @@ class FinanceTests(TestCase):
         self.assertEqual(response.data['ingresos'], 100000)
         self.assertEqual(response.data['egresos'], 40000)
         self.assertEqual(response.data['balance'], 60000)
+
+    def test_database_backup_download_and_upload(self):
+        import json
+        from django.core.files.uploadedfile import SimpleUploadedFile
+
+        # Test Download
+        response = self.client.get('/api/finance/backup/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response['Content-Type'].startswith('application/json'))
+        backup_data = json.loads(response.content.decode('utf-8'))
+        self.assertIsInstance(backup_data, list)
+
+        # Test Upload / Restore
+        backup_file = SimpleUploadedFile(
+            "backup.json",
+            response.content,
+            content_type="application/json"
+        )
+        upload_res = self.client.post(
+            '/api/finance/backup/',
+            {'file': backup_file},
+            format='multipart'
+        )
+        self.assertEqual(upload_res.status_code, status.HTTP_200_OK)
+
 

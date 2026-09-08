@@ -161,6 +161,9 @@ CORS_ALLOW_HEADERS = [
     'x-csrftoken',
     'x-requested-with',
 ]
+CORS_EXPOSE_HEADERS = [
+    'Content-Disposition',
+]
 
 # C4 fix: HTTPS y cabeceras de seguridad en producción
 if not DEBUG and 'test' not in sys.argv:
