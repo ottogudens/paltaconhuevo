@@ -35,40 +35,49 @@ class Purchase(models.Model):
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def _update_stock(self, product, amount):
+        from decimal import Decimal
+        if product.is_bundle:
+            for comp in product.components.all():
+                comp.product.stock += Decimal(str(amount)) * comp.quantity
+                comp.product.save(update_fields=['stock'])
+        else:
+            product.stock += Decimal(str(amount))
+            product.save(update_fields=['stock'])
+
     def save(self, *args, **kwargs):
         if kwargs.get('raw', False):
             super().save(*args, **kwargs)
             return
+        
         is_new = self.pk is None
-        stock_diff = self.quantity
+        old_purchase = None
         if not is_new:
             old_purchase = Purchase.objects.get(pk=self.pk)
-            stock_diff = self.quantity - old_purchase.quantity
-
-        effective_diff = stock_diff * self.product.purchase_multiplier
 
         self.total_cost = self.quantity * self.unit_cost
         super().save(*args, **kwargs)
         
-        if effective_diff != 0:
-            if self.product.is_bundle:
-                for comp in self.product.components.all():
-                    comp.product.stock += effective_diff * comp.quantity
-                    comp.product.save(update_fields=['stock'])
+        if is_new:
+            effective_diff = self.quantity * self.product.purchase_multiplier
+            self._update_stock(self.product, effective_diff)
+        else:
+            if old_purchase.product == self.product:
+                stock_diff = self.quantity - old_purchase.quantity
+                effective_diff = stock_diff * self.product.purchase_multiplier
+                if effective_diff != 0:
+                    self._update_stock(self.product, effective_diff)
             else:
-                self.product.stock += effective_diff
-                self.product.save(update_fields=['stock'])
+                # Revert stock from old product
+                old_effective = old_purchase.quantity * old_purchase.product.purchase_multiplier
+                self._update_stock(old_purchase.product, -old_effective)
+                # Add stock to new product
+                new_effective = self.quantity * self.product.purchase_multiplier
+                self._update_stock(self.product, new_effective)
 
     def delete(self, *args, **kwargs):
         effective_quantity = self.quantity * self.product.purchase_multiplier
-
-        if self.product.is_bundle:
-            for comp in self.product.components.all():
-                comp.product.stock -= effective_quantity * comp.quantity
-                comp.product.save(update_fields=['stock'])
-        else:
-            self.product.stock -= effective_quantity
-            self.product.save(update_fields=['stock'])
+        self._update_stock(self.product, -effective_quantity)
         super().delete(*args, **kwargs)
 
     def __str__(self):
