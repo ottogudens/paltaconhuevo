@@ -5,6 +5,8 @@ const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
 const Anthropic = require('@anthropic-ai/sdk');
+const OpenAI = require('openai');
+const { GoogleGenAI } = require('@google/genai');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs');
 const pino = require('pino');
@@ -31,8 +33,8 @@ app.use(express.json());
 const API_URL = process.env.DJANGO_API_URL || '';
 const API_TOKEN = process.env.DJANGO_API_TOKEN || '';
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  console.warn('⚠️  ANTHROPIC_API_KEY no definida. La IA no funcionará hasta configurarla.');
+if (!process.env.ANTHROPIC_API_KEY && !process.env.OPENAI_API_KEY && !process.env.GEMINI_API_KEY) {
+  console.warn('⚠️  No hay API Keys de IA definidas (ANTHROPIC_API_KEY, OPENAI_API_KEY, GEMINI_API_KEY). La IA no funcionará hasta configurar al menos una.');
 }
 if (!API_URL) {
   console.warn('⚠️  DJANGO_API_URL no definida. La conexión al backend no funcionará.');
@@ -42,14 +44,68 @@ if (!API_TOKEN) {
 }
 
 // Instancia de Anthropic creada de forma lazy para no crashear al arrancar
-let _anthropic = null;
 function getAnthropic(apiKey) {
   const key = (apiKey && apiKey.trim()) ? apiKey.trim() : process.env.ANTHROPIC_API_KEY;
   if (!key) throw new Error('ANTHROPIC_API_KEY no configurada');
   return new Anthropic({ apiKey: key });
 }
-// Alias por compatibilidad con código que usa `anthropic` directamente
-const anthropic = { messages: { create: (...args) => getAnthropic().messages.create(...args) } };
+
+// Instancia de OpenAI creada de forma lazy
+function getOpenAI(apiKey) {
+  const key = (apiKey && apiKey.trim()) ? apiKey.trim() : process.env.OPENAI_API_KEY;
+  if (!key) throw new Error('OPENAI_API_KEY no configurada');
+  return new OpenAI({ apiKey: key });
+}
+
+// Instancia de Gemini creada de forma lazy
+function getGemini(apiKey) {
+  const key = (apiKey && apiKey.trim()) ? apiKey.trim() : process.env.GEMINI_API_KEY;
+  if (!key) throw new Error('GEMINI_API_KEY no configurada');
+  return new GoogleGenAI({ apiKey: key });
+}
+
+// ── Adaptadores de Tool Schema ──────────────────────────────────────────
+// Convierte las herramientas del formato Anthropic (input_schema) al formato OpenAI (function)
+function toolsToOpenAI(tools) {
+  return tools.map(t => ({
+    type: 'function',
+    function: {
+      name: t.name,
+      description: t.description,
+      parameters: t.input_schema || { type: 'object', properties: {} }
+    }
+  }));
+}
+
+// Convierte las herramientas del formato Anthropic al formato Gemini (functionDeclarations)
+function toolsToGemini(tools) {
+  return tools.map(t => {
+    const schema = JSON.parse(JSON.stringify(t.input_schema || { type: 'object', properties: {} }));
+    // Gemini no soporta 'additionalProperties' en la raíz
+    delete schema.additionalProperties;
+    // Limpiar recursivamente
+    function cleanSchema(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      delete obj.additionalProperties;
+      if (obj.properties) {
+        for (const key of Object.keys(obj.properties)) {
+          cleanSchema(obj.properties[key]);
+          // Gemini requiere explícitamente el campo 'type' en cada propiedad
+          if (obj.properties[key] && !obj.properties[key].type) {
+            obj.properties[key].type = 'STRING';
+          }
+        }
+      }
+      if (obj.items) cleanSchema(obj.items);
+    }
+    cleanSchema(schema);
+    return {
+      name: t.name,
+      description: t.description,
+      parameters: schema
+    };
+  });
+}
 
 // Cache en memoria con TTL (60s)
 let productsCache = { data: null, expiresAt: 0 };
@@ -247,15 +303,14 @@ async function notifyHumanOperator(customerPhone, customerName) {
 // Helper para formato de moneda CLP ($1.500)
 const formatCLP = (amount) => `$${Math.round(amount || 0).toLocaleString('es-CL')}`;
 
-// IA conversacional principal
+// IA conversacional principal — Multi-Provider (Anthropic, OpenAI, Gemini)
 async function processWithAI(session, userMessage, customerPhone) {
   const [products, config] = await Promise.all([
     getProducts(),
     getAgentConfig()
   ]);
 
-  // Dynamic API Key — usa getAnthropic() para inicialización lazy
-  const activeAnthropic = getAnthropic(config.api_key);
+  const provider = (config.ai_provider || 'claude').toLowerCase();
 
   const productList = products.map(p => `- ID ${p.id}: ${p.name} (${p.product_type}): ${formatCLP(p.sale_price)} por ${p.unit} (Stock disponible: ${p.stock})`).join('\n');
   const cartSummary = session.cart.length > 0
@@ -293,7 +348,7 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
   session.history.push({ role: 'user', content: userMessage });
   if (session.history.length > 20) session.history = session.history.slice(-20);
 
-  // Normalizar historial para evitar errores de Anthropic (roles consecutivos)
+  // Normalizar historial para evitar errores (roles consecutivos)
   let currentMsg = [];
   for (const msg of session.history) {
     if (currentMsg.length > 0 && currentMsg[currentMsg.length - 1].role === msg.role) {
@@ -303,8 +358,7 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
     }
   }
 
-  let finalResponse = null;
-
+  // ── Definición de Tools (formato Anthropic canónico) ──────────────────
   let tools = [
     {
       name: "request_human",
@@ -400,162 +454,258 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
     });
   }
 
+  // ── Ejecutor de herramientas (agnóstico al proveedor) ────────────────
+  async function executeTool(name, input) {
+    if (name === 'request_human') {
+      session.isHumanMode = true;
+      session.pendingHuman = true;
+      notifyHumanOperator(customerPhone, session.userData?.first_name);
+      return "Operador notificado. Avisa al usuario que será atendido pronto.";
+    }
+    else if (name === 'add_to_cart') {
+      const addedItems = [];
+      const stockWarnings = [];
+      const items = input.items || [];
+      for (const item of items) {
+        const product = products.find(p => p.id === parseInt(item.product_id));
+        if (product) {
+          const existing = session.cart.find(i => i.product.id === product.id);
+          const currentInCart = existing ? existing.quantity : 0;
+          const requestedTotal = currentInCart + item.quantity;
+          if (parseFloat(product.stock) <= 0) {
+            stockWarnings.push(`El producto "${product.name}" está actualmente AGOTADO (stock: 0).`);
+          } else if (requestedTotal > parseFloat(product.stock)) {
+            const maxAddable = Math.max(0, parseFloat(product.stock) - currentInCart);
+            if (maxAddable > 0) {
+              if (existing) existing.quantity += maxAddable;
+              else session.cart.push({ product, quantity: maxAddable });
+              stockWarnings.push(`Solo pudimos agregar ${maxAddable} de "${product.name}" porque es todo el stock disponible.`);
+            } else {
+              stockWarnings.push(`No se pudo agregar más de "${product.name}" porque ya tienes todo el stock disponible en tu carrito.`);
+            }
+          } else {
+            if (existing) existing.quantity += item.quantity;
+            else session.cart.push({ product, quantity: item.quantity });
+            addedItems.push(`${item.quantity} x ${product.name}`);
+          }
+        }
+      }
+      return `Productos agregados: ${addedItems.join(', ') || 'ninguno'}. ${stockWarnings.join(' ')}`;
+    }
+    else if (name === 'get_loyalty_points') {
+      const loyalty = await getUserPoints(session.userToken);
+      return `El usuario tiene ${loyalty.points} puntos. Nivel: ${loyalty.level}.`;
+    }
+    else if (name === 'get_recipe') {
+      try {
+        const res = await api.get('/recipes/');
+        const recetas = res.data.results || res.data || [];
+        if (recetas.length > 0) {
+          const recString = recetas.map(r => `- ${r.title} (${r.difficulty} - ${r.calories}kcal)\n  Ingredientes destac.: ${r.ingredients?.map(i=>i.item).join(', ')}\n  Prep: ${r.steps?.[0]}...`).join('\n\n');
+          return `Toma las recetas y sugiérelas de manera conversacional, sin copiar y pegar el json. Aquí están algunas:\n${recString}`;
+        } else {
+          return `No hay recetas disponibles actualmente en la base de datos de fidelización. Ofrece disculpas.`;
+        }
+      } catch (e) {
+        return `Error obteniendo recetas. Dile que en este momento no tienes el recetario a mano.`;
+      }
+    }
+    else if (name === 'confirm_order') {
+      session.step = 'confirming';
+      return "Pedido confirmado. Pregunta si desea retiro o despacho.";
+    }
+    else if (name === 'set_delivery') {
+      session.deliveryType = input.type;
+      if (input.type === 'despacho') {
+        session.deliveryAddress = input.address || '';
+        session.deliveryCommune = input.commune || '';
+      }
+      session.step = 'awaiting_payment';
+      return "Datos de entrega guardados. Procede a generar el pago (generate_payment).";
+    }
+    else if (name === 'generate_payment') {
+      const order = await createOrder(session, session.deliveryType || 'retiro', session.deliveryAddress, session.deliveryCommune, session.deliveryReference);
+      const link = await generatePaymentLink(order.id);
+      session.cart = [];
+      session.step = 'menu';
+      return `Pedido creado. Link de MercadoPago generado: ${link}. Puntos ganados: ${order.points_earned}. Entrega esta información al usuario y despídete.`;
+    }
+    else if (name === 'send_buttons') {
+      const btns = input.buttons.slice(0, 3).map((b, idx) => ({ buttonId: 'btn_'+idx, buttonText: { displayText: b }, type: 1 }));
+      await sendMessage(customerPhone, { text: input.text, buttons: btns, headerType: 1 });
+      return "El usuario vio los botones y se le enviaron con éxito. Espera a que responda alguna opción.";
+    }
+    else if (name === 'send_list') {
+      const sections = [{ title: "Lista de Opciones", rows: input.items.map((it, idx) => ({ title: it, rowId: 'row_'+idx })) }];
+      await sendMessage(customerPhone, { text: input.text, buttonText: input.button_text, sections: sections });
+      return "El usuario recibió la lista desplegable. Espera a que seleccione una opción.";
+    }
+    return 'Herramienta no reconocida.';
+  }
 
+  let finalResponse = null;
 
-  // Bucle para permitir que Claude llame múltiples herramientas si es necesario
-  for (let i = 0; i < 5; i++) {
-    const callStart = Date.now();
-    const msg = await activeAnthropic.messages.create({
-      model: 'claude-3-5-sonnet-latest',
-      max_tokens: 400,
-      system: systemPrompt,
-      tools: tools,
-      messages: currentMsg,
-    });
-    const latencyMs = Date.now() - callStart;
+  // ══════════════════════════════════════════════════════════════════════
+  // PROVEEDOR: ANTHROPIC (Claude)
+  // ══════════════════════════════════════════════════════════════════════
+  if (provider === 'claude') {
+    const activeAnthropic = getAnthropic(config.api_key);
+    for (let i = 0; i < 5; i++) {
+      const callStart = Date.now();
+      const msg = await activeAnthropic.messages.create({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: systemPrompt,
+        tools: tools,
+        messages: currentMsg,
+      });
+      const latencyMs = Date.now() - callStart;
+      logger.info({ event: 'ai_completion', provider: 'claude', latency_ms: latencyMs, input_tokens: msg.usage?.input_tokens || 0, output_tokens: msg.usage?.output_tokens || 0, stop_reason: msg.stop_reason, customer_phone: customerPhone }, `Claude API call finished in ${latencyMs}ms`);
 
-    logger.info({
-      event: 'ai_completion',
-      model: 'claude-3-5-sonnet-latest',
-      latency_ms: latencyMs,
-      input_tokens: msg.usage?.input_tokens || 0,
-      output_tokens: msg.usage?.output_tokens || 0,
-      stop_reason: msg.stop_reason,
-      customer_phone: customerPhone
-    }, `Claude API call finished in ${latencyMs}ms (input: ${msg.usage?.input_tokens}, output: ${msg.usage?.output_tokens})`);
+      const assistantMsg = { role: 'assistant', content: msg.content };
+      currentMsg.push(assistantMsg);
 
-    const assistantMsg = { role: 'assistant', content: msg.content };
-    currentMsg.push(assistantMsg);
+      const textContent = msg.content.find(c => c.type === 'text')?.text;
+      if (textContent) finalResponse = textContent;
 
-    
-    // Extraer texto
-    const textContent = msg.content.find(c => c.type === 'text')?.text;
-    if (textContent) finalResponse = textContent;
+      if (msg.stop_reason !== 'tool_use') break;
 
-    if (msg.stop_reason !== 'tool_use') {
-      break;
+      // Ejecutar herramientas
+      const toolResults = [];
+      for (const contentBlock of msg.content) {
+        if (contentBlock.type === 'tool_use') {
+          const { id, name, input } = contentBlock;
+          let toolResultText;
+          try {
+            toolResultText = await executeTool(name, input);
+          } catch (e) {
+            toolResultText = `Error al ejecutar herramienta: ${e.message}`;
+          }
+          toolResults.push({ type: 'tool_result', tool_use_id: id, content: toolResultText });
+        }
+      }
+      currentMsg.push({ role: 'user', content: toolResults });
+    }
+  }
+  // ══════════════════════════════════════════════════════════════════════
+  // PROVEEDOR: OPENAI (ChatGPT)
+  // ══════════════════════════════════════════════════════════════════════
+  else if (provider === 'chatgpt' || provider === 'openai') {
+    const activeOpenAI = getOpenAI(config.api_key);
+    const openaiTools = toolsToOpenAI(tools);
+    // Convertir historial al formato OpenAI
+    const openaiMessages = [{ role: 'system', content: systemPrompt }];
+    for (const m of currentMsg) {
+      openaiMessages.push({ role: m.role, content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) });
     }
 
-    // Ejecutar herramientas
-    const toolResults = [];
-    for (const contentBlock of msg.content) {
-      if (contentBlock.type === 'tool_use') {
-        const { id, name, input } = contentBlock;
-        let toolResultText = "";
+    for (let i = 0; i < 5; i++) {
+      const callStart = Date.now();
+      const completion = await activeOpenAI.chat.completions.create({
+        model: 'gpt-4o-mini',
+        max_tokens: 400,
+        messages: openaiMessages,
+        tools: openaiTools,
+      });
+      const latencyMs = Date.now() - callStart;
+      const choice = completion.choices[0];
+      logger.info({ event: 'ai_completion', provider: 'openai', model: 'gpt-4o-mini', latency_ms: latencyMs, finish_reason: choice.finish_reason, customer_phone: customerPhone }, `OpenAI API call finished in ${latencyMs}ms`);
 
+      // Guardar la respuesta del asistente
+      openaiMessages.push(choice.message);
+
+      if (choice.message.content) {
+        finalResponse = choice.message.content;
+        // Guardar en currentMsg para historial
+        currentMsg.push({ role: 'assistant', content: choice.message.content });
+      }
+
+      if (choice.finish_reason !== 'tool_calls' || !choice.message.tool_calls) break;
+
+      // Ejecutar herramientas
+      for (const tc of choice.message.tool_calls) {
+        const fnName = tc.function.name;
+        let fnArgs;
+        try { fnArgs = JSON.parse(tc.function.arguments); } catch { fnArgs = {}; }
+        let toolResultText;
         try {
-          if (name === 'request_human') {
-            session.isHumanMode = true;
-            session.pendingHuman = true;
-            notifyHumanOperator(customerPhone, session.userData?.first_name);
-            toolResultText = "Operador notificado. Avisa al usuario que será atendido pronto.";
-          } 
-          else if (name === 'add_to_cart') {
-            const addedItems = [];
-            const stockWarnings = [];
-            const items = input.items || [];
-
-            for (const item of items) {
-              const product = products.find(p => p.id === parseInt(item.product_id));
-              if (product) {
-                const existing = session.cart.find(i => i.product.id === product.id);
-                const currentInCart = existing ? existing.quantity : 0;
-                const requestedTotal = currentInCart + item.quantity;
-
-                if (parseFloat(product.stock) <= 0) {
-                  stockWarnings.push(`El producto "${product.name}" está actualmente AGOTADO (stock: 0).`);
-                } else if (requestedTotal > parseFloat(product.stock)) {
-                  const maxAddable = Math.max(0, parseFloat(product.stock) - currentInCart);
-                  if (maxAddable > 0) {
-                    if (existing) existing.quantity += maxAddable;
-                    else session.cart.push({ product, quantity: maxAddable });
-                    stockWarnings.push(`Solo pudimos agregar ${maxAddable} de "${product.name}" porque es todo el stock disponible.`);
-                  } else {
-                    stockWarnings.push(`No se pudo agregar más de "${product.name}" porque ya tienes todo el stock disponible en tu carrito.`);
-                  }
-                } else {
-                  if (existing) existing.quantity += item.quantity;
-                  else session.cart.push({ product, quantity: item.quantity });
-                  addedItems.push(`${item.quantity} x ${product.name}`);
-                }
-              }
-            }
-            toolResultText = `Productos agregados: ${addedItems.join(', ') || 'ninguno'}. ${stockWarnings.join(' ')}`;
-          }
-          else if (name === 'get_loyalty_points') {
-            const loyalty = await getUserPoints(session.userToken);
-            toolResultText = `El usuario tiene ${loyalty.points} puntos. Nivel: ${loyalty.level}.`;
-          }
-          else if (name === 'get_recipe') {
-            try {
-              const res = await api.get('/recipes/');
-              const recetas = res.data.results || res.data || [];
-              if (recetas.length > 0) {
-                 const recString = recetas.map(r => `- ${r.title} (${r.difficulty} - ${r.calories}kcal)\n  Ingredientes destac.: ${r.ingredients?.map(i=>i.item).join(', ')}\n  Prep: ${r.steps?.[0]}...`).join('\n\n');
-                 toolResultText = `Toma las recetas y sugiérelas de manera conversacional, sin copiar y pegar el json. Aquí están algunas:\n${recString}`;
-              } else {
-                 toolResultText = `No hay recetas disponibles actualmente en la base de datos de fidelización. Ofrece disculpas.`;
-              }
-            } catch (e) {
-              toolResultText = `Error obteniendo recetas. Dile que en este momento no tienes el recetario a mano.`;
-            }
-          }
-          else if (name === 'confirm_order') {
-            session.step = 'confirming';
-            toolResultText = "Pedido confirmado. Pregunta si desea retiro o despacho.";
-          }
-          else if (name === 'set_delivery') {
-            session.deliveryType = input.type;
-            if (input.type === 'despacho') {
-              session.deliveryAddress = input.address || '';
-              session.deliveryCommune = input.commune || '';
-            }
-            session.step = 'awaiting_payment';
-            toolResultText = "Datos de entrega guardados. Procede a generar el pago (generate_payment).";
-          }
-          else if (name === 'generate_payment') {
-            const order = await createOrder(session, session.deliveryType || 'retiro', session.deliveryAddress, session.deliveryCommune, session.deliveryReference);
-            const link = await generatePaymentLink(order.id);
-            session.cart = [];
-            session.step = 'menu';
-            toolResultText = `Pedido creado. Link de MercadoPago generado: ${link}. Puntos ganados: ${order.points_earned}. Entrega esta información al usuario y despídete.`;
-          }
-          else if (name === 'send_buttons') {
-            const btns = input.buttons.slice(0, 3).map((b, idx) => ({ buttonId: 'btn_'+idx, buttonText: { displayText: b }, type: 1 }));
-            await sendMessage(customerPhone, {
-                text: input.text,
-                buttons: btns,
-                headerType: 1
-            });
-            toolResultText = "El usuario vio los botones y se le enviaron con éxito. Espera a que responda alguna opción.";
-          }
-          else if (name === 'send_list') {
-            const sections = [
-              {
-                title: "Lista de Opciones",
-                rows: input.items.map((it, idx) => ({ title: it, rowId: 'row_'+idx }))
-              }
-            ];
-            await sendMessage(customerPhone, {
-                text: input.text,
-                buttonText: input.button_text,
-                sections: sections
-            });
-            toolResultText = "El usuario recibió la lista desplegable. Espera a que seleccione una opción.";
-          }
+          toolResultText = await executeTool(fnName, fnArgs);
         } catch (e) {
           toolResultText = `Error al ejecutar herramienta: ${e.message}`;
         }
-
-        toolResults.push({
-          type: 'tool_result',
-          tool_use_id: id,
-          content: toolResultText
-        });
+        openaiMessages.push({ role: 'tool', tool_call_id: tc.id, content: toolResultText });
       }
     }
-    
-    currentMsg.push({ role: 'user', content: toolResults });
+  }
+  // ══════════════════════════════════════════════════════════════════════
+  // PROVEEDOR: GEMINI (Google)
+  // ══════════════════════════════════════════════════════════════════════
+  else if (provider === 'gemini') {
+    const activeGemini = getGemini(config.api_key);
+    const geminiToolDecls = toolsToGemini(tools);
+
+    // Construir contenido para Gemini
+    const geminiContents = [];
+    for (const m of currentMsg) {
+      geminiContents.push({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: typeof m.content === 'string' ? m.content : JSON.stringify(m.content) }]
+      });
+    }
+
+    for (let i = 0; i < 5; i++) {
+      const callStart = Date.now();
+      const response = await activeGemini.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: geminiContents,
+        systemInstruction: systemPrompt,
+        tools: [{ functionDeclarations: geminiToolDecls }],
+        config: { maxOutputTokens: 400 }
+      });
+      const latencyMs = Date.now() - callStart;
+      logger.info({ event: 'ai_completion', provider: 'gemini', model: 'gemini-2.0-flash', latency_ms: latencyMs, customer_phone: customerPhone }, `Gemini API call finished in ${latencyMs}ms`);
+
+      const candidate = response.candidates?.[0];
+      if (!candidate || !candidate.content?.parts) break;
+
+      // Guardar respuesta
+      geminiContents.push({ role: 'model', parts: candidate.content.parts });
+
+      // Extraer texto
+      const textPart = candidate.content.parts.find(p => p.text);
+      if (textPart?.text) {
+        finalResponse = textPart.text;
+        currentMsg.push({ role: 'assistant', content: textPart.text });
+      }
+
+      // Revisar tool calls
+      const functionCalls = candidate.content.parts.filter(p => p.functionCall);
+      if (functionCalls.length === 0) break;
+
+      // Ejecutar herramientas y devolver resultados
+      const functionResponses = [];
+      for (const fc of functionCalls) {
+        const fnName = fc.functionCall.name;
+        const fnArgs = fc.functionCall.args || {};
+        let toolResultText;
+        try {
+          toolResultText = await executeTool(fnName, fnArgs);
+        } catch (e) {
+          toolResultText = `Error al ejecutar herramienta: ${e.message}`;
+        }
+        functionResponses.push({ functionResponse: { name: fnName, response: { result: toolResultText } } });
+      }
+      geminiContents.push({ role: 'user', parts: functionResponses });
+    }
+  }
+  // ══════════════════════════════════════════════════════════════════════
+  // FALLBACK: Proveedor no reconocido
+  // ══════════════════════════════════════════════════════════════════════
+  else {
+    logger.warn({ provider }, 'Proveedor de IA no reconocido, usando Claude como fallback');
+    // Recursión única con override a claude
+    config.ai_provider = 'claude';
+    return processWithAI(session, userMessage, customerPhone);
   }
 
   // Guardar historial limpio

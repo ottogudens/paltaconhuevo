@@ -24,7 +24,7 @@ export default function WhatsAppPage() {
   const [sendingReply, setSendingReply] = useState(false)
 
   // Configuración del agente
-  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', api_key: '', whatsapp_connected_phone: '', enable_sales: true, enable_loyalty: true })
+  const [agentConfig, setAgentConfig] = useState({ name: 'Paltín', api_key: '', whatsapp_connected_phone: '', enable_sales: true, enable_loyalty: true, ai_provider: 'claude' })
   const [savingConfig, setSavingConfig] = useState(false)
 
   // Flujos Automatizados
@@ -478,13 +478,15 @@ export default function WhatsAppPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Proveedor de Inteligencia Artificial (LLM)</label>
                 <select
-                  value="claude"
-                  disabled
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-gray-100 font-medium text-gray-800 cursor-not-allowed"
+                  value={agentConfig.ai_provider || 'claude'}
+                  onChange={e => setAgentConfig({ ...agentConfig, ai_provider: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 font-medium text-gray-800"
                 >
-                  <option value="claude">Claude 3.5 Sonnet (Anthropic) - Recomendado</option>
+                  <option value="claude">Claude Sonnet 4 (Anthropic) — Recomendado</option>
+                  <option value="chatgpt">GPT-4o Mini (OpenAI) — Rápido y económico</option>
+                  <option value="gemini">Gemini 2.0 Flash (Google) — Contexto amplio</option>
                 </select>
-                <p className="text-xs text-gray-500 mt-1">Actualmente el agente opera exclusivamente con Claude 3.5 Sonnet.</p>
+                <p className="text-xs text-gray-500 mt-1">Selecciona el motor de IA que usará el agente de WhatsApp para responder a los clientes.</p>
               </div>
 
               <div>
@@ -494,9 +496,9 @@ export default function WhatsAppPage() {
                   value={agentConfig.api_key || ''}
                   onChange={e => setAgentConfig({ ...agentConfig, api_key: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 font-mono"
-                  placeholder="sk-ant-... o sk-... (Deja en blanco si usas las credenciales por defecto)"
+                  placeholder={agentConfig.ai_provider === 'chatgpt' ? 'sk-... (OpenAI)' : agentConfig.ai_provider === 'gemini' ? 'AIza... (Google)' : 'sk-ant-... (Anthropic)'}
                 />
-                <p className="text-xs text-gray-400 mt-1">Si ingresas una clave aquí, el sistema utilizará tu propia cuenta del proveedor seleccionado.</p>
+                <p className="text-xs text-gray-400 mt-1">Si ingresas una clave aquí, el sistema utilizará tu propia cuenta del proveedor seleccionado. Déjala en blanco para usar las credenciales por defecto del servidor.</p>
               </div>
 
               <div>
