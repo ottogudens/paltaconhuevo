@@ -186,7 +186,7 @@ export default function SettingsPage() {
     try {
       const res = await api.get('/finance/backup/', {
         responseType: 'blob',
-        timeout: 60000 // 60 segundos para exportar datos grandes
+        timeout: 300000 // 5 minutos — dumpdata en Railway tarda ~2 min para la DB actual
       })
       const blob = new Blob([res.data], { type: 'application/json' })
       const url = window.URL.createObjectURL(blob)

@@ -16,7 +16,7 @@ echo "Starting Gunicorn on port $PORT..."
 exec gunicorn core.wsgi:application \
     --bind 0.0.0.0:$PORT \
     --workers 2 \
-    --timeout 120 \
+    --timeout 300 \
     --access-logfile - \
     --error-logfile - \
     --log-level info
