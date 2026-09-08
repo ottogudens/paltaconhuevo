@@ -4,10 +4,20 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from django.http import HttpResponse
 import openpyxl
-from .models import Product, Purchase
-from .serializers import ProductSerializer, PurchaseSerializer
+from .models import Product, Purchase, ProductCategory
+from .serializers import ProductSerializer, PurchaseSerializer, ProductCategorySerializer
 from core.permissions import IsAdminOrVendedor
 
+
+class ProductCategoryListCreateView(generics.ListCreateAPIView):
+    serializer_class = ProductCategorySerializer
+    queryset = ProductCategory.objects.all().order_by('name')
+    permission_classes = [IsAuthenticated]
+
+class ProductCategoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = ProductCategorySerializer
+    queryset = ProductCategory.objects.all()
+    permission_classes = [IsAdminOrVendedor]
 
 class ProductListCreateView(generics.ListCreateAPIView):
     """

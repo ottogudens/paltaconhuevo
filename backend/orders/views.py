@@ -426,8 +426,8 @@ class DashboardView(APIView):
         from products.models import Purchase
         from finance.models import Transaction
 
-        # Stock Valorizado Base (Paltas y Huevos)
-        base_products = Product.objects.filter(is_active=True, product_type__in=['palta', 'huevo'])
+        # Stock Valorizado Base (Todos los productos base, no combos)
+        base_products = Product.objects.filter(is_active=True, is_bundle=False)
         
         val_stock = base_products.filter(stock__gt=0).aggregate(val=Sum(F('stock') * F('sale_price')))['val']
         valorized_stock_available = float(val_stock or 0)
@@ -436,6 +436,21 @@ class DashboardView(APIView):
             val=Sum(F('quantity') * F('product__sale_price'))
         )['val']
         valorized_stock_pending = float(val_pending or 0)
+        
+        products_stock_breakdown = []
+        for p in base_products:
+            avail = float(p.stock * p.sale_price) if p.stock > 0 else 0
+            pend = OrderItem.objects.filter(order__status='pendiente', product=p).aggregate(
+                val=Sum(F('quantity') * F('product__sale_price'))
+            )['val']
+            pend = float(pend or 0)
+            if avail > 0 or pend > 0:
+                products_stock_breakdown.append({
+                    'id': p.id,
+                    'name': p.name,
+                    'available': avail,
+                    'pending': pend
+                })
         
         # Compras Pendientes de Pago (Total Compras - Monto ya abonado)
         val_unpaid = Purchase.objects.exclude(payment_status='pagado').aggregate(
@@ -466,6 +481,7 @@ class DashboardView(APIView):
             'top_customers': top_customers,
             'valorized_stock_available': valorized_stock_available,
             'valorized_stock_pending': valorized_stock_pending,
+            'products_stock_breakdown': products_stock_breakdown,
             'unpaid_purchases_total': unpaid_purchases_total,
             'unwithdrawn_profit': unwithdrawn_profit,
         })

@@ -3,14 +3,86 @@ import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
 import PriceCalculatorModal from '../../components/PriceCalculatorModal'
 import ImportModal from '../../components/ImportModal'
-import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator, Download, Upload } from 'lucide-react'
+import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator, Download, Upload, List } from 'lucide-react'
 
-const EMPTY_PRODUCT = { name: '', product_type: 'palta', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, can_be_sold: true, purchase_multiplier: 1, components: [] }
+const EMPTY_PRODUCT = { name: '', product_type: '', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, can_be_sold: true, purchase_multiplier: 1, components: [] }
 
 const formatCLP = (n) => `$${(n || 0).toLocaleString('es-CL')}`
 
-function ProductModal({ product, allProducts, onClose, onSave }) {
-  const [form, setForm] = useState(product ? { ...EMPTY_PRODUCT, ...product } : EMPTY_PRODUCT)
+function CategoryManagerModal({ onClose, onUpdate }) {
+  const [categories, setCategories] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [newName, setNewName] = useState('')
+  const [newEmoji, setNewEmoji] = useState('📦')
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/products/categories/')
+      setCategories(res.data.results || res.data || [])
+    } catch (e) { console.error(e) }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => { fetchCategories() }, [])
+
+  const handleAdd = async (e) => {
+    e.preventDefault()
+    if (!newName.trim()) return
+    try {
+      await api.post('/products/categories/', { name: newName.trim(), emoji: newEmoji })
+      setNewName('')
+      setNewEmoji('📦')
+      fetchCategories()
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Error al crear categoría') }
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('¿Eliminar esta categoría?')) return
+    try {
+      await api.delete(`/products/categories/${id}/`)
+      fetchCategories()
+      if (onUpdate) onUpdate()
+    } catch (e) { alert('Error al eliminar categoría') }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-xl font-bold text-gray-900">Gestionar Tipos de Producto</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1">
+          <form onSubmit={handleAdd} className="flex gap-2 mb-6">
+            <input type="text" placeholder="Emoji (ej. 🥑)" value={newEmoji} onChange={e => setNewEmoji(e.target.value)} maxLength={5} className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-sm text-center" />
+            <input type="text" placeholder="Nuevo tipo..." value={newName} onChange={e => setNewName(e.target.value)} required className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm" />
+            <button type="submit" className="px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 font-medium text-sm">Añadir</button>
+          </form>
+          {loading ? (
+            <div className="text-center py-4 text-gray-500 text-sm">Cargando...</div>
+          ) : (
+            <div className="space-y-2">
+              {categories.map(c => (
+                <div key={c.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{c.emoji}</span>
+                    <span className="font-medium text-gray-700 capitalize">{c.name}</span>
+                  </div>
+                  <button onClick={() => handleDelete(c.id)} className="p-1.5 text-red-500 hover:bg-red-100 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              ))}
+              {categories.length === 0 && <p className="text-sm text-gray-500 text-center py-4">No hay tipos registrados.</p>}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ProductModal({ product, allProducts, categories, onClose, onSave }) {
+  const [form, setForm] = useState(product ? { ...EMPTY_PRODUCT, ...product } : { ...EMPTY_PRODUCT, product_type: categories[0]?.name || '' })
   const [imageFile, setImageFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(product?.image || null)
   const [saving, setSaving] = useState(false)
@@ -100,9 +172,10 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo</label>
               <select value={form.product_type} onChange={e => setForm({...form, product_type: e.target.value})}
                 className="w-full px-4 min-h-[44px] border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-palta-500 bg-white">
-                <option value="palta">Palta</option>
-                <option value="huevo">Huevo</option>
-                <option value="otro">Otro</option>
+                <option value="">Seleccionar...</option>
+                {categories.map(c => (
+                  <option key={c.id} value={c.name}>{c.name}</option>
+                ))}
               </select>
             </div>
             <div>
@@ -225,12 +298,21 @@ function ProductModal({ product, allProducts, onClose, onSave }) {
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([])
+  const [categories, setCategories] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [showCalculator, setShowCalculator] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
+
+  const fetchCategories = async () => {
+    try {
+      const res = await api.get('/products/categories/')
+      setCategories(res.data.results || res.data || [])
+    } catch (e) { console.error(e) }
+  }
 
   const fetchProducts = async () => {
     setLoading(true)
@@ -241,7 +323,10 @@ export default function ProductsPage() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { fetchProducts() }, [])
+  useEffect(() => { 
+    fetchCategories()
+    fetchProducts() 
+  }, [])
 
   const handleDelete = async (id) => {
     if (!confirm('¿Estás seguro de eliminar este producto?')) return
@@ -281,7 +366,7 @@ export default function ProductsPage() {
     return p.name.toLowerCase().includes(search.toLowerCase()) ||
       p.product_type.toLowerCase().includes(search.toLowerCase())
   })
-  const typeEmoji = { palta: '🥑', huevo: '🥚', otro: '📦' }
+  const typeEmoji = categories.reduce((acc, c) => { acc[c.name.toLowerCase()] = c.emoji; return acc }, {})
 
   return (
     <AdminLayout>
@@ -299,6 +384,10 @@ export default function ProductsPage() {
             <button onClick={() => setShowImportModal(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
               <Upload className="w-4 h-4" /> Importar
+            </button>
+            <button onClick={() => setShowCategoryModal(true)}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-sm font-medium">
+              <List className="w-4 h-4" /> Tipos
             </button>
             <button onClick={() => setShowCalculator(true)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-palta-50 text-palta-700 border border-palta-200 rounded-lg hover:bg-palta-100 text-sm font-medium">
@@ -433,7 +522,10 @@ export default function ProductsPage() {
       </div>
 
       {showModal && (
-        <ProductModal product={editProduct} allProducts={products} onClose={() => setShowModal(false)} onSave={fetchProducts} />
+        <ProductModal product={editProduct} allProducts={products} categories={categories} onClose={() => setShowModal(false)} onSave={fetchProducts} />
+      )}
+      {showCategoryModal && (
+        <CategoryManagerModal onClose={() => setShowCategoryModal(false)} onUpdate={fetchCategories} />
       )}
       {showCalculator && (
         <PriceCalculatorModal onClose={() => setShowCalculator(false)} />

@@ -1,5 +1,10 @@
 from rest_framework import serializers
-from .models import Product, Purchase, ProductComponent
+from .models import Product, Purchase, ProductComponent, ProductCategory
+
+class ProductCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductCategory
+        fields = '__all__'
 
 class ProductComponentSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source='product.name', read_only=True)

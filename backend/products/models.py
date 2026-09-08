@@ -1,10 +1,16 @@
 from django.db import models
 
+class ProductCategory(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    emoji = models.CharField(max_length=10, blank=True, default='📦')
+
+    def __str__(self):
+        return self.name
+
 class Product(models.Model):
     UNIT_CHOICES = [('unidad', 'Unidad'), ('kilo', 'Kilo'), ('docena', 'Docena'), ('caja', 'Caja')]
-    TYPE_CHOICES = [('palta', 'Palta'), ('huevo', 'Huevo'), ('otro', 'Otro')]
     name = models.CharField(max_length=200)
-    product_type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    product_type = models.CharField(max_length=50)
     description = models.TextField(blank=True)
     unit = models.CharField(max_length=20, choices=UNIT_CHOICES, default='unidad')
     purchase_price = models.DecimalField(max_digits=10, decimal_places=0, default=0)

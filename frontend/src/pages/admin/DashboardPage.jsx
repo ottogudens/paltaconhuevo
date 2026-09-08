@@ -50,6 +50,7 @@ export default function DashboardPage() {
   const [showCalculator, setShowCalculator] = useState(false)
   const [productSortOption, setProductSortOption] = useState('total_sales_desc')
   const [includePendingStock, setIncludePendingStock] = useState(false)
+  const [selectedStockProduct, setSelectedStockProduct] = useState('all')
 
   const fetchDashboard = async () => {
     try {
@@ -145,6 +146,16 @@ export default function DashboardPage() {
   // Stock valorizado calc
   const getValorizedStock = () => {
     if (!dashboard) return 0;
+    
+    if (selectedStockProduct !== 'all' && dashboard.products_stock_breakdown) {
+      const p = dashboard.products_stock_breakdown.find(x => x.id.toString() === selectedStockProduct)
+      if (p) {
+        let val = p.available || 0;
+        if (includePendingStock) val += (p.pending || 0);
+        return val;
+      }
+    }
+
     let total = dashboard.valorized_stock_available || 0;
     if (includePendingStock) {
       total += (dashboard.valorized_stock_pending || 0);
@@ -154,6 +165,7 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout>
+      {showCalculator && <PriceCalculatorModal onClose={() => setShowCalculator(false)} />}
       <div className="space-y-6">
         {/* Header */}
         <div>
@@ -199,7 +211,21 @@ export default function DashboardPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-2">
           <div className="relative">
             <StatCard icon={ShoppingCart} label="Stock Valorizado (Activo)" value={formatCLP(getValorizedStock())} color="palta" />
-            <div className="absolute top-2 right-2 sm:bottom-2 sm:top-auto sm:right-4 flex items-center gap-1.5">
+            
+            <div className="absolute top-2 right-2 sm:bottom-8 sm:top-auto sm:right-4">
+              <select
+                value={selectedStockProduct}
+                onChange={e => setSelectedStockProduct(e.target.value)}
+                className="text-[10px] sm:text-xs border-gray-200 rounded p-1 text-gray-600 bg-gray-50 focus:ring-palta-500 w-24 sm:w-auto"
+              >
+                <option value="all">Todos los productos</option>
+                {(dashboard?.products_stock_breakdown || []).map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="absolute top-10 right-2 sm:bottom-2 sm:top-auto sm:right-4 flex items-center gap-1.5">
               <input 
                 type="checkbox" 
                 id="includePendingStock" 
