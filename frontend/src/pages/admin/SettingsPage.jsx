@@ -32,6 +32,7 @@ export default function SettingsPage() {
 
   // DB Backup
   const [backupFile, setBackupFile] = useState(null)
+  const [downloadingBackup, setDownloadingBackup] = useState(false)
 
   // WA Flows 
   const [flows, setFlows] = useState([])
