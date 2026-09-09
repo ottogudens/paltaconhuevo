@@ -163,14 +163,9 @@ async function sendMessage(phone, message) {
   if (!waSocket) return;
 
   const session = await getSession(phone);
-  let jid = null;
+  let jid = session?.remoteJid;
 
-  // Si remoteJid existe y NO es un alias @lid (que genera 404), usarlo
-  if (session?.remoteJid && !session.remoteJid.endsWith('@lid')) {
-    jid = session.remoteJid;
-  }
-
-  // Fallback / Formateo directo a JID de WhatsApp estándar (@s.whatsapp.net)
+  // Fallback / Formateo a JID si no existía remoteJid en la sesión
   if (!jid) {
     let clean = phone.replace(/\D/g, '');
     if (clean.startsWith('56') && clean.length === 11) {
@@ -1315,15 +1310,8 @@ async function startWhatsApp() {
         const remoteJid = msg.key.remoteJid || '';
         if (remoteJid.includes('@g.us')) continue; // Ignorar grupos
 
-        let realJid = remoteJid;
-        if (remoteJid.endsWith('@lid')) {
-          if (msg.key.remoteJidAlt && msg.key.remoteJidAlt.endsWith('@s.whatsapp.net')) {
-            realJid = msg.key.remoteJidAlt;
-          } else if (msg.key.participant && msg.key.participant.endsWith('@s.whatsapp.net')) {
-            realJid = msg.key.participant;
-          }
-        }
-
+        // Priorizar el remoteJid directo proveniente de WhatsApp
+        const realJid = remoteJid;
         const rawPhone = realJid.replace('@s.whatsapp.net', '').replace('@lid', '').replace('@g.us', '');
         let phone = formatPhone(rawPhone);
         
