@@ -89,7 +89,7 @@ class FinanceSalesView(APIView):
         data = []
         for item in qs:
             c = item.order.customer if item.order else None
-            c_name = f"{c.first_name} {c.last_name or ''}".trim() if c and c.first_name else (c.email if c else "Cliente")
+            c_name = f"{c.first_name} {c.last_name or ''}".strip() if c and c.first_name else (c.email if c else "Cliente")
             data.append({
                 'id': item.id,
                 'quantity': item.quantity,
