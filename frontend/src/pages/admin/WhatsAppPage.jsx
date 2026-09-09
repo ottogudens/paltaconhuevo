@@ -184,7 +184,8 @@ export default function WhatsAppPage() {
   const handleDeleteChat = async (phone) => {
     if (!window.confirm(`¿Seguro que deseas eliminar el chat con ${phone}? Se borrará el historial y la sesión de la base de datos.`)) return;
     try {
-      await fetch(`${WA_API_URL}/chats/${phone}`, { method: 'DELETE' });
+      const encodedPhone = encodeURIComponent(phone);
+      await fetch(`${WA_API_URL}/chats/${encodedPhone}`, { method: 'DELETE' });
       if (selectedChatPhone === phone) {
         setSelectedChatPhone(null);
         setCurrentChatData(null);
@@ -198,7 +199,8 @@ export default function WhatsAppPage() {
   const handleClearMessages = async (phone) => {
     if (!window.confirm(`¿Seguro que deseas vaciar los mensajes de ${phone}? El historial se borrará pero la conversación se mantendrá abierta.`)) return;
     try {
-      await fetch(`${WA_API_URL}/chats/${phone}/messages`, { method: 'DELETE' });
+      const encodedPhone = encodeURIComponent(phone);
+      await fetch(`${WA_API_URL}/chats/${encodedPhone}/messages`, { method: 'DELETE' });
       fetchChatMessages(phone);
     } catch (e) {
       alert('Error al vaciar mensajes');

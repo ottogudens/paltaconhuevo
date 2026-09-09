@@ -121,6 +121,7 @@ let isConnected = false;
 const api = {
   get: (path, token) => axios.get(`${API_URL}${path}`, { headers: { Authorization: `Token ${token || API_TOKEN}` } }),
   post: (path, data, token) => axios.post(`${API_URL}${path}`, data, { headers: { Authorization: `Token ${token || API_TOKEN}` } }),
+  delete: (path, token) => axios.delete(`${API_URL}${path}`, { headers: { Authorization: `Token ${token || API_TOKEN}` } }),
 };
 
 function formatPhone(p) {
@@ -1087,10 +1088,12 @@ app.get('/api/wa/chats/:phone/messages', requireAdminAuth, async (req, res) => {
 app.delete('/api/wa/chats/:phone', requireAdminAuth, async (req, res) => {
   const { phone } = req.params;
   try {
-    await api.delete(`/marketing/sessions/${phone}/`);
+    const encodedPhone = encodeURIComponent(phone);
+    await api.delete(`/marketing/sessions/${encodedPhone}/`);
     io.emit('chats_updated');
     res.json({ success: true });
   } catch (e) {
+    console.error('Error eliminando sesión:', e?.response?.data || e.message);
     res.status(500).json({ error: 'Error eliminando chat' });
   }
 });
