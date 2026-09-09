@@ -166,17 +166,19 @@ async function sendMessage(phone, message) {
   let jid = session?.remoteJid;
   
   if (!jid) {
-    // Construir JID a partir del número: se eliminan TODOS los no-dígitos (incluido '+')
-    // para garantizar un JID válido para Baileys (ej: 56912345678@s.whatsapp.net)
-    let clean = phone.replace(/\D/g, '');
-    if (clean.startsWith('56') && clean.length === 11) {
-      // Formato correcto: 56912345678
-    } else if (clean.startsWith('9') && clean.length === 9) {
-      clean = '56' + clean;
-    } else if (clean.length === 8) {
-      clean = '569' + clean;
+    if (phone.includes('@')) {
+      jid = phone;
+    } else {
+      let clean = phone.replace(/\D/g, '');
+      if (clean.startsWith('56') && clean.length === 11) {
+        // Formato correcto: 56912345678
+      } else if (clean.startsWith('9') && clean.length === 9) {
+        clean = '56' + clean;
+      } else if (clean.length === 8) {
+        clean = '569' + clean;
+      }
+      jid = `${clean}@s.whatsapp.net`;
     }
-    jid = `${clean}@s.whatsapp.net`;
   }
   
   try {
@@ -656,14 +658,14 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
     for (let i = 0; i < 5; i++) {
       const callStart = Date.now();
       const response = await activeGemini.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-1.5-flash',
         contents: geminiContents,
         systemInstruction: systemPrompt,
         tools: [{ functionDeclarations: geminiToolDecls }],
         config: { maxOutputTokens: 400 }
       });
       const latencyMs = Date.now() - callStart;
-      logger.info({ event: 'ai_completion', provider: 'gemini', model: 'gemini-2.5-flash', latency_ms: latencyMs, customer_phone: customerPhone }, `Gemini API call finished in ${latencyMs}ms`);
+      logger.info({ event: 'ai_completion', provider: 'gemini', model: 'gemini-1.5-flash', latency_ms: latencyMs, customer_phone: customerPhone }, `Gemini API call finished in ${latencyMs}ms`);
 
       const candidate = response.candidates?.[0];
       if (!candidate || !candidate.content?.parts) break;
