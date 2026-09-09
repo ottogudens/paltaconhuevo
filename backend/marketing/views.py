@@ -380,7 +380,7 @@ class AiAdvisoryView(APIView):
                     return Response({'error': 'La clave de API de Gemini (GEMINI_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
                 import requests
                 api_key = getattr(settings, 'GEMINI_API_KEY', '')
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
                 headers = {"Content-Type": "application/json"}
                 payload = {
                     "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_message}"}]}]

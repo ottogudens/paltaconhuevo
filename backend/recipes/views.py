@@ -67,7 +67,7 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
                     return Response({'error': 'La clave de API de Gemini (GEMINI_API_KEY) no está configurada.'}, status=400)
                 import google.generativeai as genai
                 genai.configure(api_key=settings.GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-1.5-flash', generation_config={"response_mime_type": "application/json"})
+                model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"response_mime_type": "application/json"})
                 response = model.generate_content(prompt)
                 raw_text = response.text
                 

@@ -95,6 +95,7 @@ class FinanceSalesView(APIView):
             'quantity',
             'subtotal',
             'margin',
+            'date',
             order_id=F('order__id'),
             product_name=F('product__name'),
             customer_name=F('customer_name_annotated'),
