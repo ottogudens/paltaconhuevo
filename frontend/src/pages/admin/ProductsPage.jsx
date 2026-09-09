@@ -3,7 +3,7 @@ import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
 import PriceCalculatorModal from '../../components/PriceCalculatorModal'
 import ImportModal from '../../components/ImportModal'
-import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator, Download, Upload, List } from 'lucide-react'
+import { Package, Search, Plus, Edit3, Trash2, X, Check, AlertTriangle, Calculator, Download, Upload, List, LayoutGrid } from 'lucide-react'
 
 const EMPTY_PRODUCT = { name: '', product_type: '', unit: 'unidad', purchase_price: 0, sale_price: '', stock: 0, min_stock: 5, description: '', is_bundle: false, can_be_sold: true, purchase_multiplier: 1, components: [] }
 
@@ -306,6 +306,7 @@ export default function ProductsPage() {
   const [showCalculator, setShowCalculator] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
   const [editProduct, setEditProduct] = useState(null)
+  const [viewMode, setViewMode] = useState('grid')
 
   const fetchCategories = async () => {
     try {
@@ -397,6 +398,14 @@ export default function ProductsPage() {
               className="inline-flex items-center gap-2 px-4 py-2 bg-palta-600 text-white rounded-lg hover:bg-palta-700 text-sm font-medium">
               <Plus className="w-4 h-4" /> Nuevo Producto
             </button>
+            <div className="flex bg-gray-100 rounded-lg p-1 border border-gray-200">
+              <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                <LayoutGrid className="w-4 h-4" />
+              </button>
+              <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                <List className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -411,8 +420,69 @@ export default function ProductsPage() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-palta-600" />
           </div>
         ) : filtered.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filtered.map(p => {
+          viewMode === 'list' ? (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                  <thead className="bg-gray-50 border-b border-gray-100">
+                    <tr>
+                      <th className="px-5 py-3 font-medium text-gray-600">Producto</th>
+                      <th className="px-5 py-3 font-medium text-gray-600 text-center">Stock</th>
+                      <th className="px-5 py-3 font-medium text-gray-600">Costo</th>
+                      <th className="px-5 py-3 font-medium text-gray-600">Precio Venta</th>
+                      <th className="px-5 py-3 text-right font-medium text-gray-600">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50">
+                    {filtered.map(p => {
+                      const isLow = parseFloat(p.stock) <= parseFloat(p.min_stock)
+                      return (
+                        <tr key={p.id} className={`hover:bg-gray-50/50 transition-colors ${isLow ? 'bg-red-50/20' : ''}`}>
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-10 h-10 object-cover rounded-md border" />
+                              ) : (
+                                <span className="text-2xl">{typeEmoji[p.product_type] || '📦'}</span>
+                              )}
+                              <div>
+                                <p className="font-bold text-gray-900">{p.name}</p>
+                                <p className="text-xs text-gray-500 capitalize">{p.product_type} · {p.unit}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-5 py-4 text-center">
+                            {p.is_bundle ? (
+                              <span className="font-bold text-gray-700">{p.stock} <span className="text-[10px] text-palta-600 bg-palta-50 px-1 py-0.5 rounded border border-palta-200 ml-1">COMBO</span></span>
+                            ) : (
+                              <div className="inline-flex items-center gap-1">
+                                {isLow && <AlertTriangle className="w-3.5 h-3.5 text-red-500" />}
+                                <span className={`font-bold ${isLow ? 'text-red-600' : 'text-gray-700'}`}>{p.stock}</span>
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 font-medium text-gray-600">{formatCLP(p.purchase_price)}</td>
+                          <td className="px-5 py-4 font-bold text-palta-600">{formatCLP(p.sale_price)}</td>
+                          <td className="px-5 py-4 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button onClick={() => { setEditProduct(p); setShowModal(true) }} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-500 hover:text-palta-600">
+                                <Edit3 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => handleDelete(p.id)} className="p-1.5 hover:bg-red-50 rounded-lg text-gray-500 hover:text-red-600">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filtered.map(p => {
               const isLow = parseFloat(p.stock) <= parseFloat(p.min_stock)
               return (
                 <div key={p.id} className={`bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow ${isLow ? 'border-red-200' : 'border-gray-100'}`}>
@@ -513,6 +583,7 @@ export default function ProductsPage() {
               )
             })}
           </div>
+          )
         ) : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
             <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />

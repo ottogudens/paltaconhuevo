@@ -8,6 +8,7 @@ export default function CustomersLoyaltyTab() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [hasMore, setHasMore] = useState(false)
+  const [sortField, setSortField] = useState('-loyalty_points')
 
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [historyData, setHistoryData] = useState(null)
@@ -15,7 +16,7 @@ export default function CustomersLoyaltyTab() {
 
   const fetchCustomers = async (p = 1) => {
     try {
-      const res = await api.get('/auth/customers/', { params: { page: p, search } })
+      const res = await api.get('/auth/customers/', { params: { page: p, search, ordering: sortField } })
       if (p === 1) {
         setCustomers(res.data.results || res.data || [])
       } else {
@@ -36,7 +37,7 @@ export default function CustomersLoyaltyTab() {
       fetchCustomers(1)
     }, 500)
     return () => clearTimeout(delay)
-  }, [search])
+  }, [search, sortField])
 
   const openCustomerHistory = async (customer) => {
     setSelectedCustomer(customer)
@@ -87,6 +88,12 @@ export default function CustomersLoyaltyTab() {
                 <tr>
                   <th className="px-5 py-3 font-medium text-gray-600">Cliente</th>
                   <th className="px-5 py-3 font-medium text-gray-600">Contacto</th>
+                  <th className="px-5 py-3 text-center font-medium text-gray-600 space-x-1">
+                    <button onClick={() => setSortField(sortField === 'loyalty_points' ? '-loyalty_points' : 'loyalty_points')} className="hover:text-palta-600 flex items-center gap-1 mx-auto">
+                      Puntos
+                      <span className="text-xs">{sortField === '-loyalty_points' ? '▼' : sortField === 'loyalty_points' ? '▲' : ''}</span>
+                    </button>
+                  </th>
                   <th className="px-5 py-3 text-right font-medium text-gray-600">Acción</th>
                 </tr>
               </thead>
@@ -95,6 +102,7 @@ export default function CustomersLoyaltyTab() {
                   <tr key={c.id} className="hover:bg-palta-50/30 transition-colors cursor-pointer" onClick={() => openCustomerHistory(c)}>
                     <td className="px-5 py-4 font-medium text-gray-900">{c.first_name} {c.last_name || ''}</td>
                     <td className="px-5 py-4 text-gray-500">{c.email}<br/><span className="text-xs text-gray-400">{c.whatsapp_number}</span></td>
+                    <td className="px-5 py-4 text-center font-bold text-palta-600">{c.loyalty_points || 0}</td>
                     <td className="px-5 py-4 text-right">
                       <button className="text-palta-600 hover:text-palta-800 font-medium inline-flex items-center gap-1">
                         Ver Ficha <ChevronRight className="w-4 h-4" />

@@ -297,7 +297,7 @@ class CustomerListView(generics.ListCreateAPIView):
     permission_classes = [IsAdminOrVendedor]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['first_name', 'last_name', 'email', 'phone', 'username', 'whatsapp_number', 'commune']
-    ordering_fields = ['first_name', 'last_name', 'email', 'phone', 'created_at', 'commune']
+    ordering_fields = ['first_name', 'last_name', 'email', 'phone', 'created_at', 'commune', 'loyalty_points']
     ordering = ['first_name']
 
     def get_serializer_class(self):
@@ -306,7 +306,11 @@ class CustomerListView(generics.ListCreateAPIView):
         return UserSerializer
 
     def get_queryset(self):
-        return User.objects.filter(role='cliente')
+        from django.db.models import F, Value, IntegerField
+        from django.db.models.functions import Coalesce
+        return User.objects.filter(role='cliente').annotate(
+            loyalty_points=Coalesce(F('loyalty__points'), Value(0), output_field=IntegerField())
+        )
 
     def perform_create(self, serializer):
         serializer.save(role='cliente')
