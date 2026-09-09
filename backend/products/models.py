@@ -25,6 +25,13 @@ class Product(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['is_active']),
+            models.Index(fields=['is_bundle']),
+            models.Index(fields=['can_be_sold']),
+        ]
+
     def __str__(self):
         return f"{self.name} (${self.sale_price}/{self.unit})"
 

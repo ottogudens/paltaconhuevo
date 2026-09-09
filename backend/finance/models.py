@@ -22,6 +22,13 @@ class Transaction(models.Model):
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['transaction_type', 'date']),
+            models.Index(fields=['category']),
+            models.Index(fields=['-date']),
+        ]
+
     def __str__(self):
         return f"{self.get_transaction_type_display()} - {self.category} - ${self.amount}"
 

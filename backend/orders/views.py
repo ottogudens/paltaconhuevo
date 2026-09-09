@@ -427,7 +427,9 @@ class DashboardView(APIView):
         from finance.models import Transaction
 
         # Stock Valorizado Base (Todos los productos base, no combos)
-        base_products = Product.objects.filter(is_active=True, is_bundle=False)
+        base_products = Product.objects.filter(
+            is_active=True, is_bundle=False
+        ).only('id', 'name', 'stock', 'sale_price')
         
         val_stock = base_products.filter(stock__gt=0).aggregate(val=Sum(F('stock') * F('sale_price')))['val']
         valorized_stock_available = float(val_stock or 0)
@@ -437,13 +439,19 @@ class DashboardView(APIView):
         )['val']
         valorized_stock_pending = float(val_pending or 0)
         
+        pending_by_product = dict(
+            OrderItem.objects.filter(
+                order__status='pendiente',
+                product__in=base_products
+            ).values('product_id').annotate(
+                val=Sum(F('quantity') * F('product__sale_price'))
+            ).values_list('product_id', 'val')
+        )
+        
         products_stock_breakdown = []
         for p in base_products:
             avail = float(p.stock * p.sale_price) if p.stock > 0 else 0
-            pend = OrderItem.objects.filter(order__status='pendiente', product=p).aggregate(
-                val=Sum(F('quantity') * F('product__sale_price'))
-            )['val']
-            pend = float(pend or 0)
+            pend = float(pending_by_product.get(p.id, 0) or 0)
             if avail > 0 or pend > 0:
                 products_stock_breakdown.append({
                     'id': p.id,

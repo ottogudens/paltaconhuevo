@@ -32,6 +32,14 @@ class Order(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', 'payment_status']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['-created_at']),
+            models.Index(fields=['customer', 'created_at']),
+        ]
+
     def __str__(self):
         return f"Pedido #{self.id} - {self.customer} - ${self.total}"
 
@@ -44,6 +52,11 @@ class OrderItem(models.Model):
     subtotal = models.DecimalField(max_digits=12, decimal_places=0)
     margin = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     status = models.CharField(max_length=25, choices=Order.STATUS_CHOICES, default='pendiente')
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['order', 'product']),
+        ]
 
     def save(self, *args, **kwargs):
         if kwargs.get('raw', False):

@@ -2,7 +2,7 @@ from rest_framework import generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.http import HttpResponse
-from django.db.models import Sum
+from django.db.models import Sum, F, Value, CharField
 import openpyxl, datetime
 import openpyxl, datetime, os, tempfile
 from django.core.management import call_command
@@ -15,7 +15,6 @@ from orders.models import Order
 class TransactionListCreateView(generics.ListCreateAPIView):
     serializer_class = TransactionSerializer
     permission_classes = [IsAdminOrVendedor]
-    pagination_class = None
 
     def get_queryset(self):
         qs = Transaction.objects.all().order_by('-date')
@@ -87,19 +86,20 @@ class FinanceSalesView(APIView):
         if end_date:
             qs = qs.filter(order__created_at__date__lte=end_date)
             
-        data = []
-        for item in qs:
-            data.append({
-                'id': item.id,
-                'order_id': item.order.id,
-                'product_name': item.product.name,
-                'quantity': float(item.quantity),
-                'subtotal': float(item.subtotal),
-                'margin': float(item.margin),
-                'customer_name': item.order.customer.get_full_name() or item.order.customer.username,
-                'payment_method': item.order.payment_method,
-                'date': str(item.order.created_at.date())
-            })
+        from django.db.models.functions import Concat
+        data = list(qs.annotate(
+            customer_name_annotated=Concat('order__customer__first_name', Value(' '), 'order__customer__last_name'),
+            date=F('order__created_at__date')
+        ).values(
+            'id',
+            'quantity',
+            'subtotal',
+            'margin',
+            order_id=F('order__id'),
+            product_name=F('product__name'),
+            customer_name=F('customer_name_annotated'),
+            payment_method=F('order__payment_method')
+        ))
         return Response(data)
 
 

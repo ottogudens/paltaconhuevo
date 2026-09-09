@@ -445,7 +445,7 @@ function CreateOrderModal({ onClose, onSave }) {
     const loadData = async () => {
       try {
         const [cRes, pRes] = await Promise.all([
-          api.get('/auth/customers/', { params: { limit: 5000, page_size: 5000 } }),
+          api.get('/auth/customers/', { params: { limit: 20, page_size: 20 } }),
           api.get('/products/')
         ])
         setCustomers(cRes.data.results || cRes.data || [])
@@ -455,6 +455,18 @@ function CreateOrderModal({ onClose, onSave }) {
     }
     loadData()
   }, [])
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (customerSearch.length >= 2 && !customerId && !isNewCustomer) {
+        try {
+          const res = await api.get('/auth/customers/', { params: { search: customerSearch, limit: 20, page_size: 20 } })
+          setCustomers(res.data.results || res.data || [])
+        } catch (e) { console.error(e) }
+      }
+    }, 400)
+    return () => clearTimeout(delayDebounceFn)
+  }, [customerSearch, customerId, isNewCustomer])
 
   const handleAddItem = (productId) => {
     if (!productId) return
@@ -597,8 +609,8 @@ function CreateOrderModal({ onClose, onSave }) {
                 )}
                 {showCustomerDropdown && (
                   <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                    {customers.filter(c => `${c.first_name} ${c.last_name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(customerSearch.toLowerCase())).length > 0 ? (
-                      customers.filter(c => `${c.first_name} ${c.last_name} ${c.phone || ''} ${c.email || ''}`.toLowerCase().includes(customerSearch.toLowerCase())).map(c => (
+                    {customers.length > 0 ? (
+                      customers.map(c => (
                         <div 
                           key={c.id} 
                           onClick={() => {

@@ -64,10 +64,27 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const dashRes = await api.get(`/orders/dashboard/?sales_period=${salesPeriod}&payment_status=${paymentStatus}`)
+        const cacheKey = `dash_cache_${salesPeriod}_${paymentStatus}`
+        const cached = sessionStorage.getItem(cacheKey)
+        if (cached) {
+          const parsed = JSON.parse(cached)
+          setDashboard(parsed.dashboard)
+          setLowStock(parsed.lowStock || [])
+          setLoading(false)
+        }
+
+        const [dashRes, stockRes] = await Promise.all([
+          api.get(`/orders/dashboard/?sales_period=${salesPeriod}&payment_status=${paymentStatus}`),
+          api.get('/products/low-stock/')
+        ])
+        
         setDashboard(dashRes.data)
-        const stockRes = await api.get('/products/low-stock/')
         setLowStock(stockRes.data || [])
+        
+        sessionStorage.setItem(cacheKey, JSON.stringify({
+          dashboard: dashRes.data,
+          lowStock: stockRes.data || []
+        }))
       } catch (e) {
         console.error('Dashboard fetch error:', e)
       } finally {

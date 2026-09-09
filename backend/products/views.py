@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from django.http import HttpResponse
+from django.db.models import F
 import openpyxl
 from .models import Product, Purchase, ProductCategory
 from .serializers import ProductSerializer, PurchaseSerializer, ProductCategorySerializer
@@ -88,14 +89,8 @@ class LowStockView(APIView):
     permission_classes = [IsAdminOrVendedor]
 
     def get(self, request):
-        products = Product.objects.filter(is_active=True)
-        low = []
-        for p in products:
-            data = ProductSerializer(p).data
-            # Convert to float to safely compare Decimal string values
-            if float(data.get('stock', 0)) <= float(data.get('min_stock', 0)):
-                low.append(data)
-        return Response(low)
+        products = Product.objects.filter(is_active=True, stock__lte=F('min_stock'))
+        return Response(ProductSerializer(products, many=True).data)
 
 class DownloadProductTemplateView(APIView):
     permission_classes = [IsAdminOrVendedor]
