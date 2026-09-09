@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import api from '../../services/api'
 import AdminLayout from '../../components/AdminLayout'
-import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2, Settings, UserCheck, Send, Bot, AlertCircle, Phone, Info, Save, Copy, Check, QrCode, Hash } from 'lucide-react'
+import { MessageSquare, RefreshCw, Smartphone, LogOut, CheckCircle2, Settings, UserCheck, Send, Bot, AlertCircle, Phone, Info, Save, Copy, Check, QrCode, Hash, Trash2 } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import { io } from 'socket.io-client'
 import FlowCanvas from '../../components/FlowCanvas'
