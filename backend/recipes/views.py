@@ -112,20 +112,25 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
                 ai_generated=True
             )
 
-            # Generate image automatically using Pollinations AI (free, no key required)
+            # Generate image automatically using Pollinations AI
             import requests
-            from django.core.files.base import ContentFile
             import urllib.parse
+            from django.core.files.base import ContentFile
+            import logging
             
             try:
-                image_prompt = f"delicious gourmet food photography of {data['title']}, avocado and egg dish, appetizing, professional 8k photography"
+                # Usa un modelo visual de comida para asegurar mejores resultados
+                image_prompt = f"delicious gourmet food photography of {data['title']}, appetizing, professional 8k photography, top down view"
                 safe_prompt = urllib.parse.quote(image_prompt)
-                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=600&nologo=true&seed=42"
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=1024&height=1024&nologo=true&seed=42"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/113.0.0.0 Safari/537.36"}
                 
+                # Desactivamos proxies o forzamos IPv4 si Railway bloquea a Pollinations
                 img_response = requests.get(img_url, headers=headers, timeout=20)
                 if img_response.status_code == 200 and len(img_response.content) > 1000:
                     recipe.image.save(f"{slug}.jpg", ContentFile(img_response.content), save=True)
+                else:
+                    logging.getLogger(__name__).warning("Pollinations respondió sin error HTTP pero con poco contenido.")
             except Exception as img_err:
                 logging.getLogger(__name__).warning("No se pudo generar la imagen con Pollinations: %s", img_err)
 
