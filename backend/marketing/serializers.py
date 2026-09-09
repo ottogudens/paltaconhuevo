@@ -17,6 +17,16 @@ class ContestSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class OfferSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+        req = self.context.get('request')
+        if req:
+            return req.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
     class Meta:
         model = Offer
         fields = '__all__'

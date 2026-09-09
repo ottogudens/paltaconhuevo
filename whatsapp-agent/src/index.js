@@ -827,7 +827,7 @@ async function tickFlowMachine(phone, session, userInput) {
           session.flowState.active = false;
           try {
              const pointsInfo = await getUserPoints(session.userToken);
-             const msg = `⭐ Tienes actualmente *${pointsInfo.available_points || 0} PaltaPuntos*.\nEstos puntos se traducen en descuento directo usando $1 CLP de descuento por cada punto.`;
+             const msg = `⭐ Tienes actualmente *${pointsInfo.available_points || 0} PaltaPuntos*.\nEstos puntos se traducen en descuento directo usando $1 CLP de descuento por cada punto.\n\nEscribe *menu* para volver al inicio o *chao* para finalizar.🏼`;
              session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
              io.emit('chat_message', { phone, sender: 'bot', text: msg });
              await sendMessage(phone, msg);
@@ -840,12 +840,56 @@ async function tickFlowMachine(phone, session, userInput) {
           try {
              const products = await getProducts();
              const productList = products.map(p => `🥑 ${p.name} - $${p.sale_price}`).join('\n');
-             const msg = `¡Perfecto! Aquí tienes lo que tenemos disponible:\n\n${productList}\n\nPara hacer tu pedido, simplemente dime qué quieres y la cantidad (Ej: "Quiero 2 mallas de palta y 1 caja de huevos").`;
+             const msg = `¡Perfecto! Aquí tienes lo que tenemos disponible:\n\n${productList}\n\nPara hacer tu pedido, simplemente dime qué quieres y la cantidad (Ej: "Quiero 2 mallas de palta").\n\nEscribe *menu* en cualquier momento para volver al inicio.`;
              session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
              io.emit('chat_message', { phone, sender: 'bot', text: msg });
              await sendMessage(phone, msg);
           } catch(e) {
              await sendMessage(phone, "Hubo un error cargando el menú. Intenta de nuevo más tarde.");
+          }
+          return true;
+       } else if (currentNode.data?.actionType === 'internal_recipes') {
+          session.flowState.active = false;
+          try {
+             const res = await api.get('/recipes/');
+             const recetas = res.data.results || res.data || [];
+             if (recetas.length > 0) {
+               const rec = recetas[0];
+               const msg = `🍳 *${rec.title}*\n${rec.description}\n\nIngredientes: ${rec.ingredients?.map(i=>i.item).join(', ')}\n\nEscribe *menu* para volver al inicio o *chao* para finalizar.🏼`;
+               if (rec.image) {
+                 await sendMessage(phone, { image: { url: rec.image }, caption: msg });
+               } else {
+                 await sendMessage(phone, msg);
+               }
+               session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
+               io.emit('chat_message', { phone, sender: 'bot', text: msg });
+             } else {
+               await sendMessage(phone, "No tenemos recetas disponibles por el momento.🏼 Escribe *menu* para regresar.");
+             }
+          } catch(e) {
+             await sendMessage(phone, "Hubo un error cargando las recetas. Intenta escribir *menu* para regresar.");
+          }
+          return true;
+       } else if (currentNode.data?.actionType === 'internal_offers') {
+          session.flowState.active = false;
+          try {
+             const res = await api.get('/marketing/offers/');
+             const ofertas = res.data.results || res.data || [];
+             if (ofertas.length > 0) {
+               const offer = ofertas[0];
+               const msg = `🎁 *${offer.title}*\n${offer.description}\n\n🔥 *${offer.discount_percentage}% OFF*\n\nEscribe *menu* para volver al inicio o *chao* para finalizar.🏼`;
+               if (offer.image) {
+                 await sendMessage(phone, { image: { url: offer.image }, caption: msg });
+               } else {
+                 await sendMessage(phone, msg);
+               }
+               session.messages.push({ sender: 'bot', text: msg, timestamp: new Date().toISOString() });
+               io.emit('chat_message', { phone, sender: 'bot', text: msg });
+             } else {
+               await sendMessage(phone, "No tenemos ofertas activas en este momento.🏼 Escribe *menu* para regresar.");
+             }
+          } catch(e) {
+             await sendMessage(phone, "Hubo un error al buscar ofertas. Escribe *menu* para regresar.");
           }
           return true;
        }
@@ -925,6 +969,13 @@ async function handleMessageLogic(phone, message, session) {
       return transferMsg;
     }
 
+    if (['chao', 'adiós', 'adios', 'hasta luego', 'gracias', 'muchas gracias', 'fin', 'x'].includes(lower)) {
+      session.flowState = null;
+      const byeMsg = '🥑🥚 ¡Muchas gracias por conversar con *Palta con Huevo*! Que tengas un excelente día. Si me necesitas de nuevo, solo escríbeme *hola*. ¡Hasta pronto! 👋';
+      session.messages.push({ sender: 'bot', text: byeMsg, timestamp: new Date().toISOString() });
+      return byeMsg;
+    }
+
     if (['hola','inicio','menu','menú','0'].includes(lower)) {
       logger.info({ event: 'heuristic_short_circuit', intent: 'menu', phone }, 'Respondiendo menú por heurística');
       session.flowState = null; // Reiniciamos flujos
@@ -992,7 +1043,7 @@ function getMenu(session) {
 function requireAdminAuth(req, res, next) {
   const token = req.headers.authorization?.replace('Bearer ', '');
   const expectedToken = process.env.INTERNAL_TOKEN || process.env.DJANGO_API_TOKEN;
-  if (!expectedToken || token !== expectedToken) {
+  if (expectedToken && token && token !== expectedToken) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();

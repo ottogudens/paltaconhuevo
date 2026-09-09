@@ -12,6 +12,15 @@ class RecipeSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     is_liked = serializers.SerializerMethodField()
     is_saved = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+
+    def get_image(self, obj):
+        if not obj.image:
+            return None
+        req = self.context.get('request')
+        if req:
+            return req.build_absolute_uri(obj.image.url)
+        return obj.image.url
 
     def get_likes_count(self, obj):
         return obj.likes.count()

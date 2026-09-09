@@ -86,10 +86,13 @@ class FinanceSalesView(APIView):
         if end_date:
             qs = qs.filter(order__created_at__date__lte=end_date)
             
-        from django.db.models.functions import Concat, TruncDate
+        from django.db.models.functions import Concat, Coalesce
         data = list(qs.annotate(
-            customer_name_annotated=Concat('order__customer__first_name', Value(' '), 'order__customer__last_name'),
+            customer_first=Coalesce('order__customer__first_name', Value('Cliente')),
+            customer_last=Coalesce('order__customer__last_name', Value('')),
             date=TruncDate('order__created_at')
+        ).annotate(
+            customer_name_annotated=Concat('customer_first', Value(' '), 'customer_last')
         ).values(
             'id',
             'quantity',

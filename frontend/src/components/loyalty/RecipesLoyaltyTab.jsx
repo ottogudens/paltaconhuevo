@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import api from '../../services/api'
-import { Plus, Trash2, Edit3, Image as ImageIcon, Sparkles, X, Check, ChefHat } from 'lucide-react'
+import { Plus, Trash2, Edit3, Image as ImageIcon, Sparkles, X, Check, ChefHat, Eye, EyeOff } from 'lucide-react'
 
 function AiRecipeModal({ onClose, onSave }) {
   const [form, setForm] = useState({
@@ -19,7 +19,7 @@ function AiRecipeModal({ onClose, onSave }) {
     try {
       const res = await api.post('/recipes/ai-generate/', form)
       setPreview(res.data)
-      onSave() // The backend saves it by default as of now, so list should refresh
+      onSave()
     } catch (e) {
       alert('Error al generar: ' + (e.response?.data?.error || e.message))
     } finally {
@@ -90,7 +90,7 @@ function AiRecipeModal({ onClose, onSave }) {
               <button onClick={handleGenerate} disabled={generating}
                 className="w-full mt-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
                 {generating ? (
-                  <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Cocinando IA...</span>
+                  <span className="flex items-center gap-2"><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Cocinando IA e Imagen...</span>
                 ) : (
                   <><ChefHat className="w-5 h-5"/> Generar Ahora!</>
                 )}
@@ -102,6 +102,9 @@ function AiRecipeModal({ onClose, onSave }) {
                 <Check className="w-10 h-10 text-green-500 mx-auto mb-2" />
                 <h3 className="font-bold text-gray-900">{preview.title}</h3>
                 <p className="text-sm text-gray-600 mt-1">{preview.description}</p>
+                {preview.image && (
+                  <img src={preview.image} alt={preview.title} className="w-full h-40 object-cover rounded-lg mt-3" />
+                )}
               </div>
               <p className="text-sm text-center text-gray-500">La receta ha sido guardada en la base de datos automáticamente.</p>
               <button onClick={onClose} className="w-full py-3 bg-gray-900 text-white font-bold rounded-xl hover:bg-gray-800 transition-all">
@@ -115,10 +118,87 @@ function AiRecipeModal({ onClose, onSave }) {
   )
 }
 
+function EditRecipeModal({ recipe, onClose, onSave }) {
+  const [form, setForm] = useState({
+    title: recipe.title || '',
+    description: recipe.description || '',
+    category: recipe.category || 'ambos',
+    meal_type: recipe.meal_type || 'almuerzo',
+    difficulty: recipe.difficulty || 'facil',
+    is_published: recipe.is_published ?? true
+  })
+  const [saving, setSaving] = useState(false)
+
+  const handleUpdate = async (e) => {
+    e.preventDefault()
+    setSaving(true)
+    try {
+      await api.patch(`/recipes/${recipe.slug}/`, form)
+      onSave()
+      onClose()
+    } catch (e) {
+      alert('Error guardando cambios: ' + e.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+        <div className="flex items-center justify-between border-b pb-4 mb-4">
+          <h2 className="text-lg font-bold text-gray-900">Editar Receta</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5" /></button>
+        </div>
+        <form onSubmit={handleUpdate} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Título</label>
+            <input type="text" required value={form.title} onChange={e => setForm({...form, title: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 mb-1">Descripción</label>
+            <textarea rows={3} required value={form.description} onChange={e => setForm({...form, description: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Categoría</label>
+              <select value={form.category} onChange={e => setForm({...form, category: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
+                <option value="ambos">Palta y Huevo</option>
+                <option value="palta">Solo Palta</option>
+                <option value="huevo">Solo Huevo</option>
+                <option value="proteina">Alta Proteína</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Dificultad</label>
+              <select value={form.difficulty} onChange={e => setForm({...form, difficulty: e.target.value})} className="w-full px-3 py-2 border rounded-lg text-sm">
+                <option value="facil">Fácil</option>
+                <option value="media">Media</option>
+                <option value="avanzada">Avanzada</option>
+              </select>
+            </div>
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer pt-2">
+            <input type="checkbox" checked={form.is_published} onChange={e => setForm({...form, is_published: e.target.checked})} className="rounded text-purple-600 focus:ring-purple-500" />
+            <span className="text-sm font-semibold text-gray-700">Publicada (Visible en WhatsApp y App)</span>
+          </label>
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-xs text-gray-600 hover:bg-gray-100 rounded-lg">Cancelar</button>
+            <button type="submit" disabled={saving} className="px-4 py-2 text-xs bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 disabled:opacity-50">
+              {saving ? 'Guardando...' : 'Guardar Cambios'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function RecipesLoyaltyTab() {
   const [recipes, setRecipes] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAiModal, setShowAiModal] = useState(false)
+  const [editingRecipe, setEditingRecipe] = useState(null)
 
   const fetchRecipes = async () => {
     setLoading(true)
@@ -146,11 +226,20 @@ export default function RecipesLoyaltyTab() {
     }
   }
 
+  const handleTogglePublish = async (recipe) => {
+    try {
+      await api.patch(`/recipes/${recipe.slug}/`, { is_published: !recipe.is_published })
+      fetchRecipes()
+    } catch (e) {
+      alert('Error cambiando visibilidad de la receta')
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
-          <h2 className="text-lg font-bold text-gray-900">Blog de Recetas (WhatsApp)</h2>
+          <h2 className="text-lg font-bold text-gray-900">Blog de Recetas (WhatsApp & App)</h2>
           <p className="text-sm text-gray-500">Estas recetas pueden ser consultadas por los clientes mediante el Agente AI.</p>
         </div>
         <button onClick={() => setShowAiModal(true)}
@@ -167,7 +256,7 @@ export default function RecipesLoyaltyTab() {
         ) : recipes.length > 0 ? (
           recipes.map(r => (
             <div key={r.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-              <div className="h-40 bg-gray-100 relative">
+              <div className="h-44 bg-gray-100 relative">
                 {r.image ? (
                    <img src={r.image} alt={r.title} className="w-full h-full object-cover" />
                 ) : (
@@ -178,6 +267,11 @@ export default function RecipesLoyaltyTab() {
                 {r.ai_generated && (
                    <span className="absolute top-2 right-2 bg-purple-600/90 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm shadow flex items-center gap-1">
                      <Sparkles className="w-3 h-3" /> IA
+                   </span>
+                )}
+                {!r.is_published && (
+                   <span className="absolute top-2 left-2 bg-amber-500/90 text-white text-[10px] font-bold px-2 py-1 rounded-md backdrop-blur-sm shadow flex items-center gap-1">
+                     <EyeOff className="w-3 h-3" /> Oculta
                    </span>
                 )}
               </div>
@@ -191,7 +285,13 @@ export default function RecipesLoyaltyTab() {
                 
                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-50">
                   <span className="text-xs font-semibold text-gray-400">{r.views_count} vistas</span>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5">
+                    <button onClick={() => handleTogglePublish(r)} className={`p-1.5 rounded-lg transition-colors ${r.is_published ? 'text-gray-400 hover:text-amber-600 hover:bg-amber-50' : 'text-amber-600 bg-amber-50'}`} title={r.is_published ? 'Ocultar Receta' : 'Publicar Receta'}>
+                      {r.is_published ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                    <button onClick={() => setEditingRecipe(r)} className="p-1.5 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors" title="Editar Receta">
+                      <Edit3 className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleDelete(r.slug)} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Eliminar">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -209,6 +309,7 @@ export default function RecipesLoyaltyTab() {
       </div>
 
       {showAiModal && <AiRecipeModal onClose={() => setShowAiModal(false)} onSave={fetchRecipes} />}
+      {editingRecipe && <EditRecipeModal recipe={editingRecipe} onClose={() => setEditingRecipe(null)} onSave={fetchRecipes} />}
     </div>
   )
 }

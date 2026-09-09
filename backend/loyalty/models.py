@@ -49,6 +49,7 @@ class Reward(models.Model):
     description = models.TextField(blank=True)
     points_cost = models.IntegerField()
     discount_value = models.DecimalField(max_digits=10, decimal_places=0, default=0)
+    image = models.ImageField(upload_to='rewards/', null=True, blank=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
