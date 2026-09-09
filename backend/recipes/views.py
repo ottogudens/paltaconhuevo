@@ -67,7 +67,7 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
                     return Response({'error': 'La clave de API de Gemini (GEMINI_API_KEY) no está configurada.'}, status=400)
                 import google.generativeai as genai
                 genai.configure(api_key=settings.GEMINI_API_KEY)
-                model = genai.GenerativeModel('gemini-2.5-flash', generation_config={"response_mime_type": "application/json"})
+                model = genai.GenerativeModel('gemini-3.6-flash', generation_config={"response_mime_type": "application/json"})
                 response = model.generate_content(prompt)
                 raw_text = response.text
                 
@@ -114,7 +114,13 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
         except Exception as e:
             import logging
             logging.getLogger(__name__).exception("Recipe error: %s", e)
-            err_msg = f"Error interno generando receta: {str(e)}"
+            error_str = str(e).lower()
+            if 'credit balance' in error_str or 'insufficient_quota' in error_str:
+                err_msg = 'No tienes saldo suficiente en este proveedor de IA. Recarga créditos para continuar.'
+            elif '404' in error_str or 'not found' in error_str or 'no longer available' in error_str:
+                err_msg = 'El modelo de IA solicitado no está disponible o fue descontinuado por el proveedor.'
+            else:
+                err_msg = f'Error de conexión con IA: {str(e)}'
             raw = locals().get('raw_text', 'No generado')
             return Response({'error': err_msg, 'raw': raw}, status=400)
 

@@ -88,6 +88,11 @@ class AiGenerateCampaignView(APIView):
             return Response({'message': msg.content[0].text})
         except Exception as e:
             logger.exception("AiGenerateCampaignView error:")
+            error_str = str(e).lower()
+            if 'credit balance' in error_str or 'insufficient_quota' in error_str:
+                return Response({'error': 'No tienes saldo suficiente en este proveedor de IA. Recarga créditos para continuar.'}, status=status.HTTP_400_BAD_REQUEST)
+            elif '404' in error_str or 'not found' in error_str or 'no longer available' in error_str:
+                return Response({'error': 'El modelo solicitado fue descontinuado o no está disponible.'}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -225,6 +230,11 @@ class AiAnalysisView(APIView):
             return Response({'analysis': msg.content[0].text})
         except Exception as e:
             logger.exception("AiAnalysisView error:")
+            error_str = str(e).lower()
+            if 'credit balance' in error_str or 'insufficient_quota' in error_str:
+                return Response({'error': 'No tienes saldo suficiente en este proveedor de IA. Recarga créditos para continuar.'}, status=status.HTTP_400_BAD_REQUEST)
+            elif '404' in error_str or 'not found' in error_str or 'no longer available' in error_str:
+                return Response({'error': 'El modelo solicitado fue descontinuado o no está disponible.'}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -380,7 +390,7 @@ class AiAdvisoryView(APIView):
                     return Response({'error': 'La clave de API de Gemini (GEMINI_API_KEY) no está configurada.'}, status=status.HTTP_400_BAD_REQUEST)
                 import requests
                 api_key = getattr(settings, 'GEMINI_API_KEY', '')
-                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={api_key}"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key={api_key}"
                 headers = {"Content-Type": "application/json"}
                 payload = {
                     "contents": [{"parts": [{"text": f"{system_prompt}\n\n{user_message}"}]}]
@@ -403,5 +413,10 @@ class AiAdvisoryView(APIView):
         except Exception as e:
             import logging
             logging.getLogger(__name__).exception("AI Advisory error: %s", e)
+            error_str = str(e).lower()
+            if 'credit balance' in error_str or 'insufficient_quota' in error_str:
+                return Response({'error': 'No tienes saldo suficiente en este proveedor de IA. Recarga créditos para continuar.'}, status=status.HTTP_400_BAD_REQUEST)
+            elif '404' in error_str or 'not found' in error_str or 'no longer available' in error_str:
+                return Response({'error': 'El modelo de IA solicitado no está disponible o fue descontinuado por el proveedor.'}, status=status.HTTP_400_BAD_REQUEST)
             return Response({'error': f'Error de comunicación con el servicio de IA: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
