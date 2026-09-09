@@ -163,22 +163,24 @@ async function sendMessage(phone, message) {
   if (!waSocket) return;
 
   const session = await getSession(phone);
-  let jid = session?.remoteJid;
-  
+  let jid = null;
+
+  // Si remoteJid existe y NO es un alias @lid (que genera 404), usarlo
+  if (session?.remoteJid && !session.remoteJid.endsWith('@lid')) {
+    jid = session.remoteJid;
+  }
+
+  // Fallback / Formateo directo a JID de WhatsApp estándar (@s.whatsapp.net)
   if (!jid) {
-    if (phone.includes('@')) {
-      jid = phone;
-    } else {
-      let clean = phone.replace(/\D/g, '');
-      if (clean.startsWith('56') && clean.length === 11) {
-        // Formato correcto: 56912345678
-      } else if (clean.startsWith('9') && clean.length === 9) {
-        clean = '56' + clean;
-      } else if (clean.length === 8) {
-        clean = '569' + clean;
-      }
-      jid = `${clean}@s.whatsapp.net`;
+    let clean = phone.replace(/\D/g, '');
+    if (clean.startsWith('56') && clean.length === 11) {
+      // Formato correcto: 56912345678
+    } else if (clean.startsWith('9') && clean.length === 9) {
+      clean = '56' + clean;
+    } else if (clean.length === 8) {
+      clean = '569' + clean;
     }
+    jid = `${clean}@s.whatsapp.net`;
   }
   
   try {
