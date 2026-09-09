@@ -152,7 +152,7 @@ export default function OffersPage() {
                       {parseFloat(offer.discount_percentage)}% OFF
                     </span>
                   </div>
-                  <div className="p-5 space-y-2">
+                  <div className="p-4 sm:p-5 space-y-2">
                     <h3 className="font-bold text-gray-900 text-lg">{offer.title}</h3>
                     <p className="text-gray-600 text-sm line-clamp-2">{offer.description}</p>
                     <div className="flex items-center gap-2 text-xs text-gray-400 pt-2">
@@ -162,7 +162,7 @@ export default function OffersPage() {
                   </div>
                 </div>
 
-                <div className="p-5 pt-0 border-t border-gray-50 flex items-center justify-between gap-2 mt-4">
+                <div className="p-4 sm:p-5 pt-0 border-t border-gray-50 flex items-center justify-between gap-2 mt-4">
                   <button
                     onClick={() => openSendModal(offer.id)}
                     disabled={sendingId === offer.id}

@@ -20,7 +20,7 @@ function StatCard({ icon: Icon, label, value, color = 'palta', trend = null }) {
     blue: 'from-blue-400 to-blue-600',
   }
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:shadow-md transition-shadow">
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 hover:shadow-md transition-shadow">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-sm text-gray-500 font-medium">{label}</p>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
         {/* Charts + Tables */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Top Products Pie Chart */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col items-center relative">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5 flex flex-col items-center relative">
             <div className="w-full flex justify-between items-start mb-2">
               <h2 className="font-semibold text-gray-900">Ventas por Producto (Top 5)</h2>
               <select 
@@ -305,7 +305,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Products List */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Top 5 Productos</h2>
             <div className="space-y-3">
               {(dashboard?.products_sold || []).slice(0, 5).map((p, i) => (
@@ -321,7 +321,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Top Customers List */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 sm:p-5">
             <h2 className="font-semibold text-gray-900 mb-4">Top 5 Clientes</h2>
             <div className="space-y-3">
               {dashboard?.top_customers?.map((c, i) => (

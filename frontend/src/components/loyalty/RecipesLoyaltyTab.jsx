@@ -237,7 +237,7 @@ export default function RecipesLoyaltyTab() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-gray-100">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-100">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Blog de Recetas (WhatsApp & App)</h2>
           <p className="text-sm text-gray-500">Estas recetas pueden ser consultadas por los clientes mediante el Agente AI.</p>

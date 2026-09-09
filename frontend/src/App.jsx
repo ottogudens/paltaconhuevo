@@ -1,26 +1,34 @@
-import React, { useEffect } from 'react'
+import React, { Suspense } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './store/authStore'
 import Navbar from './components/Navbar'
-import LoginPage from './pages/LoginPage'
-import RegisterPage from './pages/RegisterPage'
-import DashboardPage from './pages/admin/DashboardPage'
-import CustomersPage from './pages/admin/CustomersPage'
-import OrdersPage from './pages/admin/OrdersPage'
-import ProductsPage from './pages/admin/ProductsPage'
-import RecipesPage from './pages/RecipesPage'
-import ShopPage from './pages/ShopPage'
-import MyOrdersPage from './pages/MyOrdersPage'
-import MyLoyaltyPage from './pages/MyLoyaltyPage'
-import NotFoundPage from './pages/NotFoundPage'
-import FinanceVentasPage from './pages/admin/FinanceVentasPage'
-import FinanceComprasPage from './pages/admin/FinanceComprasPage'
-import FinanceStatsPage from './pages/admin/FinanceStatsPage'
-import WhatsAppPage from './pages/admin/WhatsAppPage'
-import UsersPage from './pages/admin/UsersPage'
-import LoyaltyDashboard from './pages/admin/LoyaltyDashboard'
-import SettingsPage from './pages/admin/SettingsPage'
-import AiAssistantPage from './pages/admin/AiAssistantPage'
+
+// Code Splitting - Lazy Loading Pages
+const LoginPage = React.lazy(() => import('./pages/LoginPage'))
+const RegisterPage = React.lazy(() => import('./pages/RegisterPage'))
+const DashboardPage = React.lazy(() => import('./pages/admin/DashboardPage'))
+const CustomersPage = React.lazy(() => import('./pages/admin/CustomersPage'))
+const OrdersPage = React.lazy(() => import('./pages/admin/OrdersPage'))
+const ProductsPage = React.lazy(() => import('./pages/admin/ProductsPage'))
+const RecipesPage = React.lazy(() => import('./pages/RecipesPage'))
+const ShopPage = React.lazy(() => import('./pages/ShopPage'))
+const MyOrdersPage = React.lazy(() => import('./pages/MyOrdersPage'))
+const MyLoyaltyPage = React.lazy(() => import('./pages/MyLoyaltyPage'))
+const NotFoundPage = React.lazy(() => import('./pages/NotFoundPage'))
+const FinanceVentasPage = React.lazy(() => import('./pages/admin/FinanceVentasPage'))
+const FinanceComprasPage = React.lazy(() => import('./pages/admin/FinanceComprasPage'))
+const FinanceStatsPage = React.lazy(() => import('./pages/admin/FinanceStatsPage'))
+const WhatsAppPage = React.lazy(() => import('./pages/admin/WhatsAppPage'))
+const UsersPage = React.lazy(() => import('./pages/admin/UsersPage'))
+const LoyaltyDashboard = React.lazy(() => import('./pages/admin/LoyaltyDashboard'))
+const SettingsPage = React.lazy(() => import('./pages/admin/SettingsPage'))
+const AiAssistantPage = React.lazy(() => import('./pages/admin/AiAssistantPage'))
+
+const PageLoader = () => (
+  <div className="flex h-screen w-full items-center justify-center bg-gray-50">
+    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-palta-600" />
+  </div>
+)
 
 function ProtectedRoute({ children, requiredRole = null }) {
   const { user } = useAuthStore()
@@ -30,39 +38,41 @@ function ProtectedRoute({ children, requiredRole = null }) {
 }
 
 export default function App() {
-  const { user, token } = useAuthStore()
+  const { user } = useAuthStore()
 
   return (
     <Router>
       {user && <Navbar />}
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
-        
-        {/* Admin Routes */}
-        <Route path="/dashboard" element={<ProtectedRoute requiredRole="admin"><DashboardPage /></ProtectedRoute>} />
-        <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><CustomersPage /></ProtectedRoute>} />
-        <Route path="/users" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
-        <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><OrdersPage /></ProtectedRoute>} />
-        <Route path="/products" element={<ProtectedRoute requiredRole="admin"><ProductsPage /></ProtectedRoute>} />
-        <Route path="/loyalty" element={<ProtectedRoute requiredRole="admin"><LoyaltyDashboard /></ProtectedRoute>} />
-        <Route path="/finance/sales" element={<ProtectedRoute requiredRole="admin"><FinanceVentasPage /></ProtectedRoute>} />
-        <Route path="/finance/purchases" element={<ProtectedRoute requiredRole="admin"><FinanceComprasPage /></ProtectedRoute>} />
-        <Route path="/finance/stats" element={<ProtectedRoute requiredRole="admin"><FinanceStatsPage /></ProtectedRoute>} />
-        <Route path="/whatsapp" element={<ProtectedRoute requiredRole="admin"><WhatsAppPage /></ProtectedRoute>} />
-        <Route path="/ai-assistant" element={<ProtectedRoute requiredRole="admin"><AiAssistantPage /></ProtectedRoute>} />
-        <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><SettingsPage /></ProtectedRoute>} />
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          
+          {/* Admin Routes */}
+          <Route path="/dashboard" element={<ProtectedRoute requiredRole="admin"><DashboardPage /></ProtectedRoute>} />
+          <Route path="/customers" element={<ProtectedRoute requiredRole="admin"><CustomersPage /></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute requiredRole="admin"><UsersPage /></ProtectedRoute>} />
+          <Route path="/orders" element={<ProtectedRoute requiredRole="admin"><OrdersPage /></ProtectedRoute>} />
+          <Route path="/products" element={<ProtectedRoute requiredRole="admin"><ProductsPage /></ProtectedRoute>} />
+          <Route path="/loyalty" element={<ProtectedRoute requiredRole="admin"><LoyaltyDashboard /></ProtectedRoute>} />
+          <Route path="/finance/sales" element={<ProtectedRoute requiredRole="admin"><FinanceVentasPage /></ProtectedRoute>} />
+          <Route path="/finance/purchases" element={<ProtectedRoute requiredRole="admin"><FinanceComprasPage /></ProtectedRoute>} />
+          <Route path="/finance/stats" element={<ProtectedRoute requiredRole="admin"><FinanceStatsPage /></ProtectedRoute>} />
+          <Route path="/whatsapp" element={<ProtectedRoute requiredRole="admin"><WhatsAppPage /></ProtectedRoute>} />
+          <Route path="/ai-assistant" element={<ProtectedRoute requiredRole="admin"><AiAssistantPage /></ProtectedRoute>} />
+          <Route path="/settings" element={<ProtectedRoute requiredRole="admin"><SettingsPage /></ProtectedRoute>} />
 
-        {/* Client Routes */}
-        <Route path="/shop" element={<ProtectedRoute><ShopPage /></ProtectedRoute>} />
-        <Route path="/my-orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
-        <Route path="/my-loyalty" element={<ProtectedRoute><MyLoyaltyPage /></ProtectedRoute>} />
+          {/* Client Routes */}
+          <Route path="/shop" element={<ProtectedRoute><ShopPage /></ProtectedRoute>} />
+          <Route path="/my-orders" element={<ProtectedRoute><MyOrdersPage /></ProtectedRoute>} />
+          <Route path="/my-loyalty" element={<ProtectedRoute><MyLoyaltyPage /></ProtectedRoute>} />
 
-        {/* Public Routes */}
-        <Route path="/recipes" element={<RecipesPage />} />
-        <Route path="/" element={user ? <Navigate to={user.role === 'admin' ? '/dashboard' : '/shop'} /> : <Navigate to="/login" />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          {/* Public Routes */}
+          <Route path="/recipes" element={<RecipesPage />} />
+          <Route path="/" element={user ? <Navigate to={user.role === 'admin' ? '/dashboard' : '/shop'} /> : <Navigate to="/login" />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </Suspense>
     </Router>
   )
 }

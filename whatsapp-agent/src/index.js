@@ -1281,10 +1281,12 @@ async function startWhatsApp() {
         const statusCode = lastDisconnect?.error?.output?.statusCode;
         console.log(`🔌 Conexión de WhatsApp cerrada (statusCode: ${statusCode})`);
 
+        const errorMessage = lastDisconnect?.error?.message || '';
         const isLoggedOut = statusCode === DisconnectReason.loggedOut || statusCode === 401;
+        const isBadMac = errorMessage.includes('Bad MAC') || statusCode === 400; // Signal/MAC corruption
 
-        if (isLoggedOut) {
-          console.log('Cierre de sesión detectado. Borrando auth_info y generando nuevo QR...');
+        if (isLoggedOut || isBadMac) {
+          console.log(`Cierre de sesión o estado corrupto detectado (statusCode: ${statusCode}, BadMAC: ${isBadMac}). Borrando auth_info y generando nuevo QR...`);
           currentQR = null;
           safeRemoveAuthInfo();
           setTimeout(() => {
