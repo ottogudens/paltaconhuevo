@@ -121,7 +121,7 @@ class OrderDetailView(generics.RetrieveUpdateDestroyAPIView):
     El propietario del pedido o un admin/vendedor pueden ver/editar/eliminar.
     """
     serializer_class = OrderSerializer
-    queryset = Order.objects.all()
+    queryset = Order.objects.select_related('customer').prefetch_related('items', 'items__product', 'payments')
     permission_classes = [IsOwnerOrAdmin]
 
     def perform_update(self, serializer):

@@ -134,7 +134,6 @@ function OrderDetail({ order, onClose, onUpdate }) {
     try {
       await api.patch(`/orders/${currentOrder.id}/items/${itemId}/`, { status: newStatus })
       await fetchOrder()
-      onUpdate()
     } catch (e) { alert('Error al actualizar producto') }
   }
 
@@ -151,7 +150,6 @@ function OrderDetail({ order, onClose, onUpdate }) {
       setPaymentAmount('')
       setPaymentNotes('')
       await fetchOrder()
-      onUpdate()
     } catch (err) {
       alert('Error al registrar abono')
     } finally {
@@ -163,7 +161,6 @@ function OrderDetail({ order, onClose, onUpdate }) {
     try {
       await api.patch(`/orders/${currentOrder.id}/items/${itemId}/`, { [field]: value })
       await fetchOrder()
-      onUpdate()
     } catch (e) { alert('Error al actualizar producto') }
   }
 
