@@ -110,6 +110,24 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
                 meta_description=data.get('meta_description',''),
                 ai_generated=True
             )
+
+            # Generate image automatically using Pollinations AI (free, no key required)
+            import requests
+            from django.core.files.base import ContentFile
+            import urllib.parse
+            
+            try:
+                # English queries are usually better for generation
+                image_prompt = f"delicious professional food photography of {data['title']}, highly detailed, appetizing, high resolution"
+                safe_prompt = urllib.parse.quote(image_prompt)
+                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=600&nologo=true"
+                
+                img_response = requests.get(img_url, timeout=15)
+                if img_response.status_code == 200:
+                    recipe.image.save(f"{slug}.jpg", ContentFile(img_response.content), save=True)
+            except Exception as img_err:
+                logging.getLogger(__name__).warning("No se pudo generar la imagen con Pollinations: %s", img_err)
+
             return Response(RecipeSerializer(recipe, context={'request':request}).data, status=status.HTTP_201_CREATED)
         except Exception as e:
             import logging

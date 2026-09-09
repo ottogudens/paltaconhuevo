@@ -6,7 +6,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 const api = axios.create({ 
   baseURL: API_URL, 
   headers: { 'Content-Type': 'application/json' },
-  timeout: 15000
+  timeout: 60000
 })
 
 api.interceptors.request.use((config) => {
