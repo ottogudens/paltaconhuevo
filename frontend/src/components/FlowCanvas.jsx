@@ -114,8 +114,10 @@ const ActionNode = ({ id, data }) => {
            <option value="human">Derivar a Humano</option>
            <option value="ai">Derivar a Agente IA (Paltín)</option>
            <option value="webhook">Ejecutar Webhook (API)</option>
-           <option value="internal_order">Crear Pedido Nuevo (App)</option>
-           <option value="internal_points">Envío de Puntos (Loyalty)</option>
+           <option value="internal_order">Crear Pedido Nuevo (Catálogo)</option>
+           <option value="internal_points">Consultar Mis Puntos</option>
+           <option value="internal_recipes">Consultar Recetas</option>
+           <option value="internal_offers">Consultar Ofertas</option>
         </select>
         {data.actionType === 'webhook' && (
           <input 
