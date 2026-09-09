@@ -39,10 +39,11 @@ class AiGenerateRecipeView(APIView):
         meal_type = request.data.get('meal_type', 'almuerzo')
         difficulty = request.data.get('difficulty', 'facil')
         servings = request.data.get('servings', 2)
-        prompt = f"""Eres un chef nutricionista experimentado. Crea una receta innovadora, paso a paso, con {"palta y/o huevo" if ingredient == "ambos" else ingredient}.
+        prompt = f"""Eres un chef nutricionista experimentado para 'Palta con Huevo'. Crea una receta completa y estructurada con {"palta y/o huevo" if ingredient == "ambos" else ingredient}.
 Tipo: {meal_type}, Dificultad: {difficulty}, Porciones: {servings}.
+Asegúrate de que la receta incluya una introducción apetitosa, la lista detallada de ingredientes con sus cantidades exactas, y la preparación explicada paso a paso de forma limpia y profesional.
 Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
-{{"title":"nombre corto y creativo","description":"descripción atractiva","ingredients":[{{"item":"ingrediente 1","amount":"cantidad"}}],"steps":["paso 1","paso 2"],"tips":"un buen consejo","calories":250,"proteins_g":15,"fats_g":18,"carbs_g":8,"fiber_g":3,"vitamins_info":"vitaminas","health_benefits":"beneficios","meta_description":"SEO"}}"""
+{{"title":"Nombre de la receta","description":"Introducción apetitosa y atractiva sobre el plato","ingredients":[{{"item":"ingrediente 1","amount":"cantidad completa"}},{{"item":"ingrediente 2","amount":"cantidad completa"}}],"steps":["Paso 1: Instrucción detallada","Paso 2: Instrucción detallada","Paso 3: Instrucción detallada"],"tips":"Un consejo práctico del chef","calories":350,"proteins_g":20,"fats_g":22,"carbs_g":10,"fiber_g":5,"vitamins_info":"Rica en Vitamina E, K y Complejo B","health_benefits":"Aporta grasas saludables y proteína de alto valor biológico","meta_description":"Receta nutritiva y fácil de palta y huevo"}}"""
         import json
         import traceback
         
@@ -117,13 +118,13 @@ Responde SOLO con un objeto JSON (sin markdown) con esta estructura exacta:
             import urllib.parse
             
             try:
-                # English queries are usually better for generation
-                image_prompt = f"delicious professional food photography of {data['title']}, highly detailed, appetizing, high resolution"
+                image_prompt = f"delicious gourmet food photography of {data['title']}, avocado and egg dish, appetizing, professional 8k photography"
                 safe_prompt = urllib.parse.quote(image_prompt)
-                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=600&nologo=true"
+                img_url = f"https://image.pollinations.ai/prompt/{safe_prompt}?width=800&height=600&nologo=true&seed=42"
+                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
                 
-                img_response = requests.get(img_url, timeout=15)
-                if img_response.status_code == 200:
+                img_response = requests.get(img_url, headers=headers, timeout=20)
+                if img_response.status_code == 200 and len(img_response.content) > 1000:
                     recipe.image.save(f"{slug}.jpg", ContentFile(img_response.content), save=True)
             except Exception as img_err:
                 logging.getLogger(__name__).warning("No se pudo generar la imagen con Pollinations: %s", img_err)

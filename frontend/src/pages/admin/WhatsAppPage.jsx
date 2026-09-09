@@ -363,10 +363,20 @@ export default function WhatsAppPage() {
                         </div>
                         <p className="text-xs text-gray-500">{chat.phone}</p>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-1">
                         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${chat.isHumanMode ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>
                           {chat.isHumanMode ? 'Humano' : 'IA (Paltín)'}
                         </span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteChat(chat.phone);
+                          }}
+                          title="Eliminar conversación completa"
+                          className="p-1 text-gray-400 hover:text-red-600 rounded transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
                       </div>
                     </div>
                   ))
