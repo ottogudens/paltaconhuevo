@@ -484,7 +484,7 @@ export default function WhatsAppPage() {
                 >
                   <option value="claude">Claude Sonnet 4 (Anthropic) — Recomendado</option>
                   <option value="chatgpt">GPT-4o Mini (OpenAI) — Rápido y económico</option>
-                  <option value="gemini">Gemini 2.0 Flash (Google) — Contexto amplio</option>
+                  <option value="gemini">Gemini 2.5 Flash (Google) — Contexto amplio</option>
                 </select>
                 <p className="text-xs text-gray-500 mt-1">Selecciona el motor de IA que usará el agente de WhatsApp para responder a los clientes.</p>
               </div>

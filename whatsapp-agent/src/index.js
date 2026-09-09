@@ -656,14 +656,14 @@ INSTRUCCIONES Y REGLAS DE RESPUESTA:
     for (let i = 0; i < 5; i++) {
       const callStart = Date.now();
       const response = await activeGemini.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-2.5-flash',
         contents: geminiContents,
         systemInstruction: systemPrompt,
         tools: [{ functionDeclarations: geminiToolDecls }],
         config: { maxOutputTokens: 400 }
       });
       const latencyMs = Date.now() - callStart;
-      logger.info({ event: 'ai_completion', provider: 'gemini', model: 'gemini-2.0-flash', latency_ms: latencyMs, customer_phone: customerPhone }, `Gemini API call finished in ${latencyMs}ms`);
+      logger.info({ event: 'ai_completion', provider: 'gemini', model: 'gemini-2.5-flash', latency_ms: latencyMs, customer_phone: customerPhone }, `Gemini API call finished in ${latencyMs}ms`);
 
       const candidate = response.candidates?.[0];
       if (!candidate || !candidate.content?.parts) break;
