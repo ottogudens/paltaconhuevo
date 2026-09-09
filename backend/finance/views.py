@@ -86,24 +86,21 @@ class FinanceSalesView(APIView):
         if end_date:
             qs = qs.filter(order__created_at__date__lte=end_date)
             
-        from django.db.models.functions import Concat, Coalesce
-        data = list(qs.annotate(
-            customer_first=Coalesce('order__customer__first_name', Value('Cliente')),
-            customer_last=Coalesce('order__customer__last_name', Value('')),
-            date=TruncDate('order__created_at')
-        ).annotate(
-            customer_name_annotated=Concat('customer_first', Value(' '), 'customer_last')
-        ).values(
-            'id',
-            'quantity',
-            'subtotal',
-            'margin',
-            'date',
-            order_id=F('order__id'),
-            product_name=F('product__name'),
-            customer_name=F('customer_name_annotated'),
-            payment_method=F('order__payment_method')
-        ))
+        data = []
+        for item in qs:
+            c = item.order.customer if item.order else None
+            c_name = f"{c.first_name} {c.last_name or ''}".trim() if c and c.first_name else (c.email if c else "Cliente")
+            data.append({
+                'id': item.id,
+                'quantity': item.quantity,
+                'subtotal': item.subtotal,
+                'margin': item.margin,
+                'date': item.order.created_at.strftime('%Y-%m-%d') if item.order and item.order.created_at else None,
+                'order_id': item.order.id if item.order else None,
+                'product_name': item.product.name if item.product else 'Producto sin nombre',
+                'customer_name': c_name,
+                'payment_method': item.order.payment_method if item.order else ''
+            })
         return Response(data)
 
 
